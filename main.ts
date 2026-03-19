@@ -1,6 +1,10 @@
 import { SceneManager } from "./scene/SceneManager"
 import { createGrid } from "./scene/Grid"
 import { PCBBoard } from "./scene/PCBBoard"
+import { createPiCase } from "./cad/enclosure/PiCase"
+
+const caseModel = createPiCase()
+sceneManager.scene.add(caseModel)
 
 const app = document.getElementById("app")!
 
