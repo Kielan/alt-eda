@@ -43,3 +43,15 @@ export class SelectionManager {
     }
   }
 }
+
+const selector = new SelectionManager(camera, scene)
+window.addEventListener("mousedown", (e) => {
+  const picked = selector.pick(e)
+  if (picked) {
+    console.log("Selected pad:", picked.id)
+    // 🔥 start routing from this pad
+    if (picked.net) {
+      startRoutingFromPad(picked)
+    }
+  }
+})
