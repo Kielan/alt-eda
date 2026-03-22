@@ -62,3 +62,12 @@ window.addEventListener("mousemove", (e) => {
     hovered.mesh.material.emissive.set(0x3333ff)
   }
 })
+
+function highlightNet(net: Net) {
+  for (const pad of net.pads) {
+    pad.mesh.material.emissive.set(0xffff00)
+  }
+  for (const trace of net.traces) {
+    trace.mesh.material.emissive.set(0xffff00)
+  }
+}
