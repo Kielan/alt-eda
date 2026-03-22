@@ -1,0 +1,11 @@
+{
+  "nets": [
+    {
+      "name": "GND",
+      "pads": [
+        { "comp": "R1", "pad": 0 },
+        { "comp": "R2", "pad": 1 }
+      ]
+    }
+  ]
+}
