@@ -55,3 +55,10 @@ window.addEventListener("mousedown", (e) => {
     }
   }
 })
+
+window.addEventListener("mousemove", (e) => {
+  const hovered = selector.pick(e)
+  if (hovered && hovered.mesh) {
+    hovered.mesh.material.emissive.set(0x3333ff)
+  }
+})
