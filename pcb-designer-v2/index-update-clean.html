@@ -58,6 +58,19 @@
           }
         }
       }
+      /* == THREEjs Mesh STRUCTURES == */
+      class PCBBoard {
+        constructor(width = 100, height = 80, thickness = 1.6) {
+          const geo = new THREE.BoxGeometry(width, thickness, height);
+      
+          const mat = new THREE.MeshStandardMaterial({
+            color: 0x0f6a2f
+          });
+      
+          this.mesh = new THREE.Mesh(geo, mat);
+          this.mesh.position.y = thickness / 2;
+        }
+      }
       /* === DATA STRUCTURES === */
       class SelectionManager {
         constructor(camera, scene) {
@@ -178,6 +191,10 @@
         }
       }//end Component
 
+      /* === TEST PCBBOARD CLASS === */
+      const pcb = new PCBBoard(85, 56, 1.6)
+      scene.add(pcb.mesh)
+      
       /* === TEST DATA === */
       const footprint = new Footprint("test", [
         new PadShape(new THREE.Vector3(-5, 0, 0), 2),
