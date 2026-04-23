@@ -183,21 +183,49 @@
         new PadShape(new THREE.Vector3(5, 0, 0), 2)
       ]);
 
-      const component = new Component(footprint, new THREE.Vector3(0, 0, 0));
-      scene.add(component.group);
+      const component1 = new Component(footprint, new THREE.Vector3(0, 0, 0));
+      component1.ref = "R1"
+      const component2 = new Component(fp, new THREE.Vector3(10,0,0))
+      component2.ref = "R2"
+      scene.add(component1.group);
+      scene.add(component2.group)
+      const components = [component1, component2]
 
       // systems
       const selector = new SelectionManager(camera, scene)
       const dragger = new DragManager(camera)
       const netManager = new NetManager()
+
+      // sample netlist
+      importSimpleNetlist({
+        nets:[
+          {name:"NET1", pads:[{comp:"R1", pad:0},{comp:"R2", pad:1}]}
+        ]
+      }, components, netManager)
+
+      window.addEventListener("mousedown", e=>{
+        const picked = selector.pick(e)
+        if (!picked) return
+        if (picked.group) dragger.start(picked)
+      })//end mousedown
+      window.addEventListener("mousemove", e=>{
+        dragger.update(e)
+      })//end mousemove
+      window.addEventListener("mouseup", ()=>{
+        dragger.stop()
+      })//end mouseup
+      window.addEventListener("keydown", e=>{
+        if (e.key==="r" && selector.selected?.group) {
+          selector.selected.group.rotation.y += Math.PI/2
+        }
+      })//end keydown
       
       /* === RENDER LOOP === */
       function animate() {
         requestAnimationFrame(animate);
         controls.update();
         renderer.render(scene, camera);
-      }
-
+      }//end animate
       animate();
 
       /* === RESIZE === */
