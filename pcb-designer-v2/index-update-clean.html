@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>PCB Designer</title>
+    <style>
+      body { margin: 0; overflow: hidden; }
+      #ui { position: absolute; top: 10px; left: 10px; color: white; }
+    </style>
+  </head>
+  <body>
+    <div id="ui">Click pads to select. Drag components. Press R to rotate.</div>
+
+    <script type="module">
+      import * as THREE from "https://esm.sh/three@0.160.0";
+      import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+      import { TransformControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/TransformControls.js";
+      import {
+        acceleratedRaycast
+      } from "https://esm.sh/three-mesh-bvh@0.7.4";
+      import GUI from "https://esm.sh/lil-gui@0.18.2";
+
+      /* === BVH SETUP === */
+      THREE.Mesh.prototype.raycast = acceleratedRaycast;
+
+      /* === SCENE SETUP === */
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x000000);
+
+      const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
+      camera.position.set(0, 100, 100);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(innerWidth, innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+      scene.add(light);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+
+      /* === UTIL === */
+      function isPadShape(obj) {
+        return (
+          obj &&
+          obj.position instanceof THREE.Vector3 &&
+          typeof obj.size === "number"
+        );
+      }
+
+      /* === DATA STRUCTURES === */
+      class PadShape {
+        constructor(position, size) {
+          this.position = position;
+          this.size = size;
+        }
+      }
+
+      class Footprint {
+        constructor(name, pads) {
+          this.name = name;
+          this.pads = pads.filter(isPadShape);
+        }
+      }
+
+      class Pad {
+        constructor(id, pos, size) {
+          const geo = new THREE.CircleGeometry(size, 16);
+          const mat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa });
+
+          this.mesh = new THREE.Mesh(geo, mat);
+          this.mesh.rotation.x = -Math.PI / 2;
+          this.mesh.position.copy(pos);
+          this.mesh.userData.pad = this;
+
+          this.id = id;
+          this.net = null;
+        }
+
+        connect(net) {
+          this.net = net;
+          net.pads.add(this);
+          this.mesh.material.color.set(net.color);
+        }
+      }
+
+      class Component {
+        constructor(fp, pos) {
+          this.group = new THREE.Group();
+          this.pads = [];
+
+          let i = 0;
+          for (const p of fp.pads) {
+            const pad = new Pad("pad_" + i++, p.position.clone(), p.size);
+            this.pads.push(pad);
+            this.group.add(pad.mesh);
+          }
+
+          this.group.position.copy(pos);
+          this.group.userData.component = this;
+        }
+      }
+
+      /* === TEST DATA === */
+      const footprint = new Footprint("test", [
+        new PadShape(new THREE.Vector3(-5, 0, 0), 2),
+        new PadShape(new THREE.Vector3(5, 0, 0), 2)
+      ]);
+
+      const component = new Component(footprint, new THREE.Vector3(0, 0, 0));
+      scene.add(component.group);
+
+      /* === RENDER LOOP === */
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      /* === RESIZE === */
+      window.addEventListener("resize", () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+      });
+    </script>
+  </body>
+</html>
