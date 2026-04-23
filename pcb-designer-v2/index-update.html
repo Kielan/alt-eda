@@ -54,19 +54,23 @@
         }
       }
       class Footprint {
-        name: string
-        pads: PadShape[]
-        constructor(name: string, pads: PadShape[]) {
+        /** 
+         * name: string
+         * pads: PadShape[]
+        **/
+        constructor(name, pads) {
           this.name = name
           //this.pads = pads
           this.pads = pads.filter(isPadShape);
         }
       }
       class Pad {
-        id: string
-        mesh: THREE.Mesh
-        net: any = null
-        constructor(id: string, pos: THREE.Vector3, size: number) {
+        /**
+         * id: string
+         * mesh: THREE.Mesh
+         * net: any = null
+        **/
+        constructor(id, pos, size) {
           const geo = new THREE.CircleGeometry(size, 16)
           const mat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa })
           this.mesh = new THREE.Mesh(geo, mat)
@@ -75,16 +79,18 @@
           this.mesh.userData.pad = this
           this.id = id
         }
-        connect(net: any) {
+        connect(net) {
           this.net = net
           net.pads.add(this)
           this.mesh.material.color.set(net.color)
         }
       }
       class Component {
-        group = new THREE.Group()
-        pads: Pad[] = []
-        constructor(fp: Footprint, pos: THREE.Vector3) {
+        /**
+         * group = new THREE.Group()
+         * pads: Pad[] = []
+        **/
+        constructor(fp, pos) {
           let i = 0
           for (const p of fp.pads) {
             const pad = new Pad("pad_"+i++, p.position.clone(), p.size)
