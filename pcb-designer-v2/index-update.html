@@ -11,6 +11,13 @@
   </head>
   <body>
     <div id="ui">Click pads to select. Drag components. Press R to rotate.</div>
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+      }
+    }
+    </script>
     <script type="module">
       import * as THREE from "https://esm.sh/three@0.160.0";
       import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
