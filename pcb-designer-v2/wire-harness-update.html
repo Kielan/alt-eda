@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Alt-EDA PCB</title>
+<style>
+body { margin: 0; overflow: hidden; font-family: Segoe UI, sans-serif; }
+/* === LEFT INFO === */
+#ui {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: white;
+}
+/* === STACKUP WINDOW === */
+#stackup-window {
+  position: absolute;
+  right: 320px;
+  top: 0;
+  width: 280px;
+  height: 100%;
+  background: #1f1f1f;
+  border-left: 1px solid #444;
+  color: #ddd;
+  font-size: 13px;
+  overflow-y: auto;
+}
+.stack-header {
+  padding: 8px;
+  background: #333;
+  font-weight: bold;
+}
+.stack-row {
+  padding: 6px;
+  border-bottom: 1px solid #333;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+}
+.stack-row:hover { background:#2d2d2d; }
+.stack-row.active { outline: 1px solid #66aaff; }
+.copper { background: #6b4b00; }
+.plane  { background: #3d3d00; }
+.diel   { background: #1e3a1e; }
+.stack-controls{
+  padding:6px;
+  border-top:1px solid #333;
+  display:flex;
+  gap:6px;
+}
+.stack-controls button{
+  flex:1;
+  background:#2b2b2b;
+  border:1px solid #555;
+  color:#ddd;
+  cursor:pointer;
+}
+/* === PROPERTY PANEL === */
+#prop-panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 320px;
+  height: 100%;
+  background: #2b2b2b;
+  color: #ddd;
+  border-left: 1px solid #444;
+  overflow-y: auto;
+}
+.prop-header { padding: 8px; background: #3a3a3a; font-weight: bold; }
+.prop-search {
+  padding: 6px;
+  width: calc(100% - 12px);
+  margin: 6px;
+  background: #222;
+  border: 1px solid #555;
+  color: #ddd;
+}
+.prop-section { border-top: 1px solid #444; }
+.prop-section-title { padding: 6px; cursor: pointer; background: #333; }
+.prop-section.collapsed .prop-content { display: none; }
+.prop-row { display: flex; border-bottom: 1px solid #333; }
+.prop-label { width: 45%; padding: 4px; }
+.prop-value { width: 55%; padding: 4px; }
+.prop-value input, .prop-value select {
+  width: 100%;
+  background: #222;
+  color: #ddd;
+  border: 1px solid #555;
+}
+.readonly { opacity: 0.6; }
+</style>
+</head>
+<body>
+<div id="ui">
+Click pads or board to route<br/>
+Double-click = finish trace<br/>
+Press L = switch layer (auto via)
+</div>
+<div id="prop-panel"></div>
+<script type="module">
+import * as THREE from "https://esm.sh/three@0.160.0?bundle";
+import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+/* === STACKUP CONFIG === */
+const altiumStackupConfig = {
+  stackupName: "LegionGo2_8Layer",
+  layers: [
+    { name: "Top", type: "Signal", thickness: "0.035mm", weight: "1oz", dk: 3.6 },
+    { name: "L1_Signal", type: "Signal", thickness: "0.018mm", weight: "1/2oz", dk: 3.6 },
+    { name: "L2_Ground", type: "Plane", thickness: "0.018mm", weight: "1/2oz", dk: 3.6 },
+    { name: "L3_Signal", type: "Signal", thickness: "0.018mm", weight: "1/2oz", dk: 3.6 },
+    { name: "L4_Power", type: "Plane", thickness: "0.018mm", weight: "1/2oz", dk: 3.6 },
+    { name: "L5_Signal", type: "Signal", thickness: "0.018mm", weight: "1/2oz", dk: 3.6 },
+    { name: "L6_Ground", type: "Plane", thickness: "0.018mm", weight: "1/2oz", dk: 3.6 },
+    { name: "Bottom", type: "Signal", thickness: "0.035mm", weight: "1oz", dk: 3.6 }
+  ],
+  dielectricSections: [
+    { name: "Prepreg1", thickness: "0.10mm", dk: 3.8 },
+    { name: "Core1", thickness: "0.12mm", dk: 3.6 },
+    { name: "Prepreg2", thickness: "0.10mm", dk: 3.8 },
+    { name: "Core2", thickness: "0.12mm", dk: 3.6 },
+    { name: "Prepreg3", thickness: "0.10mm", dk: 3.8 },
+    { name: "Core3", thickness: "0.12mm", dk: 3.6 }
+  ]
+};
+/* === STACKUP STORE === */
+class StackupStore {
+  constructor(config){
+    this.config = JSON.parse(JSON.stringify(config));
+    this.listeners = [];
+    this.selectedIndex = 0;
+  }
+  subscribe(fn){ this.listeners.push(fn); }
+  notify(){ this.listeners.forEach(fn=>fn()); }
+  get items(){
+    const items = [];
+    for(let i=0;i<this.config.layers.length;i++){
+      items.push({ kind:"layer", index:i, data:this.config.layers[i] });
+      if(i < this.config.dielectricSections.length){
+        items.push({ kind:"dielectric", index:i, data:this.config.dielectricSections[i] });
+      }
+    }
+    return items;
+  }
+  select(i){ this.selectedIndex = i; this.notify(); }
+  updateSelected(key,val){
+    const item = this.items[this.selectedIndex];
+    item.data[key] = val;
+    this.notify();
+  }
+  addLayer(){
+    this.config.layers.push({
+      name:"NewLayer",
+      type:"Signal",
+      thickness:"0.018mm",
+      weight:"1/2oz",
+      dk:3.6
+    });
+    this.notify();
+  }
+  deleteSelected(){
+    const item = this.items[this.selectedIndex];
+    if(item.kind==="layer"){
+      this.config.layers.splice(item.index,1);
+    }
+    this.selectedIndex = 0;
+    this.notify();
+  }
+}
+const stackStore = new StackupStore(altiumStackupConfig);
+/* === STACKUP WINDOW UI === */
+const stackWin = document.createElement("div");
+stackWin.id = "stackup-window";
+document.body.appendChild(stackWin);
+function renderStackup(){
+  stackWin.innerHTML = `<div class="stack-header">Layer Stack</div>`;
+  stackStore.items.forEach((item,i)=>{
+    const row = document.createElement("div");
+    row.className = "stack-row";
+    if(item.kind==="layer"){
+      row.classList.add(item.data.type==="Plane"?"plane":"copper");
+      row.innerHTML = `<span>${item.data.name}</span><span>${item.data.thickness}</span>`;
+    } else {
+      row.classList.add("diel");
+      row.innerHTML = `<span>${item.data.name}</span><span>${item.data.thickness}</span>`;
+    }
+    if(i===stackStore.selectedIndex) row.classList.add("active");
+    row.onclick = ()=> stackStore.select(i);
+    stackWin.appendChild(row);
+  });
+  const controls = document.createElement("div");
+  controls.className="stack-controls";
+  controls.innerHTML = `
+    <button id="addL">Add</button>
+    <button id="delL">Delete</button>
+  `;
+  stackWin.appendChild(controls);
+  document.getElementById("addL").onclick=()=>stackStore.addLayer();
+  document.getElementById("delL").onclick=()=>stackStore.deleteSelected();
+}
+stackStore.subscribe(renderStackup);
+renderStackup();
+/* === PROPERTY PANEL (simplified binding) === */
+const panel = document.getElementById("prop-panel");
+panel.innerHTML = `<div class="prop-header">Layer Properties</div>
+<div class="prop-row"><div class="prop-label">Name</div>
+<div class="prop-value"><input id="pName"/></div></div>
+<div class="prop-row"><div class="prop-label">Thickness (mm)</div>
+<div class="prop-value"><input id="pThick" type="number"/></div></div>`;
+const pName = document.getElementById("pName");
+const pThick = document.getElementById("pThick");
+pName.oninput = ()=> stackStore.updateSelected("name", pName.value);
+pThick.oninput = ()=> stackStore.updateSelected("thickness", pThick.value+"mm");
+/* === THREE PCB === */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight,0.1,1000);
+camera.position.set(0,100,100);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x444444,1));
+const pcbGroup = new THREE.Group();
+scene.add(pcbGroup);
+
+// === HARNESS SYSTEM (PicoBlade-style) ===
+const harnessGroup = new THREE.Group();
+scene.add(harnessGroup);
+// --- Smooth curve wire ---
+function createCurvedWire(points, color=0x111111, radius=0.4){
+  const curve = new THREE.CatmullRomCurve3(points);
+  const geo = new THREE.TubeGeometry(curve, 20, radius, 8, false);
+  const mat = new THREE.MeshStandardMaterial({ color });
+  const mesh = new THREE.Mesh(geo, mat);
+  harnessGroup.add(mesh);
+  return mesh;
+}
+// --- Battery ---
+function createBattery(pos){
+  const geo = new THREE.BoxGeometry(10,6,6);
+  const mat = new THREE.MeshStandardMaterial({ color:0x2ecc71 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.copy(pos);
+  harnessGroup.add(mesh);
+  return mesh;
+}
+// --- Harness trunk (single cable) ---
+function createHarnessTrunk(start, end){
+  return createCurvedWire([
+    start,
+    start.clone().add(new THREE.Vector3(0,-5,0)),
+    end.clone().add(new THREE.Vector3(0,5,0)),
+    end
+  ], 0x0a0a0a, 1.2);
+}
+// --- Fanout wires (spread into ribbon) ---
+function createFanout(start, endCenter, count=12){
+  const spacing = 1.2;
+  const wires = [];
+  for(let i=0;i<count;i++){
+    const offset = (i-(count-1)/2)*spacing;
+    const end = endCenter.clone().add(new THREE.Vector3(offset,0,0));
+    const mid = start.clone().lerp(end, 0.5).add(new THREE.Vector3(0,-5,0));
+    const color = new THREE.Color().setHSL(i/count,0.7,0.5);
+    wires.push(createCurvedWire([start, mid, end], color, 0.25));
+  }
+  return wires;
+}
+// --- PicoBlade MALE (on cable) ---
+function createPicoBladeMale(pos, pinCount=12){
+  const group = new THREE.Group();
+  // housing (cream)
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(pinCount*1.25, 2.5, 3),
+    new THREE.MeshStandardMaterial({ color:0xf5e6c8 })
+  );
+  group.add(body);
+  // pin slots
+  for(let i=0;i<pinCount;i++){
+    const slot = new THREE.Mesh(
+      new THREE.BoxGeometry(0.6,0.8,2),
+      new THREE.MeshStandardMaterial({ color:0x222222 })
+    );
+    slot.position.x = (i-(pinCount-1)/2)*1.25;
+    slot.position.y = -0.6;
+    group.add(slot);
+  }
+  group.position.copy(pos);
+  harnessGroup.add(group);
+  return group;
+}
+// --- PicoBlade FEMALE (mounted on PCB) ---
+function createPicoBladeFemale(pos, pinCount=12){
+  const group = new THREE.Group();
+  // base housing
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(pinCount*1.25, 2, 3),
+    new THREE.MeshStandardMaterial({ color:0xf0e0c0 })
+  );
+  group.add(body);
+  // pins (gold)
+  for(let i=0;i<pinCount;i++){
+    const pin = new THREE.Mesh(
+      new THREE.BoxGeometry(0.3,2,0.3),
+      new THREE.MeshStandardMaterial({ color:0xd4af37 })
+    );
+    pin.position.x = (i-(pinCount-1)/2)*1.25;
+    pin.position.y = -1.5;
+    group.add(pin);
+  }
+  group.position.copy(pos);
+  harnessGroup.add(group);
+  return group;
+}
+
+function rebuildPCBFromStack(){
+  pcbGroup.clear();
+  let z=0;
+  stackStore.items.forEach(item=>{
+    const t = parseFloat(item.data.thickness);
+    const geo = new THREE.BoxGeometry(80,t,60);
+    const mat = new THREE.MeshStandardMaterial({
+      color: item.kind==="layer"?0xffa000:0x224422,
+      transparent:item.kind!=="layer",
+      opacity:item.kind!=="layer"?0.5:1
+    });
+    const mesh = new THREE.Mesh(geo,mat);
+    mesh.position.y = z;
+    pcbGroup.add(mesh);
+    z+=t;
+  });
+  // clear harness
+  harnessGroup.clear();
+  // === PLACE SYSTEM ===
+  const pcbTopY = pcbGroup.children[pcbGroup.children.length-1].position.y;
+  // Battery
+  const batteryPos = new THREE.Vector3(0, pcbTopY + 25, 0);
+  createBattery(batteryPos);
+  // Trunk end (fanout start)
+  const fanoutStart = new THREE.Vector3(0, pcbTopY + 10, 0);
+  // Connector position
+  const connectorPos = new THREE.Vector3(0, pcbTopY + 2, 20);
+  // Trunk
+  createHarnessTrunk(batteryPos, fanoutStart);
+  // Fanout wires
+  createFanout(fanoutStart, connectorPos, 12);
+  // Male connector (on cable)
+  createPicoBladeMale(connectorPos.clone().add(new THREE.Vector3(0,0,0)), 12);
+  // Female connector (mounted to PCB)
+  createPicoBladeFemale(
+    new THREE.Vector3(0, pcbTopY + 1, 20),
+    12
+  );
+}
+
+/* === SELECTION → PROPERTIES + REBUILD === */
+stackStore.subscribe(()=>{
+  const item = stackStore.items[stackStore.selectedIndex];
+  if(item.kind==="layer"){
+    pName.value = item.data.name;
+    pThick.value = parseFloat(item.data.thickness);
+  }
+  rebuildPCBFromStack();
+});
+rebuildPCBFromStack();
+
+/* LOOP */
+function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene,camera);
+}
+animate();
+window.addEventListener("resize", ()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
