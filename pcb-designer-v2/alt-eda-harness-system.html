@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Alt-EDA Harness System</title>
+<style>
+body { margin:0; overflow:hidden; font-family:Segoe UI; }
+#ui {
+  position:absolute; top:10px; left:10px; color:white;
+}
+#netUI {
+  position:absolute; top:80px; left:10px;
+  background:#1f1f1f; padding:10px; color:#ddd;
+  max-height:300px; overflow:auto;
+}
+button { margin:2px; }
+</style>
+</head>
+<body>
+
+<div id="ui">
+Drag purple point = route wire<br/>
+Click net buttons = highlight<br/>
+</div>
+
+<div id="netUI"></div>
+
+<script type="module">
+import * as THREE from "https://esm.sh/three@0.160.0?bundle";
+import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+
+  /* === TODO === */
+  /**
+    [ ] - Constraint solver (true routing)
+    [ ] - Collision avoidance
+    [ ] - Connector mating rules
+    [ ] - Harness bundling physics
+    [ ] - Replace primitives with real PicoBlade GLTF
+    [ ] - Add pin-to-wire mapping visualization (lines or highlights)
+    [ ] - Add snap preview (ghost alignment) **/
+/* === SCENE === */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight,0.1,1000);
+camera.position.set(0,80,120);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x444444,1));
+
+/* === PCB === */
+const pcb = new THREE.Mesh(
+  new THREE.BoxGeometry(100,2,70),
+  new THREE.MeshStandardMaterial({ color:0x224422 })
+);
+scene.add(pcb);
+
+/* === GROUPS ==== */
+const harnessGroup = new THREE.Group();
+scene.add(harnessGroup);
+
+/* === BATTERY === */
+const BATTERY_SIZE = { width:60, height:4, depth:25 };
+
+function createBattery(pos){
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(
+      BATTERY_SIZE.width,
+      BATTERY_SIZE.height,
+      BATTERY_SIZE.depth
+    ),
+    new THREE.MeshStandardMaterial({ color:0x111111 })
+  );
+  mesh.position.copy(pos);
+  harnessGroup.add(mesh);
+  return mesh;
+}
+
+/* === CURVE WIRE === */
+function createWire(points, color, index){
+  const curve = new THREE.CatmullRomCurve3(points);
+  const geo = new THREE.TubeGeometry(curve, 20, 0.3, 8);
+  const mat = new THREE.MeshStandardMaterial({
+    color,
+    emissive: 0x000000
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.userData.wireIndex = index;
+  mesh.userData.baseColor = color;
+  harnessGroup.add(mesh);
+  return mesh;
+}
+
+/* === FANOUT === */
+const wireColors = [
+  0x000000,0x000000,0x000000,0x000000,
+  0xffff00,0xffffff,0x0066ff,0x00aa44,
+  0xff0000,0xff0000,0xff0000,0xff0000
+];
+let wires = [];
+function buildFanout(start, end){
+  wires = [];
+  for(let i=0;i<12;i++){
+    const offset = (i-5.5)*1.2;
+    const target = end.clone().add(new THREE.Vector3(offset,0,0));
+    const mid = start.clone().lerp(target,0.5).add(new THREE.Vector3(0,-6,0));
+    wires.push(createWire([start, mid, target], wireColors[i], i));
+  }
+}
+
+/* === CONNECTORS === */
+let maleConnector, femaleConnector;
+const loader = new GLTFLoader();
+
+function loadConnector(url, fallbackColor, pos, cb){
+  loader.load(url, (gltf)=>{
+    const model = gltf.scene;
+    model.scale.set(10,10,10);
+    model.position.copy(pos);
+    harnessGroup.add(model);
+    cb(model);
+  }, undefined, ()=>{
+    // fallback primitive
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(15,3,4),
+      new THREE.MeshStandardMaterial({ color:fallbackColor })
+    );
+    mesh.position.copy(pos);
+    harnessGroup.add(mesh);
+    cb(mesh);
+  });
+}
+
+/* === SNAP === */
+function snapConnectors(){
+  if(!maleConnector || !femaleConnector) return;
+  const dist = maleConnector.position.distanceTo(femaleConnector.position);
+  if(dist < 3){
+    maleConnector.position.lerp(femaleConnector.position, 0.2);
+    maleConnector.rotation.copy(femaleConnector.rotation);
+  }
+}
+
+/* === PIN DATA === */
+function assignPins(conn){
+  conn.userData.pins = [];
+  for(let i=0;i<12;i++){
+    conn.userData.pins.push({
+      index:i,
+      net:"NET_"+(i+1)
+    });
+  }
+}
+
+/* === NET UI === */
+const netUI = document.getElementById("netUI");
+function buildNetUI(){
+  netUI.innerHTML = "<b>NETS</b><br>";
+  for(let i=0;i<12;i++){
+    const btn = document.createElement("button");
+    btn.innerText = "NET "+(i+1);
+    btn.onclick = ()=>highlightNet(i);
+    netUI.appendChild(btn);
+  }
+}
+function highlightNet(index){
+  wires.forEach(w=>{
+    if(w.userData.wireIndex === index){
+      w.material.emissive.set(0xffffff);
+    } else {
+      w.material.emissive.set(0x000000);
+    }
+  });
+}
+/* === DRAG ROUTING === */
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let dragPoint, selected = null;
+function createDragPoint(pos){
+  dragPoint = new THREE.Mesh(
+    new THREE.SphereGeometry(1),
+    new THREE.MeshBasicMaterial({ color:0xff00ff })
+  );
+  dragPoint.position.copy(pos);
+  scene.add(dragPoint);
+}
+
+function updateWires(){
+  wires.forEach((w,i)=>{
+    const start = fanoutStart;
+    const end = connectorPos.clone().add(new THREE.Vector3((i-5.5)*1.2,0,0));
+    const curve = new THREE.CatmullRomCurve3([
+      start,
+      dragPoint.position,
+      end
+    ]);
+    w.geometry.dispose();
+    w.geometry = new THREE.TubeGeometry(curve,20,0.3,8);
+  });
+}
+
+window.addEventListener("mousedown", (e)=>{
+  mouse.x = (e.clientX/innerWidth)*2-1;
+  mouse.y = -(e.clientY/innerHeight)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const hit = raycaster.intersectObject(dragPoint);
+  if(hit.length){
+    selected = dragPoint;
+  }
+});
+
+window.addEventListener("mousemove", (e)=>{
+  if(!selected) return;
+  mouse.x = (e.clientX/innerWidth)*2-1;
+  mouse.y = -(e.clientY/innerHeight)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const plane = new THREE.Plane(new THREE.Vector3(0,1,0), -5);
+  const pos = new THREE.Vector3();
+  raycaster.ray.intersectPlane(plane,pos);
+  selected.position.copy(pos);
+  updateWires();
+});
+window.addEventListener("mouseup", ()=>{
+  selected = null;
+});
+
+/* === BUILD SYSTEM === */
+const pcbTop = 1;
+const batteryPos = new THREE.Vector3(0, pcbTop+3, -10);
+createBattery(batteryPos);
+// EXIT FROM REVERSE FACE (-X)
+const exit = new THREE.Vector3(
+  batteryPos.x - BATTERY_SIZE.width/2 - 2,
+  batteryPos.y,
+  batteryPos.z
+);
+const fanoutStart = new THREE.Vector3(-20, pcbTop+6, 0);
+const connectorPos = new THREE.Vector3(0, pcbTop+2, 30);
+// trunk
+createWire([
+  exit,
+  exit.clone().add(new THREE.Vector3(-5,0,0)),
+  fanoutStart
+], 0x0a0a0a, -1);
+// fanout
+buildFanout(fanoutStart, connectorPos);
+// drag control
+createDragPoint(fanoutStart.clone().add(new THREE.Vector3(0,-5,0)));
+// connectors (GLTF + fallback)
+loadConnector("male.glb", 0xf5e6c8, connectorPos, (m)=>{
+  maleConnector = m;
+  assignPins(m);
+});
+loadConnector("female.glb", 0xf0e0c0,
+  new THREE.Vector3(0, pcbTop+1, 30),
+  (f)=>{
+    femaleConnector = f;
+    assignPins(f);
+  }
+);
+// UI
+buildNetUI();
+/* ================= LOOP ================= */
+function animate(){
+  requestAnimationFrame(animate);
+  snapConnectors();
+  controls.update();
+  renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener("resize", ()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
