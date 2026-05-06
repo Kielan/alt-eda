@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Alt-EDA Harness — True bundle, mapping, snap preview</title>
+<style>
+body { margin:0; overflow:hidden; font-family:Segoe UI; }
+#ui { position:absolute; top:10px; left:10px; color:white; }
+#netUI { position:absolute; top:80px; left:10px; background:#1f1f1f; padding:10px; color:#ddd;}
+button { margin:2px; }
+</style>
+</head>
+<body>
+
+<div id="ui">
+PicoBlade pins, True bundle, Mapping, Snap preview
+</div>
+<div id="netUI"></div>
+
+<script type="module">
+import * as THREE from "https://esm.sh/three@0.160.0?bundle";
+import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+import { GLTFLoader } from "https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+
+/* === SCENE === */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight,0.1,1000);
+camera.position.set(0,80,120);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x444444,1));
+
+/* === PCB === */
+const pcb = new THREE.Mesh(
+  new THREE.BoxGeometry(100,2,70),
+  new THREE.MeshStandardMaterial({ color:0x224422 })
+);
+scene.add(pcb);
+
+/* === HARNESS GROUP === */
+const harnessGroup = new THREE.Group();
+scene.add(harnessGroup);
+
+/* === CONNECTORS (GLTF) === */
+const loader = new GLTFLoader();
+let male, female, ghost;
+
+function loadPico(url, pos, cb){
+  loader.load(url, gltf=>{
+    const m = gltf.scene;
+    m.scale.set(10,10,10);
+    m.position.copy(pos);
+    harnessGroup.add(m);
+    cb(m);
+  });
+}
+
+/* === PIN EXTRACTION === */
+function getPins(model){
+  const pins=[];
+  model.traverse(o=>{
+    if(o.name.startsWith("Pin_")){
+      const wp = new THREE.Vector3();
+      o.getWorldPosition(wp);
+      pins.push(wp);
+    }
+  });
+  if(pins.length===0){
+    // fallback synthetic
+    for(let i=0;i<12;i++){
+      pins.push(model.position.clone().add(new THREE.Vector3((i-5.5)*1.2,0,0)));
+    }
+  }
+  return pins;
+}
+
+/* === BUNDLE SPINE === */
+function getBundleSpine(a,b){
+  const mid = a.clone().lerp(b,0.5).add(new THREE.Vector3(0,8,0));
+  return new THREE.CatmullRomCurve3([a,mid,b]);
+}
+
+/* === WIRE CLASS === */
+class Wire{
+  constructor(i,color){
+    this.i=i;
+    this.mesh=new THREE.Mesh(
+      new THREE.TubeGeometry(new THREE.LineCurve3(new THREE.Vector3(),new THREE.Vector3()),30,0.35,8),
+      new THREE.MeshStandardMaterial({color})
+    );
+    harnessGroup.add(this.mesh);
+
+    // mapping line
+    this.mapLine = new THREE.Line(
+      new THREE.BufferGeometry(),
+      new THREE.LineBasicMaterial({color:0xffffff})
+    );
+    harnessGroup.add(this.mapLine);
+  }
+}
+const colors=[0x000000,0x000000,0x000000,0x000000,0xffff00,0xffffff,0x0066ff,0x00aa44,0xff0000,0xff0000,0xff0000,0xff0000];
+const wires=colors.map((c,i)=>new Wire(i,c));
+
+/* === SOLVER === */
+function solve(){
+  if(!male || !female) return;
+
+  const aPins=getPins(female);
+  const bPins=getPins(male);
+  const spine=getBundleSpine(aPins[6],bPins[6]);
+
+  wires.forEach(w=>{
+    const tOffsets=(w.i-5.5)*0.02;
+    const pts=[];
+    for(let t=0;t<=1;t+=0.15){
+      const p=spine.getPoint(t);
+      const normal=new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,1,0),t*2*Math.PI);
+      p.add(normal.multiplyScalar(tOffsets*20));
+      pts.push(p);
+    }
+    pts[0]=aPins[w.i];
+    pts[pts.length-1]=bPins[w.i];
+
+    const curve=new THREE.CatmullRomCurve3(pts);
+    w.mesh.geometry.dispose();
+    w.mesh.geometry=new THREE.TubeGeometry(curve,40,0.35,8);
+
+    // mapping line
+    w.mapLine.geometry.setFromPoints([aPins[w.i],bPins[w.i]]);
+  });
+}
+
+/* === SNAP PREVIEW === */
+function snapPreview(){
+  if(!male||!female) return;
+  const d=male.position.distanceTo(female.position);
+  if(d<15){
+    if(!ghost){
+      ghost=male.clone();
+      ghost.traverse(o=>o.material&& (o.material=o.material.clone(), o.material.transparent=true,o.material.opacity=0.3));
+      harnessGroup.add(ghost);
+    }
+    ghost.position.copy(female.position);
+    ghost.rotation.copy(female.rotation);
+  }else if(ghost){
+    harnessGroup.remove(ghost);
+    ghost=null;
+  }
+}
+
+/* === LOAD CONNECTORS === */
+loadPico("male.glb", new THREE.Vector3(0,3,30), m=>male=m);
+loadPico("female.glb", new THREE.Vector3(0,3,-20), f=>female=f);
+
+/* === UI === */
+const netUI=document.getElementById("netUI");
+netUI.innerHTML="<b>NETS</b><br>";
+wires.forEach(w=>{
+  const b=document.createElement("button");
+  b.innerText="NET "+(w.i+1);
+  b.onclick=()=>{
+    wires.forEach(x=>x.mesh.material.emissive?.set?.(0x000000));
+    w.mesh.material.emissive=new THREE.Color(0xffffff);
+  };
+  netUI.appendChild(b);
+});
+
+/* === LOOP === */
+function animate(){
+  requestAnimationFrame(animate);
+  snapPreview();
+  solve();
+  controls.update();
+  renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener("resize",()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
