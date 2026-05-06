@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Alt-EDA Harness System — Solver Edition</title>
+<style>
+body { margin:0; overflow:hidden; font-family:Segoe UI; }
+#ui { position:absolute; top:10px; left:10px; color:white; }
+#netUI {
+  position:absolute; top:80px; left:10px;
+  background:#1f1f1f; padding:10px; color:#ddd;
+}
+button { margin:2px; }
+</style>
+</head>
+<body>
+
+<div id="ui">
+Harness is now solver-driven<br/>
+Wires auto-route, bundle, and avoid collisions
+</div>
+
+<div id="netUI"></div>
+
+<script type="module">
+import * as THREE from "https://esm.sh/three@0.160.0?bundle";
+import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+
+/* === SCENE === */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight,0.1,1000);
+camera.position.set(0,80,120);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x444444,1));
+
+/* === PCB COLLIDER === */
+const pcb = new THREE.Mesh(
+  new THREE.BoxGeometry(100,2,70),
+  new THREE.MeshStandardMaterial({ color:0x224422 })
+);
+scene.add(pcb);
+
+/* === HARNESS GROUP === */
+const harnessGroup = new THREE.Group();
+scene.add(harnessGroup);
+
+/* === CONNECTOR POSITIONS === */
+const fanoutStart = new THREE.Vector3(-20, 8, 0);
+const connectorPos = new THREE.Vector3(0, 3, 30);
+
+/* === WIRE COLORS === */
+const wireColors = [
+  0x000000,0x000000,0x000000,0x000000,
+  0xffff00,0xffffff,0x0066ff,0x00aa44,
+  0xff0000,0xff0000,0xff0000,0xff0000
+];
+
+/* =========================================================
+   HARNESS SOLVER CORE
+========================================================= */
+
+class Wire {
+  constructor(index, color){
+    this.index = index;
+    this.color = color;
+    this.mesh = new THREE.Mesh(
+      new THREE.TubeGeometry(new THREE.LineCurve3(new THREE.Vector3(), new THREE.Vector3()),20,0.35,8),
+      new THREE.MeshStandardMaterial({color})
+    );
+    harnessGroup.add(this.mesh);
+  }
+}
+
+const wires = [];
+for(let i=0;i<12;i++) wires.push(new Wire(i, wireColors[i]));
+
+/* === BUNDLE SETTINGS === */
+const BUNDLE_RADIUS = 2.2;
+const WIRE_SPACING = 0.6;
+
+/* === COLLISION CHECK === */
+function avoidPCB(p){
+  const pcbBox = new THREE.Box3().setFromObject(pcb);
+  if(pcbBox.containsPoint(p)){
+    p.y = pcbBox.max.y + 2;
+  }
+}
+
+/* === SOLVER === */
+function solveWirePath(i){
+  const start = fanoutStart.clone();
+  const end = connectorPos.clone().add(new THREE.Vector3((i-5.5)*1.2,0,0));
+
+  // 1) Bundled trunk
+  const angle = (i/12) * Math.PI*2;
+  const bundleOffset = new THREE.Vector3(
+    Math.cos(angle)*BUNDLE_RADIUS,
+    Math.sin(angle)*WIRE_SPACING,
+    0
+  );
+
+  const trunkMid = start.clone()
+    .lerp(end,0.35)
+    .add(bundleOffset);
+
+  // 2) Lift over PCB if needed
+  avoidPCB(trunkMid);
+
+  // 3) Fanout near connector
+  const fanMid = end.clone()
+    .lerp(start,0.2)
+    .add(new THREE.Vector3(0,3,0));
+
+  return [start, trunkMid, fanMid, end];
+}
+
+/* === UPDATE GEOMETRY === */
+function updateHarness(){
+  wires.forEach((wire,i)=>{
+    const pts = solveWirePath(i);
+    const curve = new THREE.CatmullRomCurve3(pts);
+    wire.mesh.geometry.dispose();
+    wire.mesh.geometry = new THREE.TubeGeometry(curve, 30, 0.35, 8);
+  });
+}
+
+/* === NET UI === */
+const netUI = document.getElementById("netUI");
+netUI.innerHTML = "<b>NETS</b><br>";
+wires.forEach((w,i)=>{
+  const btn = document.createElement("button");
+  btn.innerText = "NET "+(i+1);
+  btn.onclick = ()=>{
+    wires.forEach(x=>x.mesh.material.emissive?.set?.(0x000000));
+    w.mesh.material.emissive = new THREE.Color(0xffffff);
+  };
+  netUI.appendChild(btn);
+});
+
+/* === ANIMATE === */
+function animate(){
+  requestAnimationFrame(animate);
+  updateHarness();
+  controls.update();
+  renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener("resize", ()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
