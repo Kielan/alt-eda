@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>PicoBlade Parametric UI</title>
+<style>
+body { margin:0; overflow:hidden; font-family:Segoe UI; }
+#panel{
+  position:absolute; top:10px; left:10px;
+  background:#1f1f1f; color:white; padding:10px;
+}
+button{ margin:3px; font-size:16px;}
+</style>
+</head>
+<body>
+
+<div id="panel">
+<b>PicoBlade Pin Count</b><br/>
+<button id="minus">−</button>
+<span id="count">2</span>
+<button id="plus">+</button>
+</div>
+
+<script type="module">
+import * as THREE from "https://esm.sh/three@0.160.0?bundle";
+import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+
+/* === Scene === */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x202020);
+const camera = new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,1000);
+camera.position.set(0,8,20);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera,renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x444444,1));
+
+/* === Datasheet Spec === */
+const PicoBladeSpec = {
+  pitch: 1.25,
+  pins: 2,
+  housing:{ height:3.6, depth:4.5, wall:0.5 },
+  features:{
+    latchWidth:0.8, latchHeight:1.2,
+    topRidgeHeight:0.6, frontChamfer:0.6,
+    cavityDepth:2.8, cavityWidth:0.7, cavityHeight:1.6
+  },
+  metal:{ pinWidth:0.3, pinHeight:1.2, pinDepth:3.0 }
+};
+
+/* === Builder === */
+function buildPicoBlade(spec){
+  const g = new THREE.Group();
+  const totalWidth = spec.pins * spec.pitch + spec.housing.wall*2;
+  const mat = new THREE.MeshStandardMaterial({color:0xf2f2e8});
+
+  // Body
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(totalWidth, spec.housing.height, spec.housing.depth), mat);
+  g.add(body);
+
+  // Ridge
+  const ridge = new THREE.Mesh(
+    new THREE.BoxGeometry(totalWidth*0.7, spec.features.topRidgeHeight, 1.2), mat);
+  ridge.position.set(0, spec.housing.height/2 + spec.features.topRidgeHeight/2, -0.6);
+  g.add(ridge);
+
+  // Latches
+  ["left","right"].forEach(s=>{
+    const latch = new THREE.Mesh(
+      new THREE.BoxGeometry(spec.features.latchWidth, spec.features.latchHeight, 1.5), mat);
+    latch.position.set(
+      (s==="left"?-1:1)*(totalWidth/2 + spec.features.latchWidth/2),
+      0,-1);
+    g.add(latch);
+  });
+
+  // Cavities + pins
+  for(let i=0;i<spec.pins;i++){
+    const x = -totalWidth/2 + spec.housing.wall + spec.pitch/2 + i*spec.pitch;
+
+    const cavity = new THREE.Mesh(
+      new THREE.BoxGeometry(
+        spec.features.cavityWidth,
+        spec.features.cavityHeight,
+        spec.features.cavityDepth
+      ),
+      new THREE.MeshStandardMaterial({color:0x111111})
+    );
+    cavity.position.set(x,0,0.6);
+    g.add(cavity);
+
+    const pin = new THREE.Mesh(
+      new THREE.BoxGeometry(
+        spec.metal.pinWidth,
+        spec.metal.pinHeight,
+        spec.metal.pinDepth
+      ),
+      new THREE.MeshStandardMaterial({color:0xd4af37, metalness:1, roughness:0.2})
+    );
+    pin.position.set(x,-0.4,-0.8);
+    g.add(pin);
+  }
+
+  return g;
+}
+
+/* === Live Rebuild System === */
+let pico;
+function rebuild(){
+  if(pico){
+    pico.traverse(o=>{
+      if(o.geometry) o.geometry.dispose();
+      if(o.material) o.material.dispose();
+    });
+    scene.remove(pico);
+  }
+  pico = buildPicoBlade(PicoBladeSpec);
+  scene.add(pico);
+  document.getElementById("count").innerText = PicoBladeSpec.pins;
+}
+
+/* === UI === */
+document.getElementById("plus").onclick=()=>{
+  if(PicoBladeSpec.pins<12){
+    PicoBladeSpec.pins++;
+    rebuild();
+  }
+};
+document.getElementById("minus").onclick=()=>{
+  if(PicoBladeSpec.pins>2){
+    PicoBladeSpec.pins--;
+    rebuild();
+  }
+};
+
+/* === Init === */
+rebuild();
+
+function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene,camera);
+}
+animate();
+
+window.addEventListener("resize",()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
