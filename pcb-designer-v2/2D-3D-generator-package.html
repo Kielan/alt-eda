@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Image → 3D Mesh Reconstruction Demo</title>
+
+<style>
+  html, body {
+    margin: 0;
+    overflow: hidden;
+    background: #101010;
+    font-family: Arial, sans-serif;
+    color: white;
+  }
+
+  #ui {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 340px;
+    background: rgba(0,0,0,0.85);
+    padding: 14px;
+    border-radius: 12px;
+    z-index: 20;
+  }
+
+  #ui h2 {
+    margin-top: 0;
+  }
+
+  button, input {
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  canvas {
+    display: block;
+  }
+
+  .label {
+    margin-top: 10px;
+    font-size: 13px;
+    opacity: 0.8;
+  }
+</style>
+</head>
+
+<body>
+
+<div id="ui">
+
+  <h2>Image → 3D Mesh</h2>
+
+  <input type="file" id="upload" accept="image/*" />
+
+  <button id="exportBtn">
+    Export GLTF
+  </button>
+
+  <div class="label">
+    Pipeline:
+  </div>
+
+  <div style="font-size:12px;line-height:1.6">
+    1. Edge Detection<br/>
+    2. Vertex Detection<br/>
+    3. Triangle Graph<br/>
+    4. Fake Depth Estimation<br/>
+    5. Indexed Mesh<br/>
+    6. GLTF Export
+  </div>
+
+</div>
+
+<script type="module">
+
+/*
+==================================================
+ESM IMPORTS
+==================================================
+*/
+
+import * as THREE from 'https://esm.sh/three@0.161.0';
+
+import { OrbitControls }
+from 'https://esm.sh/three@0.161.0/examples/jsm/controls/OrbitControls.js';
+
+import { GLTFExporter }
+from 'https://esm.sh/three@0.161.0/examples/jsm/exporters/GLTFExporter.js';
+
+/*
+==================================================
+SCENE SETUP
+==================================================
+*/
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x151515);
+
+const camera = new THREE.PerspectiveCamera(
+  45,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  2000
+);
+
+camera.position.set(0, 0, 200);
+
+const renderer = new THREE.WebGLRenderer({
+  antialias: true
+});
+
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+document.body.appendChild(renderer.domElement);
+
+/*
+==================================================
+CONTROLS
+==================================================
+*/
+
+const controls = new OrbitControls(
+  camera,
+  renderer.domElement
+);
+
+controls.enableDamping = true;
+
+/*
+==================================================
+LIGHTS
+==================================================
+*/
+
+scene.add(new THREE.AmbientLight(0xffffff, 1));
+
+const dir = new THREE.DirectionalLight(
+  0xffffff,
+  2
+);
+
+dir.position.set(50, 50, 50);
+
+scene.add(dir);
+
+/*
+==================================================
+MESH CONTAINER
+==================================================
+*/
+
+const container = new THREE.Group();
+scene.add(container);
+
+/*
+==================================================
+UPLOAD
+==================================================
+*/
+
+const upload = document.getElementById('upload');
+
+upload.addEventListener('change', async (e) => {
+
+  const file = e.target.files[0];
+
+  if (!file) return;
+
+  const img = new Image();
+
+  img.src = URL.createObjectURL(file);
+
+  await img.decode();
+
+  processImage(img);
+});
+
+/*
+==================================================
+IMAGE PIPELINE
+==================================================
+*/
+
+function processImage(img) {
+
+  clearContainer();
+
+  /*
+  --------------------------------------
+  STEP 1: DRAW IMAGE TO CANVAS
+  --------------------------------------
+  */
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  canvas.width = img.width;
+  canvas.height = img.height;
+
+  ctx.drawImage(img, 0, 0);
+
+  const imageData = ctx.getImageData(
+    0,
+    0,
+    img.width,
+    img.height
+  );
+
+  const data = imageData.data;
+
+  /*
+  --------------------------------------
+  STEP 2: EDGE DETECTION
+  (simple threshold)
+  --------------------------------------
+  */
+
+  const vertices = [];
+
+  const step = 5;
+
+  for (let y = 1; y < img.height - 1; y += step) {
+
+    for (let x = 1; x < img.width - 1; x += step) {
+
+      const i = (y * img.width + x) * 4;
+
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      const brightness = (r + g + b) / 3;
+
+      /*
+      detect dark wireframe pixels
+      */
+
+      if (brightness < 90) {
+
+        /*
+        --------------------------------------
+        STEP 3: FAKE DEPTH ESTIMATION
+        --------------------------------------
+        */
+
+        const nx = x / img.width;
+        const ny = y / img.height;
+
+        const depth =
+          Math.sin(nx * 12) * 6 +
+          Math.cos(ny * 10) * 6 +
+          noise(nx * 40, ny * 40) * 4;
+
+        vertices.push({
+          x: x - img.width / 2,
+          y: -(y - img.height / 2),
+          z: depth
+        });
+      }
+    }
+  }
+
+  /*
+  --------------------------------------
+  STEP 4: BUILD TRIANGLE GRAPH
+  naive triangulation
+  --------------------------------------
+  */
+
+  const positions = [];
+  const indices = [];
+
+  vertices.forEach(v => {
+
+    positions.push(v.x, v.y, v.z);
+
+  });
+
+  /*
+  connect nearby points
+  */
+
+  const maxDist = 12;
+
+  for (let i = 0; i < vertices.length; i++) {
+
+    for (let j = i + 1; j < vertices.length; j++) {
+
+      const a = vertices[i];
+      const b = vertices[j];
+
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < maxDist) {
+
+        /*
+        pseudo triangles
+        */
+
+        const k = j + 1;
+
+        if (k < vertices.length) {
+
+          indices.push(i, j, k);
+
+        }
+      }
+    }
+  }
+
+  /*
+  --------------------------------------
+  STEP 5: INDEXED BUFFER GEOMETRY
+  --------------------------------------
+  */
+
+  const geometry = new THREE.BufferGeometry();
+
+  geometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(
+      positions,
+      3
+    )
+  );
+
+  geometry.setIndex(indices);
+
+  geometry.computeVertexNormals();
+
+  /*
+  --------------------------------------
+  SOLID MESH
+  --------------------------------------
+  */
+
+  const material = new THREE.MeshStandardMaterial({
+
+    color: 0x00ffaa,
+    side: THREE.DoubleSide,
+
+    wireframe: false,
+
+    metalness: 0.2,
+    roughness: 0.7
+
+  });
+
+  const mesh = new THREE.Mesh(
+    geometry,
+    material
+  );
+
+  container.add(mesh);
+
+  /*
+  --------------------------------------
+  WIREFRAME OVERLAY
+  --------------------------------------
+  */
+
+  const wire = new THREE.MeshBasicMaterial({
+
+    color: 0xffffff,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.3
+
+  });
+
+  const wireMesh = new THREE.Mesh(
+    geometry,
+    wire
+  );
+
+  container.add(wireMesh);
+
+  /*
+  --------------------------------------
+  POINT CLOUD
+  --------------------------------------
+  */
+
+  const pointsGeo = new THREE.BufferGeometry();
+
+  pointsGeo.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(
+      positions,
+      3
+    )
+  );
+
+  const pointsMat = new THREE.PointsMaterial({
+    color: 0xff00aa,
+    size: 1.5
+  });
+
+  const points = new THREE.Points(
+    pointsGeo,
+    pointsMat
+  );
+
+  container.add(points);
+
+}
+
+/*
+==================================================
+NOISE
+==================================================
+*/
+
+function noise(x, y) {
+
+  return (
+    Math.sin(x * 2.3) *
+    Math.cos(y * 1.7)
+  );
+
+}
+
+/*
+==================================================
+CLEAR SCENE
+==================================================
+*/
+
+function clearContainer() {
+
+  while (container.children.length > 0) {
+
+    const obj = container.children[0];
+
+    container.remove(obj);
+
+  }
+
+}
+
+/*
+==================================================
+GLTF EXPORT
+==================================================
+*/
+
+const exportBtn = document.getElementById('exportBtn');
+
+exportBtn.addEventListener('click', () => {
+
+  const exporter = new GLTFExporter();
+
+  exporter.parse(
+
+    container,
+
+    (gltf) => {
+
+      const blob = new Blob(
+        [JSON.stringify(gltf)],
+        { type: 'application/json' }
+      );
+
+      const link = document.createElement('a');
+
+      link.href = URL.createObjectURL(blob);
+
+      link.download = 'mesh-reconstruction.gltf';
+
+      link.click();
+
+    },
+
+    {
+      binary: false
+    }
+
+  );
+
+});
+
+/*
+==================================================
+DEMO STARTER OBJECT
+==================================================
+*/
+
+createStarter();
+
+function createStarter() {
+
+  const geo = new THREE.TorusKnotGeometry(
+    20,
+    6,
+    300,
+    24
+  );
+
+  const mat = new THREE.MeshStandardMaterial({
+
+    color: 0x00ffcc,
+    wireframe: true
+
+  });
+
+  const mesh = new THREE.Mesh(
+    geo,
+    mat
+  );
+
+  container.add(mesh);
+
+}
+
+/*
+==================================================
+RESIZE
+==================================================
+*/
+
+window.addEventListener('resize', () => {
+
+  camera.aspect =
+    window.innerWidth / window.innerHeight;
+
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+  );
+
+});
+
+/*
+==================================================
+RENDER LOOP
+==================================================
+*/
+
+function animate() {
+
+  requestAnimationFrame(animate);
+
+  controls.update();
+
+  container.rotation.y += 0.002;
+
+  renderer.render(scene, camera);
+
+}
+
+animate();
+
+</script>
+
+</body>
+</html>
