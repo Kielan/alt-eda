@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mesh Line → 3D Demo</title>
+
+  <style>
+    html, body {
+      margin: 0;
+      overflow: hidden;
+      background: #111;
+      font-family: sans-serif;
+    }
+
+    #ui {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 10;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 12px;
+      border-radius: 8px;
+      width: 320px;
+    }
+
+    #canvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+
+    input {
+      width: 100%;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="ui">
+  <h3>2D Mesh Lines → 3D Geometry</h3>
+
+  <p>
+    Upload a triangulated mesh image.
+    This demo detects line edges and extrudes them into pseudo-3D geometry.
+  </p>
+
+  <input type="file" id="upload" accept="image/*" />
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script type="module">
+
+/*
+  ESM imports directly from CDN
+*/
+
+import * as THREE from 'https://esm.sh/three@0.161.0';
+import { OrbitControls } from 'https://esm.sh/three@0.161.0/examples/jsm/controls/OrbitControls.js';
+
+/*
+  Scene
+*/
+
+const canvas = document.getElementById('canvas');
+
+const renderer = new THREE.WebGLRenderer({
+  canvas,
+  antialias: true
+});
+
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x151515);
+
+const camera = new THREE.PerspectiveCamera(
+  45,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
+
+camera.position.set(0, 0, 140);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+/*
+  Lights
+*/
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+
+const dir = new THREE.DirectionalLight(0xffffff, 1.5);
+dir.position.set(10, 20, 20);
+scene.add(dir);
+
+/*
+  Container
+*/
+
+const meshGroup = new THREE.Group();
+scene.add(meshGroup);
+
+/*
+  Upload image
+*/
+
+const upload = document.getElementById('upload');
+
+upload.addEventListener('change', async (e) => {
+
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const img = new Image();
+  img.src = URL.createObjectURL(file);
+
+  await img.decode();
+
+  processMeshImage(img);
+});
+
+/*
+  Main conversion logic
+*/
+
+function processMeshImage(img) {
+
+  // Clear old meshes
+  while (meshGroup.children.length > 0) {
+    meshGroup.remove(meshGroup.children[0]);
+  }
+
+  /*
+    Draw image to hidden canvas
+  */
+
+  const tempCanvas = document.createElement('canvas');
+  const ctx = tempCanvas.getContext('2d');
+
+  tempCanvas.width = img.width;
+  tempCanvas.height = img.height;
+
+  ctx.drawImage(img, 0, 0);
+
+  const imageData = ctx.getImageData(
+    0,
+    0,
+    img.width,
+    img.height
+  );
+
+  const data = imageData.data;
+
+  /*
+    Edge extraction
+    Very primitive:
+    detect dark pixels representing mesh lines
+  */
+
+  const points = [];
+
+  for (let y = 0; y < img.height; y += 4) {
+
+    for (let x = 0; x < img.width; x += 4) {
+
+      const i = (y * img.width + x) * 4;
+
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+
+      const brightness = (r + g + b) / 3;
+
+      // detect dark line pixels
+      if (brightness < 80) {
+
+        const px = x - img.width / 2;
+        const py = -(y - img.height / 2);
+
+        /*
+          Fake depth inference
+          You could replace this with:
+          - ML depth estimation
+          - normal prediction
+          - triangulation
+          - marching cubes
+        */
+
+        const depth =
+          Math.sin(px * 0.05) * 4 +
+          Math.cos(py * 0.05) * 4;
+
+        points.push(
+          new THREE.Vector3(px, py, depth)
+        );
+      }
+    }
+  }
+
+  /*
+    Build point cloud
+  */
+
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+  const material = new THREE.PointsMaterial({
+    color: 0x00ffcc,
+    size: 1.2
+  });
+
+  const cloud = new THREE.Points(
+    geometry,
+    material
+  );
+
+  meshGroup.add(cloud);
+
+  /*
+    Optional wireframe surface
+  */
+
+  const lineMaterial = new THREE.LineBasicMaterial({
+    color: 0xffffff,
+    opacity: 0.2,
+    transparent: true
+  });
+
+  const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+
+  const lines = new THREE.LineSegments(
+    lineGeometry,
+    lineMaterial
+  );
+
+  meshGroup.add(lines);
+}
+
+/*
+  Demo starter geometry
+*/
+
+createDemoMesh();
+
+function createDemoMesh() {
+
+  const geo = new THREE.TorusKnotGeometry(
+    20,
+    5,
+    300,
+    24
+  );
+
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x00ffaa,
+    wireframe: true
+  });
+
+  const mesh = new THREE.Mesh(geo, mat);
+
+  meshGroup.add(mesh);
+}
+
+/*
+  Resize
+*/
+
+window.addEventListener('resize', () => {
+
+  camera.aspect =
+    window.innerWidth / window.innerHeight;
+
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+  );
+});
+
+/*
+  Render loop
+*/
+
+function animate() {
+
+  requestAnimationFrame(animate);
+
+  meshGroup.rotation.y += 0.002;
+
+  controls.update();
+
+  renderer.render(scene, camera);
+}
+
+animate();
+
+</script>
+
+</body>
+</html>
