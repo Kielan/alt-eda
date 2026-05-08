@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<title>Browser PCB EDA</title>
+
+<style>
+
+/* =====================================================
+   GLOBAL
+===================================================== */
+
+html, body {
+  margin: 0;
+  overflow: hidden;
+  background: #101010;
+  font-family: Segoe UI, sans-serif;
+}
+
+/* =====================================================
+   DOCKABLE PANELS
+===================================================== */
+
+.dockPanel {
+
+  position: absolute;
+
+  background: #2b2b2b;
+  color: #ddd;
+
+  border: 1px solid #444;
+
+  min-width: 180px;
+  min-height: 120px;
+
+  resize: both;
+  overflow: hidden;
+
+  z-index: 10;
+}
+
+.panelHeader {
+
+  height: 28px;
+  line-height: 28px;
+
+  background: #252525;
+
+  border-bottom: 1px solid #444;
+
+  padding-left: 8px;
+
+  cursor: move;
+  user-select: none;
+
+  font-weight: bold;
+}
+
+.panelTabs {
+
+  display: flex;
+
+  background: #1f1f1f;
+
+  border-bottom: 1px solid #444;
+}
+
+.tab {
+
+  padding: 6px 10px;
+
+  cursor: pointer;
+
+  border-right: 1px solid #444;
+
+  font-size: 12px;
+}
+
+.tab.active {
+  background: #3a3a3a;
+}
+
+.panelContent {
+
+  height: calc(100% - 58px);
+
+  overflow: auto;
+
+  font-size: 13px;
+}
+
+/* =====================================================
+   ITEMS
+===================================================== */
+
+.item {
+
+  padding: 6px;
+
+  cursor: pointer;
+}
+
+.item:hover {
+  background: #3a3a3a;
+}
+
+button {
+
+  background: #444;
+  color: white;
+
+  border: none;
+
+  padding: 6px;
+  margin: 6px;
+
+  cursor: pointer;
+}
+
+button:hover {
+  background: #666;
+}
+
+/* =====================================================
+   STATUS
+===================================================== */
+
+#status {
+
+  position: absolute;
+
+  left: 10px;
+  bottom: 10px;
+
+  background: rgba(0,0,0,0.8);
+
+  color: #0f0;
+
+  padding: 6px;
+
+  z-index: 100;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- =====================================================
+     COMPONENT PANEL
+===================================================== -->
+
+<div id="componentsPanel" class="dockPanel"
+style="
+left:10px;
+top:10px;
+width:280px;
+height:420px;
+">
+
+  <div class="panelHeader">
+    Components
+  </div>
+
+  <div class="panelTabs">
+
+    <div class="tab active">
+      Library
+    </div>
+
+    <div class="tab">
+      Nets
+    </div>
+
+    <div class="tab">
+      DRC
+    </div>
+
+  </div>
+
+  <div class="panelContent">
+
+    <div class="item" data-type="cap">
+      C_0603_1uF
+    </div>
+
+    <div class="item" data-type="cap">
+      C_0402_100nF
+    </div>
+
+    <div class="item" data-type="res">
+      R_0603_10K
+    </div>
+
+    <div class="item" data-type="dip">
+      DIP8_ATMEGA
+    </div>
+
+  </div>
+
+</div>
+
+<!-- =====================================================
+     SCHEMATIC PANEL
+===================================================== -->
+
+<div id="schematicPanel" class="dockPanel"
+style="
+left:310px;
+top:10px;
+width:260px;
+height:240px;
+">
+
+  <div class="panelHeader">
+    Schematic
+  </div>
+
+  <div class="panelTabs">
+
+    <div class="tab active">
+      Design
+    </div>
+
+    <div class="tab">
+      ERC
+    </div>
+
+  </div>
+
+  <div class="panelContent">
+
+    <button id="genNetlist">
+      Generate Netlist
+    </button>
+
+    <div class="item">
+      NET_GND
+    </div>
+
+    <div class="item">
+      NET_VCC
+    </div>
+
+  </div>
+
+</div>
+
+<!-- =====================================================
+     PREVIEW PANEL
+===================================================== -->
+
+<div id="previewPanel" class="dockPanel"
+style="
+left:590px;
+top:10px;
+width:240px;
+height:240px;
+">
+
+  <div class="panelHeader">
+    Preview
+  </div>
+
+  <div class="panelTabs">
+
+    <div class="tab active">
+      Component
+    </div>
+
+  </div>
+
+  <div class="panelContent">
+
+    <div style="
+      height:120px;
+      margin:6px;
+      background:#111;
+      border:1px solid #444;
+    "></div>
+
+    <div id="previewText"
+    style="padding:6px;">
+      Select Component
+    </div>
+
+    <div style="padding:6px;">
+      R = rotate<br>
+      DEL = delete<br>
+      Drag panels like Altium
+    </div>
+
+  </div>
+
+</div>
+
+<!-- =====================================================
+     STATUS
+===================================================== -->
+
+<div id="status">
+Ready
+</div>
+
+<!-- =====================================================
+     THREE.JS
+===================================================== -->
+
+<script type="module">
+
+import * as THREE from
+"https://cdn.jsdelivr.net/npm/three@0.161/build/three.module.js";
+
+/* =====================================================
+   SCENE
+===================================================== */
+
+const scene = new THREE.Scene();
+
+scene.background =
+  new THREE.Color(0x111111);
+
+const camera =
+  new THREE.PerspectiveCamera(
+    60,
+    innerWidth / innerHeight,
+    0.1,
+    5000
+  );
+
+camera.position.set(0,180,180);
+camera.lookAt(0,0,0);
+
+const renderer =
+  new THREE.WebGLRenderer({
+    antialias:true
+  });
+
+renderer.setSize(
+  innerWidth,
+  innerHeight
+);
+
+document.body.appendChild(
+  renderer.domElement
+);
+
+/* =====================================================
+   LIGHT
+===================================================== */
+
+const hemi =
+  new THREE.HemisphereLight(
+    0xffffff,
+    0x333333,
+    1.5
+  );
+
+scene.add(hemi);
+
+/* =====================================================
+   GRID
+===================================================== */
+
+const grid =
+  new THREE.GridHelper(
+    500,
+    100,
+    0x444444,
+    0x222222
+  );
+
+scene.add(grid);
+
+/* =====================================================
+   BOARD
+===================================================== */
+
+const board =
+  new THREE.Mesh(
+
+    new THREE.BoxGeometry(
+      220,
+      2,
+      180
+    ),
+
+    new THREE.MeshStandardMaterial({
+      color:0x0b3d2e
+    })
+  );
+
+scene.add(board);
+
+/* =====================================================
+   DATA
+===================================================== */
+
+const components = [];
+const nets = [];
+
+let selected = null;
+let placing = null;
+
+let autoNetCounter = 1;
+
+/* =====================================================
+   STATUS
+===================================================== */
+
+function setStatus(t){
+
+  document
+    .getElementById("status")
+    .innerText = t;
+}
+
+/* =====================================================
+   COMPONENTS
+===================================================== */
+
+function createCapacitor(){
+
+  const group =
+    new THREE.Group();
+
+  const body =
+    new THREE.Mesh(
+
+      new THREE.BoxGeometry(
+        8,2,4
+      ),
+
+      new THREE.MeshStandardMaterial({
+        color:0xcccccc
+      })
+    );
+
+  body.position.y = 1;
+
+  group.add(body);
+
+  const padGeo =
+    new THREE.CircleGeometry(1,16);
+
+  const padMat =
+    new THREE.MeshStandardMaterial({
+      color:0xffaa00
+    });
+
+  const p1 =
+    new THREE.Mesh(
+      padGeo,
+      padMat
+    );
+
+  p1.rotation.x =
+    -Math.PI/2;
+
+  p1.position.set(-5,0.1,0);
+
+  const p2 =
+    new THREE.Mesh(
+      padGeo,
+      padMat
+    );
+
+  p2.rotation.x =
+    -Math.PI/2;
+
+  p2.position.set(5,0.1,0);
+
+  group.add(p1);
+  group.add(p2);
+
+  return {
+
+    type:"cap",
+
+    group,
+
+    pads:[p1,p2],
+
+    rotation:0,
+
+    netId:null
+  };
+}
+
+function createResistor(){
+
+  const group =
+    new THREE.Group();
+
+  const body =
+    new THREE.Mesh(
+
+      new THREE.BoxGeometry(
+        10,2,3
+      ),
+
+      new THREE.MeshStandardMaterial({
+        color:0xaa8844
+      })
+    );
+
+  body.position.y = 1;
+
+  group.add(body);
+
+  return {
+
+    type:"res",
+
+    group,
+
+    pads:[],
+
+    rotation:0,
+
+    netId:null
+  };
+}
+
+function createDIP8(){
+
+  const group =
+    new THREE.Group();
+
+  const body =
+    new THREE.Mesh(
+
+      new THREE.BoxGeometry(
+        12,3,20
+      ),
+
+      new THREE.MeshStandardMaterial({
+        color:0x222222
+      })
+    );
+
+  body.position.y = 1.5;
+
+  group.add(body);
+
+  return {
+
+    type:"dip",
+
+    group,
+
+    pads:[],
+
+    rotation:0,
+
+    netId:null
+  };
+}
+
+/* =====================================================
+   COMPONENT LIBRARY
+===================================================== */
+
+document
+.querySelectorAll(".item[data-type]")
+.forEach(el=>{
+
+  el.addEventListener("click",()=>{
+
+    const type =
+      el.dataset.type;
+
+    if(type==="cap")
+      placing = createCapacitor();
+
+    if(type==="res")
+      placing = createResistor();
+
+    if(type==="dip")
+      placing = createDIP8();
+
+    scene.add(
+      placing.group
+    );
+
+    document
+      .getElementById("previewText")
+      .innerText =
+        el.innerText;
+
+    setStatus(
+      "Placement Mode"
+    );
+  });
+
+});
+
+/* =====================================================
+   RAYCAST
+===================================================== */
+
+const raycaster =
+  new THREE.Raycaster();
+
+const mouse =
+  new THREE.Vector2();
+
+function getBoardPoint(e){
+
+  mouse.x =
+    (e.clientX/innerWidth)*2-1;
+
+  mouse.y =
+    -(e.clientY/innerHeight)*2+1;
+
+  raycaster.setFromCamera(
+    mouse,
+    camera
+  );
+
+  const hits =
+    raycaster.intersectObject(board);
+
+  if(!hits.length)
+    return null;
+
+  return hits[0].point;
+}
+
+/* =====================================================
+   DRAG PLACE
+===================================================== */
+
+window.addEventListener(
+  "mousemove",
+  e=>{
+
+  if(!placing)
+    return;
+
+  const p =
+    getBoardPoint(e);
+
+  if(!p)
+    return;
+
+  placing.group.position.set(
+    Math.round(p.x),
+    1,
+    Math.round(p.z)
+  );
+});
+
+/* =====================================================
+   AUTO NET INTEGRATION
+===================================================== */
+
+function autoConnectNet(component){
+
+  if(components.length < 2)
+    return;
+
+  const prev =
+    components[
+      components.length - 2
+    ];
+
+  const netId =
+    "NET_" +
+    autoNetCounter++;
+
+  component.netId =
+    netId;
+
+  prev.netId =
+    netId;
+
+  nets.push({
+
+    id: netId,
+
+    a: prev.group.position.clone(),
+
+    b: component.group.position.clone()
+  });
+
+  addNetToUI(netId);
+
+  autoroute();
+}
+
+function addNetToUI(netId){
+
+  const schematic =
+    document.querySelector(
+      "#schematicPanel .panelContent"
+    );
+
+  const div =
+    document.createElement("div");
+
+  div.className = "item";
+
+  div.innerText = netId;
+
+  schematic.appendChild(div);
+}
+
+/* =====================================================
+   PLACE + SELECT
+===================================================== */
+
+window.addEventListener(
+  "mousedown",
+  e=>{
+
+  const p =
+    getBoardPoint(e);
+
+  if(!p)
+    return;
+
+  /* PLACE */
+
+  if(placing){
+
+    components.push(
+      placing
+    );
+
+    autoConnectNet(
+      placing
+    );
+
+    placing = null;
+
+    setStatus(
+      "Placed + Connected"
+    );
+
+    return;
+  }
+
+  /* SELECT */
+
+  for(const c of components){
+
+    const hits =
+      raycaster.intersectObject(
+        c.group,
+        true
+      );
+
+    if(hits.length){
+
+      selected = c;
+
+      setStatus(
+        "Selected: " +
+        (c.netId || "No Net")
+      );
+
+      highlightNet(
+        c.netId
+      );
+
+      return;
+    }
+  }
+
+});
+
+/* =====================================================
+   NET HIGHLIGHTING
+===================================================== */
+
+function highlightNet(netId){
+
+  routeGroup.children
+  .forEach(obj=>{
+
+    if(obj.userData.netId === netId){
+
+      obj.material.color.set(
+        0xffff00
+      );
+
+    } else if(obj.material){
+
+      if(obj.type === "Line"){
+
+        obj.material.color.set(
+          0x00ff88
+        );
+      }
+    }
+  });
+}
+
+/* =====================================================
+   KEYBOARD
+===================================================== */
+
+window.addEventListener(
+  "keydown",
+  e=>{
+
+  if(!selected)
+    return;
+
+  if(
+    e.key.toLowerCase()==="r"
+  ){
+
+    selected.rotation +=
+      Math.PI/2;
+
+    selected.group.rotation.y =
+      selected.rotation;
+
+    autoroute();
+  }
+
+  if(e.key==="Delete"){
+
+    scene.remove(
+      selected.group
+    );
+
+    const i =
+      components.indexOf(
+        selected
+      );
+
+    if(i>=0)
+      components.splice(i,1);
+
+    selected = null;
+
+    autoroute();
+  }
+
+  if(e.key==="ArrowUp")
+    selected.group.position.z -=1;
+
+  if(e.key==="ArrowDown")
+    selected.group.position.z +=1;
+
+  if(e.key==="ArrowLeft")
+    selected.group.position.x -=1;
+
+  if(e.key==="ArrowRight")
+    selected.group.position.x +=1;
+
+  autoroute();
+});
+
+/* =====================================================
+   ROUTER
+===================================================== */
+
+const routeGroup =
+  new THREE.Group();
+
+scene.add(routeGroup);
+
+function clearRoutes(){
+
+  while(
+    routeGroup.children.length
+  ){
+
+    routeGroup.remove(
+      routeGroup.children[0]
+    );
+  }
+}
+
+/* =====================================================
+   AUTOROUTER
+===================================================== */
+
+function autoroute(){
+
+  clearRoutes();
+
+  for(const net of nets){
+
+    const pts = [
+
+      new THREE.Vector3(
+        net.a.x,
+        0.2,
+        net.a.z
+      ),
+
+      new THREE.Vector3(
+        net.b.x,
+        0.2,
+        net.a.z
+      ),
+
+      new THREE.Vector3(
+        net.b.x,
+        0.2,
+        net.b.z
+      )
+    ];
+
+    const geo =
+      new THREE.BufferGeometry()
+      .setFromPoints(pts);
+
+    const line =
+      new THREE.Line(
+
+        geo,
+
+        new THREE.LineBasicMaterial({
+          color:0x00ff88
+        })
+      );
+
+    line.userData.netId =
+      net.id;
+
+    routeGroup.add(line);
+
+    /* VIA */
+
+    const via =
+      new THREE.Mesh(
+
+        new THREE.CylinderGeometry(
+          0.7,
+          0.7,
+          2,
+          16
+        ),
+
+        new THREE.MeshStandardMaterial({
+          color:0xff00ff
+        })
+      );
+
+    via.position.set(
+      net.b.x,
+      1,
+      net.a.z
+    );
+
+    via.userData.netId =
+      net.id;
+
+    routeGroup.add(via);
+  }
+
+  setStatus(
+    "Autorouted"
+  );
+}
+
+/* =====================================================
+   SCHEMATIC → PCB
+===================================================== */
+
+document
+.getElementById("genNetlist")
+.addEventListener(
+  "click",
+  ()=>{
+
+  autoroute();
+
+  setStatus(
+    "Netlist Generated"
+  );
+});
+
+/* =====================================================
+   DOCKABLE PANELS
+===================================================== */
+
+document
+.querySelectorAll(".dockPanel")
+.forEach(panel=>{
+
+  const header =
+    panel.querySelector(
+      ".panelHeader"
+    );
+
+  let dragging = false;
+
+  let offsetX = 0;
+  let offsetY = 0;
+
+  header.addEventListener(
+    "mousedown",
+    e=>{
+
+    dragging = true;
+
+    offsetX =
+      e.clientX -
+      panel.offsetLeft;
+
+    offsetY =
+      e.clientY -
+      panel.offsetTop;
+  });
+
+  window.addEventListener(
+    "mousemove",
+    e=>{
+
+    if(!dragging)
+      return;
+
+    panel.style.left =
+      (e.clientX-offsetX)+"px";
+
+    panel.style.top =
+      (e.clientY-offsetY)+"px";
+  });
+
+  window.addEventListener(
+    "mouseup",
+    ()=>{
+
+    dragging = false;
+  });
+
+});
+
+/* =====================================================
+   TAB SYSTEM
+===================================================== */
+
+document
+.querySelectorAll(".panelTabs")
+.forEach(tabBar=>{
+
+  const tabs =
+    tabBar.querySelectorAll(".tab");
+
+  tabs.forEach(tab=>{
+
+    tab.addEventListener(
+      "click",
+      ()=>{
+
+      tabs.forEach(t=>
+        t.classList.remove(
+          "active"
+        )
+      );
+
+      tab.classList.add(
+        "active"
+      );
+    });
+
+  });
+
+});
+
+/* =====================================================
+   ANIMATION
+===================================================== */
+
+function animate(){
+
+  requestAnimationFrame(
+    animate
+  );
+
+  renderer.render(
+    scene,
+    camera
+  );
+}
+
+animate();
+
+/* =====================================================
+   RESIZE
+===================================================== */
+
+window.addEventListener(
+  "resize",
+  ()=>{
+
+  camera.aspect =
+    innerWidth /
+    innerHeight;
+
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(
+    innerWidth,
+    innerHeight
+  );
+});
+
+</script>
+
+</body>
+</html>
