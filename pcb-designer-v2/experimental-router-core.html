@@ -1,1 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
+<title>Browser PCB EDA</title>
+
+<style>
+
+html, body {
+  margin: 0;
+  overflow: hidden;
+  background: #0f0f0f;
+  font-family: Segoe UI, sans-serif;
+}
+
+/* =========================
+   ALTIUM STYLE SIDE PANEL
+========================= */
+
+#ui {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+
+  width: 560px;
+  height: 580px;
+
+  background: #2b2b2b;
+  border: 1px solid #444;
+
+  display: flex;
+  color: #ddd;
+
+  z-index: 10;
+  user-select: none;
+}
+
+.panel {
+  border-right: 1px solid #444;
+  overflow: auto;
+}
+
+.panelTitle {
+  padding: 6px;
+  font-weight: bold;
+  background: #252525;
+  border-bottom: 1px solid #444;
+}
+
+#nav {
+  width: 120px;
+}
+
+#schematic {
+  width: 170px;
+}
+
+#library {
+  flex: 1;
+}
+
+#preview {
+  width: 180px;
+}
+
+.item {
+  padding: 6px;
+  cursor: pointer;
+}
+
+.item:hover {
+  background: #3c3c3c;
+}
+
+button {
+  background: #444;
+  border: none;
+  color: white;
+  padding: 6px;
+  margin: 6px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #666;
+}
+
+#status {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+
+  background: rgba(0,0,0,0.8);
+  color: #0f0;
+
+  padding: 6px;
+  z-index: 100;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- =========================
+     UI
+========================= -->
+
+<div id="ui">
+
+  <!-- NAV -->
+  <div id="nav" class="panel">
+    <div class="panelTitle">Workspace</div>
+
+    <div class="item">Schematic</div>
+    <div class="item">PCB</div>
+    <div class="item">Components</div>
+    <div class="item">Nets</div>
+    <div class="item">DRC</div>
+    <div class="item">Autorouter</div>
+  </div>
+
+  <!-- SCHEMATIC -->
+  <div id="schematic" class="panel">
+
+    <div class="panelTitle">Schematic</div>
+
+    <button id="genNetlist">Generate Netlist</button>
+
+    <div class="item">NET_C1_U1</div>
+    <div class="item">NET_GND</div>
+    <div class="item">NET_VCC</div>
+
+  </div>
+
+  <!-- LIBRARY -->
+  <div id="library" class="panel">
+
+    <div class="panelTitle">Component Library</div>
+
+    <div class="item" data-type="cap">C_0603_1uF</div>
+    <div class="item" data-type="cap">C_0402_100nF</div>
+    <div class="item" data-type="res">R_0603_10k</div>
+    <div class="item" data-type="dip">DIP8_ATMEGA</div>
+
+  </div>
+
+  <!-- PREVIEW -->
+  <div id="preview" class="panel">
+
+    <div class="panelTitle">Preview</div>
+
+    <div style="
+      height:120px;
+      background:#111;
+      margin:6px;
+      border:1px solid #444;
+    "></div>
+
+    <div id="previewText" style="padding:6px;">
+      Select Component
+    </div>
+
+    <div style="padding:6px;">
+      R = rotate<br>
+      DEL = delete<br>
+      Arrow keys = nudge
+    </div>
+
+  </div>
+
+</div>
+
+<div id="status">
+Ready
+</div>
+
+<!-- =========================
+     THREE.JS
+========================= -->
+
+<script type="module">
+
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.161/build/three.module.js";
+
+/* =====================================================
+   BASIC SCENE
+===================================================== */
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111111);
+
+const camera = new THREE.PerspectiveCamera(
+  60,
+  innerWidth / innerHeight,
+  0.1,
+  5000
+);
+
+camera.position.set(0, 180, 180);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({
+  antialias: true
+});
+
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+/* =====================================================
+   LIGHTING
+===================================================== */
+
+const hemi = new THREE.HemisphereLight(
+  0xffffff,
+  0x333333,
+  1.5
+);
+
+scene.add(hemi);
+
+/* =====================================================
+   GRID
+===================================================== */
+
+const grid = new THREE.GridHelper(
+  500,
+  100,
+  0x444444,
+  0x222222
+);
+
+scene.add(grid);
+
+/* =====================================================
+   PCB BOARD
+===================================================== */
+
+const board = new THREE.Mesh(
+
+  new THREE.BoxGeometry(220, 2, 180),
+
+  new THREE.MeshStandardMaterial({
+    color: 0x0b3d2e
+  })
+);
+
+scene.add(board);
+
+/* =====================================================
+   DATA
+===================================================== */
+
+const components = [];
+const nets = [];
+
+let selected = null;
+let placing = null;
+
+/* =====================================================
+   STATUS
+===================================================== */
+
+function setStatus(txt) {
+  document.getElementById("status").innerText = txt;
+}
+
+/* =====================================================
+   COMPONENT FACTORIES
+===================================================== */
+
+function createCapacitor() {
+
+  const group = new THREE.Group();
+
+  const body = new THREE.Mesh(
+
+    new THREE.BoxGeometry(8, 2, 4),
+
+    new THREE.MeshStandardMaterial({
+      color: 0xcccccc
+    })
+  );
+
+  body.position.y = 1;
+  group.add(body);
+
+  const pads = [];
+
+  const padGeo = new THREE.CircleGeometry(1, 16);
+
+  const padMat = new THREE.MeshStandardMaterial({
+    color: 0xffaa00
+  });
+
+  const p1 = new THREE.Mesh(padGeo, padMat);
+  p1.rotation.x = -Math.PI / 2;
+  p1.position.set(-5, 0.1, 0);
+
+  const p2 = new THREE.Mesh(padGeo, padMat);
+  p2.rotation.x = -Math.PI / 2;
+  p2.position.set(5, 0.1, 0);
+
+  group.add(p1);
+  group.add(p2);
+
+  pads.push(p1, p2);
+
+  return {
+    type: "cap",
+    group,
+    pads,
+    rotation: 0
+  };
+}
+
+function createResistor() {
+
+  const group = new THREE.Group();
+
+  const body = new THREE.Mesh(
+
+    new THREE.BoxGeometry(10, 2, 3),
+
+    new THREE.MeshStandardMaterial({
+      color: 0xaa8844
+    })
+  );
+
+  body.position.y = 1;
+  group.add(body);
+
+  return {
+    type: "res",
+    group,
+    pads: [],
+    rotation: 0
+  };
+}
+
+function createDIP8() {
+
+  const group = new THREE.Group();
+
+  const body = new THREE.Mesh(
+
+    new THREE.BoxGeometry(12, 3, 20),
+
+    new THREE.MeshStandardMaterial({
+      color: 0x222222
+    })
+  );
+
+  body.position.y = 1.5;
+
+  group.add(body);
+
+  return {
+    type: "dip",
+    group,
+    pads: [],
+    rotation: 0
+  };
+}
+
+/* =====================================================
+   COMPONENT LIBRARY CLICK
+===================================================== */
+
+document.querySelectorAll("#library .item")
+.forEach(el => {
+
+  el.addEventListener("click", () => {
+
+    const type = el.dataset.type;
+
+    if (type === "cap") {
+      placing = createCapacitor();
+    }
+
+    if (type === "res") {
+      placing = createResistor();
+    }
+
+    if (type === "dip") {
+      placing = createDIP8();
+    }
+
+    scene.add(placing.group);
+
+    document.getElementById("previewText")
+      .innerText = el.innerText;
+
+    setStatus("Placement Mode");
+  });
+});
+
+/* =====================================================
+   RAYCASTING
+===================================================== */
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+function getBoardPoint(e) {
+
+  mouse.x = (e.clientX / innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+
+  const hits = raycaster.intersectObject(board);
+
+  if (!hits.length) return null;
+
+  return hits[0].point;
+}
+
+/* =====================================================
+   DRAG PLACEMENT
+===================================================== */
+
+window.addEventListener("mousemove", e => {
+
+  if (!placing) return;
+
+  const p = getBoardPoint(e);
+
+  if (!p) return;
+
+  placing.group.position.set(
+
+    Math.round(p.x),
+    1,
+    Math.round(p.z)
+  );
+});
+
+/* =====================================================
+   CLICK PLACE + SELECTION
+===================================================== */
+
+window.addEventListener("mousedown", e => {
+
+  const p = getBoardPoint(e);
+
+  if (!p) return;
+
+  /* PLACE */
+
+  if (placing) {
+
+    components.push(placing);
+
+    // auto-net connect
+    if (components.length >= 2) {
+
+      const a = components[components.length - 2];
+      const b = components[components.length - 1];
+
+      nets.push({
+        a: a.group.position.clone(),
+        b: b.group.position.clone()
+      });
+
+      autoroute();
+    }
+
+    placing = null;
+
+    setStatus("Component Placed");
+
+    return;
+  }
+
+  /* SELECT */
+
+  for (const c of components) {
+
+    const hits = raycaster.intersectObject(
+      c.group,
+      true
+    );
+
+    if (hits.length) {
+
+      selected = c;
+
+      setStatus("Selected");
+
+      return;
+    }
+  }
+
+});
+
+/* =====================================================
+   KEYBOARD CONTROLS
+===================================================== */
+
+window.addEventListener("keydown", e => {
+
+  if (!selected) return;
+
+  /* ROTATE */
+
+  if (e.key.toLowerCase() === "r") {
+
+    selected.rotation += Math.PI / 2;
+
+    selected.group.rotation.y =
+      selected.rotation;
+
+    autoroute();
+  }
+
+  /* DELETE */
+
+  if (e.key === "Delete") {
+
+    scene.remove(selected.group);
+
+    const i = components.indexOf(selected);
+
+    if (i >= 0) {
+      components.splice(i, 1);
+    }
+
+    selected = null;
+
+    autoroute();
+  }
+
+  /* NUDGE */
+
+  if (e.key === "ArrowUp")
+    selected.group.position.z -= 1;
+
+  if (e.key === "ArrowDown")
+    selected.group.position.z += 1;
+
+  if (e.key === "ArrowLeft")
+    selected.group.position.x -= 1;
+
+  if (e.key === "ArrowRight")
+    selected.group.position.x += 1;
+
+  autoroute();
+});
+
+/* =====================================================
+   TRACE / VIA RENDERER
+===================================================== */
+
+const routeGroup = new THREE.Group();
+scene.add(routeGroup);
+
+function clearRoutes() {
+
+  while (routeGroup.children.length) {
+    routeGroup.remove(routeGroup.children[0]);
+  }
+}
+
+/* =====================================================
+   MULTI-LAYER AUTOROUTER
+===================================================== */
+
+function autoroute() {
+
+  clearRoutes();
+
+  for (const net of nets) {
+
+    const pts = [
+
+      new THREE.Vector3(
+        net.a.x,
+        0.2,
+        net.a.z
+      ),
+
+      new THREE.Vector3(
+        net.b.x,
+        0.2,
+        net.a.z
+      ),
+
+      new THREE.Vector3(
+        net.b.x,
+        0.2,
+        net.b.z
+      )
+    ];
+
+    const geo =
+      new THREE.BufferGeometry()
+      .setFromPoints(pts);
+
+    const trace = new THREE.Line(
+
+      geo,
+
+      new THREE.LineBasicMaterial({
+        color: 0x00ff88
+      })
+    );
+
+    routeGroup.add(trace);
+
+    /* VIA */
+
+    const via = new THREE.Mesh(
+
+      new THREE.CylinderGeometry(
+        0.7,
+        0.7,
+        2,
+        16
+      ),
+
+      new THREE.MeshStandardMaterial({
+        color: 0xff00ff
+      })
+    );
+
+    via.position.set(
+      net.b.x,
+      1,
+      net.a.z
+    );
+
+    routeGroup.add(via);
+  }
+
+  setStatus("Autorouted");
+}
+
+/* =====================================================
+   SCHEMATIC → PCB
+===================================================== */
+
+document
+.getElementById("genNetlist")
+.addEventListener("click", () => {
+
+  autoroute();
+
+  setStatus("Netlist Generated");
+});
+
+/* =====================================================
+   RIP-UP + RETRY (SIMPLIFIED)
+===================================================== */
+
+function ripupRetry() {
+
+  clearRoutes();
+
+  setTimeout(() => {
+
+    autoroute();
+
+  }, 200);
+}
+
+/* =====================================================
+   ANIMATION
+===================================================== */
+
+function animate() {
+
+  requestAnimationFrame(animate);
+
+  renderer.render(scene, camera);
+}
+
+animate();
+
+/* =====================================================
+   RESIZE
+===================================================== */
+
+window.addEventListener("resize", () => {
+
+  camera.aspect =
+    innerWidth / innerHeight;
+
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(
+    innerWidth,
+    innerHeight
+  );
+});
+
+</script>
+
+</body>
+</html>
