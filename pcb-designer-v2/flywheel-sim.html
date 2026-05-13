@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>ThreeJS CAD / Flywheel Demo</title>
+
+<style>
+html, body {
+    margin: 0;
+    overflow: hidden;
+    background: #111;
+    font-family: Arial;
+    color: white;
+}
+
+#app {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+}
+
+#leftPanel {
+    width: 260px;
+    background: #1a1a1a;
+    border-right: 1px solid #333;
+    overflow: auto;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+#rightPanel {
+    width: 320px;
+    background: #1a1a1a;
+    border-left: 1px solid #333;
+    overflow: auto;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+#viewport {
+    flex: 1;
+    position: relative;
+}
+
+#nodeGraph {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    width: 420px;
+    height: 220px;
+    background: rgba(20,20,20,0.92);
+    border: 1px solid #444;
+    overflow: hidden;
+}
+
+.node {
+    position: absolute;
+    width: 120px;
+    height: 50px;
+    background: #222;
+    border: 1px solid #666;
+    border-radius: 6px;
+    padding: 6px;
+    box-sizing: border-box;
+    cursor: move;
+    user-select: none;
+}
+
+button {
+    width: 100%;
+    margin-bottom: 6px;
+    padding: 8px;
+    background: #333;
+    border: 1px solid #666;
+    color: white;
+    cursor: pointer;
+}
+
+input {
+    width: 100%;
+    margin-bottom: 8px;
+    background: #222;
+    color: white;
+    border: 1px solid #555;
+    padding: 6px;
+    box-sizing: border-box;
+}
+
+.panelTitle {
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #8fd;
+}
+
+#info {
+    position: absolute;
+    top: 10px;
+    left: 280px;
+    background: rgba(0,0,0,0.6);
+    padding: 8px;
+    font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="app">
+
+    <div id="leftPanel">
+
+        <div class="panelTitle">Scene Tree</div>
+
+        <button id="addGearBtn">+ Add Gear</button>
+        <button id="addWheelBtn">+ Add Wheel</button>
+        <button id="toggleChainsBtn">Toggle Chains</button>
+        <button id="toggleSimBtn">Toggle Simulation</button>
+
+        <hr>
+
+        <div id="sceneTree"></div>
+
+    </div>
+
+    <div id="viewport">
+
+        <div id="info">
+            Drag nodes in graph<br>
+            Orbit mouse to inspect<br>
+            CAD Sandbox Prototype
+        </div>
+
+        <div id="nodeGraph">
+            <svg id="nodeLines"
+                width="100%"
+                height="100%"
+                style="position:absolute;left:0;top:0;">
+            </svg>
+        </div>
+
+    </div>
+
+    <div id="rightPanel">
+
+        <div class="panelTitle">Inspector</div>
+
+        <label>Gear Teeth</label>
+        <input id="gearTeeth" type="number" value="18">
+
+        <label>Gear Radius</label>
+        <input id="gearRadius" type="number" value="42">
+
+        <label>Wheel Radius</label>
+        <input id="wheelRadius" type="number" value="180">
+
+        <button id="rebuildBtn">Rebuild Selected</button>
+
+    </div>
+
+</div>
+
+<script type="module">
+
+import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+
+import { OrbitControls }
+from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+
+////////////////////////////////////////////////////////////
+// SCENE
+////////////////////////////////////////////////////////////
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111111);
+
+const camera = new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth/window.innerHeight,
+    0.1,
+    5000
+);
+
+camera.position.set(0, 180, 520);
+
+const renderer = new THREE.WebGLRenderer({
+    antialias: true
+});
+
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+
+document.getElementById("viewport").appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+
+////////////////////////////////////////////////////////////
+// LIGHTS
+////////////////////////////////////////////////////////////
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x222222, 1.5);
+scene.add(hemi);
+
+const dir = new THREE.DirectionalLight(0xffffff, 2);
+dir.position.set(300,400,300);
+scene.add(dir);
+
+////////////////////////////////////////////////////////////
+// GRID
+////////////////////////////////////////////////////////////
+
+const grid = new THREE.GridHelper(1000, 40, 0x444444, 0x222222);
+scene.add(grid);
+
+////////////////////////////////////////////////////////////
+// DATA MODEL
+////////////////////////////////////////////////////////////
+
+const assembly = {
+    parts: []
+};
+
+let selectedPart = null;
+
+////////////////////////////////////////////////////////////
+// MATERIALS
+////////////////////////////////////////////////////////////
+
+const steelMaterial = new THREE.MeshStandardMaterial({
+    color: 0x777777,
+    metalness: 0.95,
+    roughness: 0.35
+});
+
+const frameMaterial = new THREE.MeshStandardMaterial({
+    color: 0xff5533,
+    metalness: 0.2,
+    roughness: 0.8
+});
+
+////////////////////////////////////////////////////////////
+// GEAR GENERATOR
+////////////////////////////////////////////////////////////
+
+function createSprocketGear(params={}) {
+
+    const teeth = params.teeth || 18;
+    const outerRadius = params.outerRadius || 42;
+    const innerRadius = params.innerRadius || 18;
+    const toothHeight = params.toothHeight || 4;
+    const thickness = params.thickness || 8;
+
+    const shape = new THREE.Shape();
+
+    const step = (Math.PI * 2) / teeth;
+
+    for(let i=0;i<=teeth;i++) {
+
+        const a = i * step;
+
+        const r = i % 2 === 0
+            ? outerRadius
+            : outerRadius + toothHeight;
+
+        const x = Math.cos(a) * r;
+        const y = Math.sin(a) * r;
+
+        if(i===0) shape.moveTo(x,y);
+        else shape.lineTo(x,y);
+    }
+
+    const hole = new THREE.Path();
+
+    hole.absellipse(
+        0,
+        0,
+        innerRadius,
+        innerRadius,
+        0,
+        Math.PI * 2
+    );
+
+    shape.holes.push(hole);
+
+    const geo = new THREE.ExtrudeGeometry(shape,{
+        depth: thickness,
+        bevelEnabled:false
+    });
+
+    geo.center();
+
+    const mesh = new THREE.Mesh(geo, steelMaterial);
+
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    return mesh;
+}
+
+////////////////////////////////////////////////////////////
+// WHEEL GENERATOR
+////////////////////////////////////////////////////////////
+
+function createWheel(params={}) {
+
+    const group = new THREE.Group();
+
+    const rimRadius = params.rimRadius || 180;
+    const spokeCount = params.spokeCount || 32;
+
+    const rimGeo = new THREE.TorusGeometry(
+        rimRadius,
+        6,
+        12,
+        64
+    );
+
+    const rim = new THREE.Mesh(rimGeo, steelMaterial);
+
+    rim.rotation.x = Math.PI/2;
+
+    group.add(rim);
+
+    const hubGeo = new THREE.CylinderGeometry(16,16,40,32);
+
+    const hub = new THREE.Mesh(hubGeo, steelMaterial);
+
+    hub.rotation.z = Math.PI/2;
+
+    group.add(hub);
+
+    for(let i=0;i<spokeCount;i++) {
+
+        const a = (i/spokeCount)*Math.PI*2;
+
+        const x = Math.cos(a)*rimRadius;
+        const y = Math.sin(a)*rimRadius;
+
+        const spokeGeo = new THREE.CylinderGeometry(1,1,rimRadius,6);
+
+        const spoke = new THREE.Mesh(spokeGeo, steelMaterial);
+
+        spoke.position.set(x/2,y/2,0);
+
+        spoke.lookAt(x,y,0);
+
+        spoke.rotateX(Math.PI/2);
+
+        group.add(spoke);
+    }
+
+    return group;
+}
+
+////////////////////////////////////////////////////////////
+// FRAME GENERATOR
+////////////////////////////////////////////////////////////
+
+function tubeBetween(a,b,r=5) {
+
+    const dir = new THREE.Vector3().subVectors(b,a);
+    const len = dir.length();
+
+    const geo = new THREE.CylinderGeometry(r,r,len,12);
+
+    const mesh = new THREE.Mesh(geo, frameMaterial);
+
+    mesh.position.copy(a).add(b).multiplyScalar(0.5);
+
+    mesh.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0,1,0),
+        dir.normalize()
+    );
+
+    return mesh;
+}
+
+function createBikeFrame() {
+
+    const g = new THREE.Group();
+
+    const pts = {
+
+        bb: new THREE.Vector3(0,120,0),
+        seat: new THREE.Vector3(-40,240,0),
+        rear: new THREE.Vector3(0,320,0),
+
+        headTop: new THREE.Vector3(130,230,0),
+        headBottom: new THREE.Vector3(150,160,0)
+    };
+
+    const links = [
+        ["bb","seat"],
+        ["seat","headTop"],
+        ["headBottom","bb"],
+        ["seat","rear"]
+    ];
+
+    links.forEach(pair=>{
+
+        g.add(
+            tubeBetween(
+                pts[pair[0]],
+                pts[pair[1]],
+                6
+            )
+        );
+
+    });
+
+    return g;
+}
+
+////////////////////////////////////////////////////////////
+// CHAIN GENERATOR
+////////////////////////////////////////////////////////////
+
+function createChain(radiusA, radiusB, distance) {
+
+    const group = new THREE.Group();
+
+    const links = 120;
+
+    for(let i=0;i<links;i++) {
+
+        const t = i/links;
+
+        const angle = t * Math.PI * 2;
+
+        const x = Math.cos(angle) * radiusA;
+        const y = Math.sin(angle) * radiusB;
+
+        const geo = new THREE.BoxGeometry(5,2,8);
+
+        const mesh = new THREE.Mesh(geo, steelMaterial);
+
+        mesh.position.set(x,y,0);
+
+        mesh.rotation.z = angle;
+
+        group.add(mesh);
+    }
+
+    return group;
+}
+
+////////////////////////////////////////////////////////////
+// DEFAULT ASSEMBLY
+////////////////////////////////////////////////////////////
+
+const rearWheel = createWheel();
+rearWheel.position.set(0,320,0);
+
+scene.add(rearWheel);
+
+const gear = createSprocketGear();
+gear.position.set(0,320,0);
+
+scene.add(gear);
+
+const frame = createBikeFrame();
+scene.add(frame);
+
+const chain = createChain(60,120,200);
+chain.position.set(-20,250,0);
+
+scene.add(chain);
+
+assembly.parts.push({
+    id:"rearWheel",
+    mesh:rearWheel,
+    type:"wheel"
+});
+
+assembly.parts.push({
+    id:"gear",
+    mesh:gear,
+    type:"gear"
+});
+
+assembly.parts.push({
+    id:"frame",
+    mesh:frame,
+    type:"frame"
+});
+
+////////////////////////////////////////////////////////////
+// NODE GRAPH
+////////////////////////////////////////////////////////////
+
+const nodeGraph = document.getElementById("nodeGraph");
+
+const nodes = [
+    {
+        id:"wheel",
+        x:30,
+        y:40
+    },
+
+    {
+        id:"gear",
+        x:180,
+        y:40
+    },
+
+    {
+        id:"chain",
+        x:320,
+        y:120
+    }
+];
+
+function createNode(n) {
+
+    const el = document.createElement("div");
+
+    el.className = "node";
+
+    el.style.left = n.x+"px";
+    el.style.top = n.y+"px";
+
+    el.innerHTML = `
+        <b>${n.id}</b><br>
+        mechanical node
+    `;
+
+    nodeGraph.appendChild(el);
+
+    let dragging = false;
+
+    el.addEventListener("mousedown",()=>dragging=true);
+
+    window.addEventListener("mouseup",()=>dragging=false);
+
+    window.addEventListener("mousemove",(e)=>{
+
+        if(!dragging) return;
+
+        const rect = nodeGraph.getBoundingClientRect();
+
+        n.x = e.clientX - rect.left - 60;
+        n.y = e.clientY - rect.top - 20;
+
+        el.style.left = n.x+"px";
+        el.style.top = n.y+"px";
+
+        drawLines();
+    });
+
+    return el;
+}
+
+nodes.forEach(createNode);
+
+function drawLines() {
+
+    const svg = document.getElementById("nodeLines");
+
+    svg.innerHTML = "";
+
+    for(let i=0;i<nodes.length-1;i++) {
+
+        const a = nodes[i];
+        const b = nodes[i+1];
+
+        const line = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "line"
+        );
+
+        line.setAttribute("x1", a.x+60);
+        line.setAttribute("y1", a.y+25);
+
+        line.setAttribute("x2", b.x+60);
+        line.setAttribute("y2", b.y+25);
+
+        line.setAttribute("stroke","#88ffcc");
+        line.setAttribute("stroke-width","2");
+
+        svg.appendChild(line);
+    }
+}
+
+drawLines();
+
+////////////////////////////////////////////////////////////
+// UI
+////////////////////////////////////////////////////////////
+
+document.getElementById("addGearBtn")
+.onclick = ()=>{
+
+    const g = createSprocketGear({
+        teeth: 24,
+        outerRadius: 50
+    });
+
+    g.position.set(
+        Math.random()*100-50,
+        320,
+        Math.random()*100-50
+    );
+
+    scene.add(g);
+
+    assembly.parts.push({
+        id:"gear_"+Date.now(),
+        mesh:g,
+        type:"gear"
+    });
+
+    rebuildSceneTree();
+};
+
+document.getElementById("addWheelBtn")
+.onclick = ()=>{
+
+    const w = createWheel();
+
+    w.position.set(
+        Math.random()*200-100,
+        320,
+        Math.random()*100-50
+    );
+
+    scene.add(w);
+
+    assembly.parts.push({
+        id:"wheel_"+Date.now(),
+        mesh:w,
+        type:"wheel"
+    });
+
+    rebuildSceneTree();
+};
+
+document.getElementById("toggleChainsBtn")
+.onclick = ()=>{
+
+    chain.visible = !chain.visible;
+};
+
+let simulationEnabled = true;
+
+document.getElementById("toggleSimBtn")
+.onclick = ()=>{
+
+    simulationEnabled = !simulationEnabled;
+};
+
+document.getElementById("rebuildBtn")
+.onclick = ()=>{
+
+    if(!selectedPart) return;
+
+    if(selectedPart.type === "gear") {
+
+        scene.remove(selectedPart.mesh);
+
+        const newGear = createSprocketGear({
+            teeth: parseInt(
+                document.getElementById("gearTeeth").value
+            ),
+
+            outerRadius: parseFloat(
+                document.getElementById("gearRadius").value
+            )
+        });
+
+        newGear.position.copy(selectedPart.mesh.position);
+
+        selectedPart.mesh = newGear;
+
+        scene.add(newGear);
+    }
+};
+
+////////////////////////////////////////////////////////////
+// SCENE TREE
+////////////////////////////////////////////////////////////
+
+function rebuildSceneTree() {
+
+    const tree = document.getElementById("sceneTree");
+
+    tree.innerHTML = "";
+
+    assembly.parts.forEach(p=>{
+
+        const div = document.createElement("div");
+
+        div.style.padding = "6px";
+        div.style.borderBottom = "1px solid #333";
+        div.style.cursor = "pointer";
+
+        div.innerHTML = `
+            ${p.id}<br>
+            <small>${p.type}</small>
+        `;
+
+        div.onclick = ()=>{
+
+            selectedPart = p;
+        };
+
+        tree.appendChild(div);
+    });
+}
+
+rebuildSceneTree();
+
+////////////////////////////////////////////////////////////
+// SIMPLE MECHANICAL SIMULATION
+////////////////////////////////////////////////////////////
+
+let angle = 0;
+
+function animate() {
+
+    requestAnimationFrame(animate);
+
+    if(simulationEnabled) {
+
+        angle += 0.02;
+
+        rearWheel.rotation.z -= 0.02;
+
+        gear.rotation.z -= 0.04;
+
+        chain.children.forEach((c,i)=>{
+
+            c.position.x += Math.sin(angle+i)*0.02;
+        });
+    }
+
+    renderer.render(scene,camera);
+}
+
+animate();
+
+////////////////////////////////////////////////////////////
+// RESIZE
+////////////////////////////////////////////////////////////
+
+window.addEventListener("resize",()=>{
+
+    camera.aspect =
+        window.innerWidth/window.innerHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+});
+
+</script>
+
+</body>
+</html>
