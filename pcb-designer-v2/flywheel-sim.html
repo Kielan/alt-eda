@@ -162,15 +162,10 @@ input {
 
 <script type="module">
 
-import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+import * as THREE from "https://esm.sh/three@0.160.0?bundle";
+import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
 
-import { OrbitControls }
-from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
-
-////////////////////////////////////////////////////////////
 // SCENE
-////////////////////////////////////////////////////////////
-
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
