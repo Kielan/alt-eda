@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+<title>Hub Motor PCB ASIC Designer</title>
+
+<style>
+
+html, body{
+    margin:0;
+    overflow:hidden;
+    background:#0e0e0e;
+    font-family:Segoe UI,sans-serif;
+    color:#ddd;
+}
+
+canvas{
+    display:block;
+}
+
+/* ===============================
+   ALTIUM STYLE PANELS
+================================ */
+
+.panel{
+    position:absolute;
+    background:#2b2b2b;
+    border:1px solid #444;
+    color:#ddd;
+    resize:both;
+    overflow:auto;
+    z-index:20;
+}
+
+.header{
+    background:#252525;
+    padding:6px;
+    cursor:move;
+    border-bottom:1px solid #444;
+    font-weight:bold;
+}
+
+.tabs{
+    display:flex;
+    background:#1f1f1f;
+    border-bottom:1px solid #444;
+}
+
+.tab{
+    padding:6px 10px;
+    border-right:1px solid #444;
+    cursor:pointer;
+}
+
+.tab.active{
+    background:#3c3c3c;
+}
+
+.content{
+    padding:6px;
+}
+
+.item{
+    padding:5px;
+    cursor:pointer;
+    border-bottom:1px solid #333;
+}
+
+.item:hover{
+    background:#3c3c3c;
+}
+
+button{
+    background:#444;
+    border:none;
+    color:white;
+    padding:6px 10px;
+    margin:4px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#666;
+}
+
+#status{
+    position:absolute;
+    bottom:10px;
+    left:10px;
+    background:rgba(0,0,0,0.85);
+    color:#00ff88;
+    padding:6px;
+    z-index:100;
+}
+
+pre{
+    font-size:11px;
+    white-space:pre-wrap;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- =========================================
+     COMPONENT LIBRARY
+========================================= -->
+
+<div class="panel"
+style="
+left:10px;
+top:10px;
+width:320px;
+height:560px;
+">
+
+<div class="header">
+Hub Motor Component Library
+</div>
+
+<div class="tabs">
+<div class="tab active">Components</div>
+<div class="tab">Nets</div>
+<div class="tab">3D</div>
+</div>
+
+<div class="content" id="library">
+
+<div class="item" data-type="electrolytic">
+Electrolytic Capacitor 470uF
+</div>
+
+<div class="item" data-type="ceramic">
+Ceramic Capacitor 100nF 0603
+</div>
+
+<div class="item" data-type="molex">
+Molex Female Connector
+</div>
+
+<div class="item" data-type="usbc">
+USB-C Power Port
+</div>
+
+<div class="item" data-type="mosfet">
+MOSFET Driver
+</div>
+
+<div class="item" data-type="asic">
+ASIC Control IC
+</div>
+
+<div class="item" data-type="column">
+Column Spacer
+</div>
+
+<div class="item" data-type="cylinder">
+Cylinder Housing
+</div>
+
+</div>
+
+</div>
+
+<!-- =========================================
+     NETLIST PANEL
+========================================= -->
+
+<div class="panel"
+style="
+left:340px;
+top:10px;
+width:320px;
+height:300px;
+">
+
+<div class="header">
+PCB Routing Netlist
+</div>
+
+<div class="tabs">
+<div class="tab active">Netlist</div>
+<div class="tab">DRC</div>
+</div>
+
+<div class="content">
+
+<button id="autorouteBtn">
+Autoroute
+</button>
+
+<pre id="netlistView"></pre>
+
+</div>
+
+</div>
+
+<!-- =========================================
+     JSON PANEL
+========================================= -->
+
+<div class="panel"
+style="
+left:670px;
+top:10px;
+width:420px;
+height:360px;
+">
+
+<div class="header">
+JSON JS Object BOM
+</div>
+
+<div class="tabs">
+<div class="tab active">JSON</div>
+</div>
+
+<div class="content">
+
+<pre id="jsonView"></pre>
+
+</div>
+
+</div>
+
+<div id="status">
+Ready
+</div>
+
+<script type="module">
+
+import * as THREE from
+'https://cdn.jsdelivr.net/npm/three@0.161/build/three.module.js';
+
+/* =========================================
+   SCENE
+========================================= */
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111111);
+
+const camera = new THREE.PerspectiveCamera(
+    60,
+    innerWidth / innerHeight,
+    0.1,
+    5000
+);
+
+camera.position.set(0,120,180);
+
+const renderer = new THREE.WebGLRenderer({
+    antialias:true
+});
+
+renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
+
+/* =========================================
+   LIGHTS
+========================================= */
+
+const hemi = new THREE.HemisphereLight(
+    0xffffff,
+    0x333333,
+    1.5
+);
+
+scene.add(hemi);
+
+const dir = new THREE.DirectionalLight(
+    0xffffff,
+    1
+);
+
+dir.position.set(50,100,50);
+scene.add(dir);
+
+/* =========================================
+   GRID
+========================================= */
+
+const grid = new THREE.GridHelper(
+    400,
+    80,
+    0x444444,
+    0x222222
+);
+
+scene.add(grid);
+
+/* =========================================
+   PARTIAL CYLINDER PCB
+========================================= */
+
+const pcbShape = new THREE.Shape();
+
+pcbShape.absarc(
+    0,
+    0,
+    55,
+    0,
+    Math.PI * 1.45,
+    false
+);
+
+pcbShape.lineTo(0,0);
+
+const extrude = new THREE.ExtrudeGeometry(
+    pcbShape,
+    {
+        depth:2,
+        bevelEnabled:false
+    }
+);
+
+const pcb = new THREE.Mesh(
+
+    extrude,
+
+    new THREE.MeshStandardMaterial({
+        color:0x0b3d2e
+    })
+);
+
+pcb.rotation.x = -Math.PI/2;
+
+scene.add(pcb);
+
+/* =========================================
+   ROUTE GROUP
+========================================= */
+
+const routeGroup = new THREE.Group();
+scene.add(routeGroup);
+
+/* =========================================
+   COMPONENT GROUP
+========================================= */
+
+const componentGroup = new THREE.Group();
+scene.add(componentGroup);
+
+/* =========================================
+   COMPONENT LIBRARY JSON
+========================================= */
+
+const componentLibrary = [
+
+{
+    id:"C1",
+    type:"electrolytic_capacitor",
+    value:"470uF",
+    package:"Radial Cylinder",
+    shape:"cylinder",
+    net:"VBAT"
+},
+
+{
+    id:"C2",
+    type:"ceramic_capacitor",
+    value:"100nF",
+    package:"0603",
+    shape:"rectangular",
+    net:"VCC"
+},
+
+{
+    id:"J1",
+    type:"molex_female_connector",
+    pins:6,
+    net:"MOTOR_PHASE"
+},
+
+{
+    id:"J2",
+    type:"usb_c_connector",
+    pins:24,
+    net:"USB_PWR"
+},
+
+{
+    id:"U1",
+    type:"asic_controller",
+    package:"QFN",
+    net:"CTRL_BUS"
+},
+
+{
+    id:"Q1",
+    type:"mosfet_driver",
+    package:"TO-252",
+    net:"PHASE_A"
+},
+
+{
+    id:"SP1",
+    type:"column_spacer",
+    material:"aluminum"
+},
+
+{
+    id:"CY1",
+    type:"cylinder_housing",
+    radius:50
+}
+
+];
+
+document.getElementById("jsonView")
+.innerText =
+JSON.stringify(
+    componentLibrary,
+    null,
+    2
+);
+
+/* =========================================
+   NETLIST
+========================================= */
+
+const netlist = [
+
+{
+    from:"USB-C",
+    to:"ASIC",
+    net:"USB_PWR"
+},
+
+{
+    from:"ASIC",
+    to:"MOSFET_DRIVER",
+    net:"PWM_A"
+},
+
+{
+    from:"ASIC",
+    to:"CAP_470uF",
+    net:"VBAT"
+},
+
+{
+    from:"MOSFET_DRIVER",
+    to:"MOLEX_CONNECTOR",
+    net:"PHASE_A"
+},
+
+{
+    from:"MOSFET_DRIVER",
+    to:"MOLEX_CONNECTOR",
+    net:"PHASE_B"
+},
+
+{
+    from:"MOSFET_DRIVER",
+    to:"MOLEX_CONNECTOR",
+    net:"PHASE_C"
+}
+
+];
+
+document.getElementById("netlistView")
+.innerText =
+JSON.stringify(
+    netlist,
+    null,
+    2
+);
+
+/* =========================================
+   COMPONENT CREATION
+========================================= */
+
+function createCylinderCap(x,z){
+
+    const g = new THREE.Group();
+
+    const body = new THREE.Mesh(
+
+        new THREE.CylinderGeometry(
+            4,
+            4,
+            10,
+            32
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color:0x666666
+        })
+    );
+
+    body.position.y = 5;
+
+    g.add(body);
+
+    g.position.set(x,1,z);
+
+    componentGroup.add(g);
+
+    return g;
+}
+
+function createCeramicCap(x,z){
+
+    const mesh = new THREE.Mesh(
+
+        new THREE.BoxGeometry(
+            6,
+            2,
+            3
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color:0xd8c7a0
+        })
+    );
+
+    mesh.position.set(x,1,z);
+
+    componentGroup.add(mesh);
+
+    return mesh;
+}
+
+function createMolex(x,z){
+
+    const g = new THREE.Group();
+
+    const body = new THREE.Mesh(
+
+        new THREE.BoxGeometry(
+            16,
+            6,
+            10
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color:0xf2f2f2
+        })
+    );
+
+    body.position.y = 3;
+
+    g.add(body);
+
+    for(let i=0;i<6;i++){
+
+        const pin = new THREE.Mesh(
+
+            new THREE.BoxGeometry(
+                1,
+                2,
+                1
+            ),
+
+            new THREE.MeshStandardMaterial({
+                color:0xffcc00
+            })
+        );
+
+        pin.position.set(
+            -5 + i*2,
+            0.5,
+            4
+        );
+
+        g.add(pin);
+    }
+
+    g.position.set(x,0,z);
+
+    componentGroup.add(g);
+
+    return g;
+}
+
+function createUSBC(x,z){
+
+    const body = new THREE.Mesh(
+
+        new THREE.BoxGeometry(
+            12,
+            4,
+            8
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color:0x888888
+        })
+    );
+
+    body.position.set(x,2,z);
+
+    componentGroup.add(body);
+
+    return body;
+}
+
+function createASIC(x,z){
+
+    const body = new THREE.Mesh(
+
+        new THREE.BoxGeometry(
+            18,
+            2,
+            18
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color:0x111111
+        })
+    );
+
+    body.position.set(x,1,z);
+
+    componentGroup.add(body);
+
+    return body;
+}
+
+function createSpacer(x,z){
+
+    const mesh = new THREE.Mesh(
+
+        new THREE.CylinderGeometry(
+            1.5,
+            1.5,
+            8,
+            16
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color:0xaaaaaa
+        })
+    );
+
+    mesh.position.set(x,4,z);
+
+    componentGroup.add(mesh);
+
+    return mesh;
+}
+
+/* =========================================
+   PLACE COMPONENTS
+========================================= */
+
+createCylinderCap(-20,-10);
+createCylinderCap(-8,-10);
+
+createCeramicCap(15,0);
+createCeramicCap(24,0);
+
+createMolex(30,-25);
+
+createUSBC(-35,20);
+
+createASIC(0,0);
+
+createSpacer(-45,-45);
+createSpacer(45,-45);
+createSpacer(-45,45);
+createSpacer(45,45);
+
+/* =========================================
+   ROUTING ENGINE
+========================================= */
+
+function autoroute(){
+
+    while(routeGroup.children.length){
+
+        routeGroup.remove(
+            routeGroup.children[0]
+        );
+    }
+
+    const routes = [
+
+        [
+            [-35,20],
+            [0,20],
+            [0,0]
+        ],
+
+        [
+            [0,0],
+            [30,0],
+            [30,-25]
+        ],
+
+        [
+            [-20,-10],
+            [0,-10],
+            [0,0]
+        ],
+
+        [
+            [-8,-10],
+            [0,-10],
+            [0,0]
+        ]
+
+    ];
+
+    routes.forEach(r=>{
+
+        const pts = [];
+
+        r.forEach(p=>{
+
+            pts.push(
+                new THREE.Vector3(
+                    p[0],
+                    0.5,
+                    p[1]
+                )
+            );
+        });
+
+        const geo =
+        new THREE.BufferGeometry()
+        .setFromPoints(pts);
+
+        const line =
+        new THREE.Line(
+
+            geo,
+
+            new THREE.LineBasicMaterial({
+                color:0x00ff88
+            })
+        );
+
+        routeGroup.add(line);
+
+        const via = new THREE.Mesh(
+
+            new THREE.CylinderGeometry(
+                0.8,
+                0.8,
+                2,
+                16
+            ),
+
+            new THREE.MeshStandardMaterial({
+                color:0xff00ff
+            })
+        );
+
+        via.rotation.x =
+            Math.PI/2;
+
+        via.position.copy(
+            pts[1]
+        );
+
+        routeGroup.add(via);
+
+    });
+
+    setStatus("Autoroute Complete");
+}
+
+document.getElementById("autorouteBtn")
+.addEventListener(
+    "click",
+    autoroute
+);
+
+/* =========================================
+   STATUS
+========================================= */
+
+function setStatus(t){
+
+    document.getElementById("status")
+    .innerText = t;
+}
+
+/* =========================================
+   PANEL DRAGGING
+========================================= */
+
+document.querySelectorAll(".panel")
+.forEach(panel=>{
+
+    const header =
+    panel.querySelector(".header");
+
+    let dragging = false;
+
+    let ox = 0;
+    let oy = 0;
+
+    header.addEventListener(
+        "mousedown",
+        e=>{
+
+        dragging = true;
+
+        ox =
+        e.clientX -
+        panel.offsetLeft;
+
+        oy =
+        e.clientY -
+        panel.offsetTop;
+    });
+
+    window.addEventListener(
+        "mousemove",
+        e=>{
+
+        if(!dragging) return;
+
+        panel.style.left =
+        (e.clientX - ox) + "px";
+
+        panel.style.top =
+        (e.clientY - oy) + "px";
+    });
+
+    window.addEventListener(
+        "mouseup",
+        ()=>{
+            dragging = false;
+        }
+    );
+
+});
+
+/* =========================================
+   ANIMATION
+========================================= */
+
+function animate(){
+
+    requestAnimationFrame(animate);
+
+    componentGroup.rotation.y += 0.002;
+
+    renderer.render(scene,camera);
+}
+
+animate();
+
+/* =========================================
+   RESIZE
+========================================= */
+
+window.addEventListener(
+    "resize",
+    ()=>{
+
+    camera.aspect =
+    innerWidth/innerHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        innerWidth,
+        innerHeight
+    );
+});
+
+</script>
+
+</body>
+</html>
