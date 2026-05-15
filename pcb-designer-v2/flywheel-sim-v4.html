@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Advanced ThreeJS Bicycle Flywheel Simulator</title>
+
+<style>
+html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#0b0b0b;
+    color:white;
+    font-family:Arial,sans-serif;
+}
+
+#app{
+    width:100vw;
+    height:100vh;
+    display:flex;
+}
+
+#leftPanel{
+    width:260px;
+    min-width:260px;
+    background:#151515;
+    border-right:1px solid #333;
+    padding:10px;
+    box-sizing:border-box;
+    overflow-y:auto;
+}
+
+#rightPanel{
+    width:320px;
+    min-width:320px;
+    background:#151515;
+    border-left:1px solid #333;
+    padding:10px;
+    box-sizing:border-box;
+    overflow-y:auto;
+}
+
+#viewport{
+    flex:1;
+    position:relative;
+    overflow:hidden;
+}
+
+button{
+    width:100%;
+    margin-bottom:8px;
+    padding:10px;
+    background:#2a2a2a;
+    border:1px solid #555;
+    color:white;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#3a3a3a;
+}
+
+.panelTitle{
+    color:#8ff;
+    font-weight:bold;
+    margin-bottom:12px;
+    font-size:18px;
+}
+
+#info{
+    position:absolute;
+    top:10px;
+    left:10px;
+    background:rgba(0,0,0,0.7);
+    padding:10px;
+    z-index:5;
+    font-size:13px;
+}
+
+#nodeGraph{
+    position:absolute;
+    left:10px;
+    bottom:10px;
+    width:420px;
+    height:220px;
+    background:rgba(20,20,20,0.95);
+    border:1px solid #444;
+}
+
+.node{
+    position:absolute;
+    width:120px;
+    height:50px;
+    background:#222;
+    border:1px solid #666;
+    border-radius:6px;
+    padding:6px;
+    box-sizing:border-box;
+    user-select:none;
+    cursor:move;
+}
+</style>
+</head>
+
+<body>
+
+<div id="app">
+
+    <div id="leftPanel">
+
+        <div class="panelTitle">
+            Mechanical Systems
+        </div>
+
+        <button id="toggleSimBtn">
+            Toggle Simulation
+        </button>
+
+        <button id="toggleChainsBtn">
+            Toggle Chain
+        </button>
+
+        <hr>
+
+        <div id="sceneTree"></div>
+
+    </div>
+
+    <div id="viewport">
+
+        <div id="info">
+            Orbit Mouse = Inspect<br>
+            Scroll = Zoom<br>
+            Advanced Bicycle Flywheel CAD Demo
+        </div>
+
+        <div id="nodeGraph">
+
+            <svg id="nodeLines"
+                width="100%"
+                height="100%"
+                style="position:absolute;left:0;top:0;">
+            </svg>
+
+        </div>
+
+    </div>
+
+    <div id="rightPanel">
+
+        <div class="panelTitle">
+            Mechanical Inspector
+        </div>
+
+        <div>
+            Gear Ratio: 2.66 : 1
+        </div>
+
+        <br>
+
+        <div>
+            Chain Tension:
+            Dynamic
+        </div>
+
+        <br>
+
+        <div>
+            Physics:
+            Enabled
+        </div>
+
+        <br>
+
+        <div>
+            Spoke Pattern:
+            3-Cross Lacing
+        </div>
+
+    </div>
+
+</div>
+
+<script type="module">
+
+import * as THREE from "https://esm.sh/three@0.160.0?bundle";
+import { OrbitControls }
+from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+
+///////////////////////////////////////////////////////////
+// SCENE
+///////////////////////////////////////////////////////////
+
+const viewport =
+    document.getElementById("viewport");
+
+const scene = new THREE.Scene();
+
+scene.background =
+    new THREE.Color(0x080808);
+
+const camera =
+    new THREE.PerspectiveCamera(
+        60,
+        viewport.clientWidth /
+        viewport.clientHeight,
+        0.1,
+        5000
+    );
+
+camera.position.set(420,260,760);
+
+const renderer =
+    new THREE.WebGLRenderer({
+        antialias:true
+    });
+
+renderer.setPixelRatio(
+    window.devicePixelRatio
+);
+
+renderer.setSize(
+    viewport.clientWidth,
+    viewport.clientHeight
+);
+
+viewport.appendChild(
+    renderer.domElement
+);
+
+const controls =
+    new OrbitControls(
+        camera,
+        renderer.domElement
+    );
+
+controls.enableDamping = true;
+
+///////////////////////////////////////////////////////////
+// LIGHTING
+///////////////////////////////////////////////////////////
+
+const hemi =
+    new THREE.HemisphereLight(
+        0xffffff,
+        0x222222,
+        2
+    );
+
+scene.add(hemi);
+
+const dir =
+    new THREE.DirectionalLight(
+        0xffffff,
+        2
+    );
+
+dir.position.set(300,500,400);
+
+scene.add(dir);
+
+///////////////////////////////////////////////////////////
+// GRID
+///////////////////////////////////////////////////////////
+
+const grid =
+    new THREE.GridHelper(
+        1600,
+        80,
+        0x444444,
+        0x222222
+    );
+
+scene.add(grid);
+
+///////////////////////////////////////////////////////////
+// MATERIALS
+///////////////////////////////////////////////////////////
+
+const steel =
+    new THREE.MeshStandardMaterial({
+        color:0x888888,
+        metalness:1,
+        roughness:0.28
+    });
+
+const blackSteel =
+    new THREE.MeshStandardMaterial({
+        color:0x111111,
+        metalness:0.9,
+        roughness:0.45
+    });
+
+const frameMat =
+    new THREE.MeshStandardMaterial({
+        color:0xff5b2d,
+        metalness:0.2,
+        roughness:0.7
+    });
+
+const tireMat =
+    new THREE.MeshStandardMaterial({
+        color:0x050505,
+        roughness:1
+    });
+
+const clearMat =
+    new THREE.MeshPhysicalMaterial({
+        color:0xffffff,
+        transparent:true,
+        opacity:0.15,
+        transmission:1,
+        roughness:0
+    });
+
+///////////////////////////////////////////////////////////
+// HELPERS
+///////////////////////////////////////////////////////////
+
+function tubeBetween(a,b,r=6){
+
+    const dir =
+        new THREE.Vector3()
+        .subVectors(b,a);
+
+    const len = dir.length();
+
+    const geo =
+        new THREE.CylinderGeometry(
+            r,r,len,14
+        );
+
+    const mesh =
+        new THREE.Mesh(
+            geo,
+            frameMat
+        );
+
+    mesh.position.copy(a)
+        .add(b)
+        .multiplyScalar(0.5);
+
+    mesh.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0,1,0),
+        dir.normalize()
+    );
+
+    return mesh;
+}
+
+///////////////////////////////////////////////////////////
+// GEAR
+///////////////////////////////////////////////////////////
+
+function createGear(
+    teeth=24,
+    radius=42,
+    thickness=8
+){
+
+    const shape = new THREE.Shape();
+
+    const step =
+        (Math.PI*2)/teeth;
+
+    for(let i=0;i<=teeth;i++){
+
+        const a = i*step;
+
+        const r =
+            i%2===0
+            ? radius
+            : radius+4;
+
+        const x =
+            Math.cos(a)*r;
+
+        const y =
+            Math.sin(a)*r;
+
+        if(i===0)
+            shape.moveTo(x,y);
+        else
+            shape.lineTo(x,y);
+    }
+
+    const hole =
+        new THREE.Path();
+
+    hole.absellipse(
+        0,0,
+        radius*0.35,
+        radius*0.35,
+        0,
+        Math.PI*2
+    );
+
+    shape.holes.push(hole);
+
+    const geo =
+        new THREE.ExtrudeGeometry(
+            shape,
+            {
+                depth:thickness,
+                bevelEnabled:false
+            }
+        );
+
+    geo.center();
+
+    return new THREE.Mesh(
+        geo,
+        steel
+    );
+}
+
+///////////////////////////////////////////////////////////
+// REALISTIC WHEEL
+///////////////////////////////////////////////////////////
+
+function createWheel(radius=180){
+
+    const group =
+        new THREE.Group();
+
+    ///////////////////////////////////////////////////////
+    // TIRE
+    ///////////////////////////////////////////////////////
+
+    const tireGeo =
+        new THREE.TorusGeometry(
+            radius,
+            14,
+            24,
+            128
+        );
+
+    const tire =
+        new THREE.Mesh(
+            tireGeo,
+            tireMat
+        );
+
+    group.add(tire);
+
+    ///////////////////////////////////////////////////////
+    // INNER RIM
+    ///////////////////////////////////////////////////////
+
+    const rimGeo =
+        new THREE.TorusGeometry(
+            radius-12,
+            5,
+            18,
+            128
+        );
+
+    const rim =
+        new THREE.Mesh(
+            rimGeo,
+            steel
+        );
+
+    group.add(rim);
+
+    ///////////////////////////////////////////////////////
+    // HUB
+    ///////////////////////////////////////////////////////
+
+    const hubGeo =
+        new THREE.CylinderGeometry(
+            16,
+            16,
+            80,
+            32
+        );
+
+    const hub =
+        new THREE.Mesh(
+            hubGeo,
+            steel
+        );
+
+    hub.rotation.z =
+        Math.PI/2;
+
+    group.add(hub);
+
+    ///////////////////////////////////////////////////////
+    // AXLE OFFSETS
+    ///////////////////////////////////////////////////////
+
+    const axleGeo =
+        new THREE.CylinderGeometry(
+            4,
+            4,
+            120,
+            16
+        );
+
+    const axle =
+        new THREE.Mesh(
+            axleGeo,
+            blackSteel
+        );
+
+    axle.rotation.z =
+        Math.PI/2;
+
+    group.add(axle);
+
+    ///////////////////////////////////////////////////////
+    // REAL 3-CROSS SPOKE LACING
+    ///////////////////////////////////////////////////////
+
+    const spokeCount = 32;
+
+    const spokeRadius =
+        radius - 18;
+
+    for(let i=0;i<spokeCount;i++){
+
+        const a =
+            (i/spokeCount)
+            *Math.PI*2;
+
+        //
+        // spoke crossing offset
+        //
+
+        const offset =
+            (Math.PI*2/spokeCount)
+            *3;
+
+        const rimAngle =
+            i%2===0
+            ? a+offset
+            : a-offset;
+
+        const rimX =
+            Math.cos(rimAngle)
+            *spokeRadius;
+
+        const rimY =
+            Math.sin(rimAngle)
+            *spokeRadius;
+
+        const hubX = 0;
+        const hubY = 0;
+
+        const spokeVec =
+            new THREE.Vector3(
+                rimX-hubX,
+                rimY-hubY,
+                i%2===0 ? 12 : -12
+            );
+
+        const len =
+            spokeVec.length();
+
+        const spokeGeo =
+            new THREE.CylinderGeometry(
+                1,
+                1,
+                len,
+                6
+            );
+
+        const spoke =
+            new THREE.Mesh(
+                spokeGeo,
+                steel
+            );
+
+        spoke.position.set(
+            rimX*0.5,
+            rimY*0.5,
+            i%2===0 ? 6 : -6
+        );
+
+        spoke.quaternion
+            .setFromUnitVectors(
+                new THREE.Vector3(0,1,0),
+                spokeVec.clone()
+                .normalize()
+            );
+
+        group.add(spoke);
+    }
+
+    ///////////////////////////////////////////////////////
+    // SPOKE COVER
+    ///////////////////////////////////////////////////////
+
+    const coverGeo =
+        new THREE.CircleGeometry(
+            radius-24,
+            64
+        );
+
+    const leftCover =
+        new THREE.Mesh(
+            coverGeo,
+            clearMat
+        );
+
+    leftCover.position.z =
+        -8;
+
+    group.add(leftCover);
+
+    const rightCover =
+        new THREE.Mesh(
+            coverGeo,
+            clearMat
+        );
+
+    rightCover.position.z =
+        8;
+
+    rightCover.rotation.y =
+        Math.PI;
+
+    group.add(rightCover);
+
+    return group;
+}
+
+///////////////////////////////////////////////////////////
+// FLYWHEEL
+///////////////////////////////////////////////////////////
+
+function createFlywheel(){
+
+    const group =
+        new THREE.Group();
+
+    const flyGeo =
+        new THREE.CylinderGeometry(
+            82,
+            82,
+            18,
+            64
+        );
+
+    const fly =
+        new THREE.Mesh(
+            flyGeo,
+            blackSteel
+        );
+
+    fly.rotation.z =
+        Math.PI/2;
+
+    group.add(fly);
+
+    //
+    // flywheel gear cassette
+    //
+
+    for(let i=0;i<3;i++){
+
+        const g =
+            createGear(
+                42-(i*6),
+                74-(i*8),
+                5
+            );
+
+        g.rotation.y =
+            Math.PI/2;
+
+        g.position.x =
+            -10 - i*6;
+
+        group.add(g);
+    }
+
+    //
+    // bottom bracket bearings
+    //
+
+    const bearingGeo =
+        new THREE.TorusGeometry(
+            18,
+            4,
+            12,
+            32
+        );
+
+    const bearing =
+        new THREE.Mesh(
+            bearingGeo,
+            steel
+        );
+
+    bearing.rotation.y =
+        Math.PI/2;
+
+    group.add(bearing);
+
+    //
+    // crank arms
+    //
+
+    const crankGeo =
+        new THREE.BoxGeometry(
+            18,
+            120,
+            8
+        );
+
+    const crankA =
+        new THREE.Mesh(
+            crankGeo,
+            blackSteel
+        );
+
+    crankA.position.y =
+        80;
+
+    group.add(crankA);
+
+    const crankB =
+        crankA.clone();
+
+    crankB.rotation.x =
+        Math.PI;
+
+    crankB.position.y =
+        -80;
+
+    group.add(crankB);
+
+    //
+    // pedals
+    //
+
+    const pedalGeo =
+        new THREE.BoxGeometry(
+            42,
+            12,
+            22
+        );
+
+    const pedal1 =
+        new THREE.Mesh(
+            pedalGeo,
+            steel
+        );
+
+    pedal1.position.y =
+        140;
+
+    group.add(pedal1);
+
+    const pedal2 =
+        pedal1.clone();
+
+    pedal2.position.y =
+        -140;
+
+    group.add(pedal2);
+
+    return group;
+}
+
+///////////////////////////////////////////////////////////
+// REAR DERAILLEUR
+///////////////////////////////////////////////////////////
+
+function createDerailleur(){
+
+    const group =
+        new THREE.Group();
+
+    const armGeo =
+        new THREE.BoxGeometry(
+            12,
+            90,
+            10
+        );
+
+    const arm =
+        new THREE.Mesh(
+            armGeo,
+            blackSteel
+        );
+
+    arm.rotation.z =
+        0.4;
+
+    group.add(arm);
+
+    const pulleyGeo =
+        new THREE.CylinderGeometry(
+            12,
+            12,
+            8,
+            18
+        );
+
+    const pulley1 =
+        new THREE.Mesh(
+            pulleyGeo,
+            steel
+        );
+
+    pulley1.rotation.z =
+        Math.PI/2;
+
+    pulley1.position.y =
+        40;
+
+    group.add(pulley1);
+
+    const pulley2 =
+        pulley1.clone();
+
+    pulley2.position.y =
+        -40;
+
+    group.add(pulley2);
+
+    return group;
+}
+
+///////////////////////////////////////////////////////////
+// FRONT FORK + SUSPENSION
+///////////////////////////////////////////////////////////
+
+function createFork(){
+
+    const group =
+        new THREE.Group();
+
+    const left =
+        tubeBetween(
+            new THREE.Vector3(-14,0,0),
+            new THREE.Vector3(-14,160,0),
+            5
+        );
+
+    const right =
+        tubeBetween(
+            new THREE.Vector3(14,0,0),
+            new THREE.Vector3(14,160,0),
+            5
+        );
+
+    group.add(left);
+    group.add(right);
+
+    //
+    // suspension bridge
+    //
+
+    const bridgeGeo =
+        new THREE.BoxGeometry(
+            50,
+            10,
+            20
+        );
+
+    const bridge =
+        new THREE.Mesh(
+            bridgeGeo,
+            steel
+        );
+
+    bridge.position.y =
+        120;
+
+    group.add(bridge);
+
+    return group;
+}
+
+///////////////////////////////////////////////////////////
+// FRAME
+///////////////////////////////////////////////////////////
+
+function createBikeFrame(){
+
+    const g =
+        new THREE.Group();
+
+    const pts = {
+
+        bb:
+            new THREE.Vector3(
+                160,120,0
+            ),
+
+        seat:
+            new THREE.Vector3(
+                100,250,0
+            ),
+
+        rear:
+            new THREE.Vector3(
+                0,320,0
+            ),
+
+        headTop:
+            new THREE.Vector3(
+                360,240,0
+            ),
+
+        headBottom:
+            new THREE.Vector3(
+                390,170,0
+            ),
+
+        front:
+            new THREE.Vector3(
+                420,320,0
+            )
+    };
+
+    const tubes = [
+
+        ["bb","seat"],
+        ["seat","headTop"],
+        ["headBottom","bb"],
+        ["seat","rear"],
+        ["rear","bb"],
+        ["headTop","headBottom"]
+    ];
+
+    tubes.forEach(t=>{
+
+        g.add(
+            tubeBetween(
+                pts[t[0]],
+                pts[t[1]],
+                7
+            )
+        );
+
+    });
+
+    return g;
+}
+
+///////////////////////////////////////////////////////////
+// CHAIN PATH SOLVER
+///////////////////////////////////////////////////////////
+
+function createChain(){
+
+    const group =
+        new THREE.Group();
+
+    //
+    // real chain loop
+    //
+
+    const chainPts = [];
+
+    const frontR = 82;
+    const rearR = 42;
+
+    const frontCenter =
+        new THREE.Vector2(
+            160,
+            120
+        );
+
+    const rearCenter =
+        new THREE.Vector2(
+            0,
+            320
+        );
+
+    //
+    // upper segment
+    //
+
+    for(let i=0;i<80;i++){
+
+        const t = i/79;
+
+        const x =
+            THREE.MathUtils.lerp(
+                frontCenter.x,
+                rearCenter.x,
+                t
+            );
+
+        const y =
+            THREE.MathUtils.lerp(
+                frontCenter.y-frontR,
+                rearCenter.y-rearR,
+                t
+            );
+
+        chainPts.push(
+            new THREE.Vector3(
+                x,y,-20
+            )
+        );
+    }
+
+    //
+    // lower segment
+    //
+
+    for(let i=0;i<80;i++){
+
+        const t = i/79;
+
+        const x =
+            THREE.MathUtils.lerp(
+                rearCenter.x,
+                frontCenter.x,
+                t
+            );
+
+        const y =
+            THREE.MathUtils.lerp(
+                rearCenter.y+rearR,
+                frontCenter.y+frontR,
+                t
+            );
+
+        chainPts.push(
+            new THREE.Vector3(
+                x,y,-20
+            )
+        );
+    }
+
+    chainPts.forEach((p,i)=>{
+
+        const geo =
+            new THREE.BoxGeometry(
+                5,
+                2,
+                8
+            );
+
+        const mesh =
+            new THREE.Mesh(
+                geo,
+                steel
+            );
+
+        mesh.position.copy(p);
+
+        group.add(mesh);
+    });
+
+    return group;
+}
+
+///////////////////////////////////////////////////////////
+// BUILD ASSEMBLY
+///////////////////////////////////////////////////////////
+
+const rearWheel =
+    createWheel(180);
+
+rearWheel.position.set(
+    0,
+    320,
+    0
+);
+
+scene.add(rearWheel);
+
+const frontWheel =
+    createWheel(180);
+
+frontWheel.position.set(
+    420,
+    320,
+    0
+);
+
+scene.add(frontWheel);
+
+const frame =
+    createBikeFrame();
+
+scene.add(frame);
+
+const flywheel =
+    createFlywheel();
+
+flywheel.position.set(
+    160,
+    120,
+    0
+);
+
+scene.add(flywheel);
+
+const rearGear =
+    createGear(
+        18,
+        42,
+        8
+    );
+
+rearGear.rotation.y =
+    Math.PI/2;
+
+rearGear.position.set(
+    0,
+    320,
+    -28
+);
+
+scene.add(rearGear);
+
+const chain =
+    createChain();
+
+scene.add(chain);
+
+const derailleur =
+    createDerailleur();
+
+derailleur.position.set(
+    -32,
+    380,
+    -24
+);
+
+scene.add(derailleur);
+
+const fork =
+    createFork();
+
+fork.position.set(
+    420,
+    160,
+    0
+);
+
+scene.add(fork);
+
+///////////////////////////////////////////////////////////
+// NODE GRAPH
+///////////////////////////////////////////////////////////
+
+const nodeGraph =
+    document.getElementById(
+        "nodeGraph"
+    );
+
+const nodes = [
+
+    {
+        id:"wheel",
+        x:40,
+        y:50
+    },
+
+    {
+        id:"flywheel",
+        x:160,
+        y:120
+    },
+
+    {
+        id:"chain",
+        x:300,
+        y:70
+    }
+];
+
+function createNode(n){
+
+    const el =
+        document.createElement("div");
+
+    el.className = "node";
+
+    el.style.left =
+        n.x+"px";
+
+    el.style.top =
+        n.y+"px";
+
+    el.innerHTML =
+        `<b>${n.id}</b><br>
+        mechanical node`;
+
+    nodeGraph.appendChild(el);
+
+    let dragging=false;
+
+    el.addEventListener(
+        "mousedown",
+        ()=>dragging=true
+    );
+
+    window.addEventListener(
+        "mouseup",
+        ()=>dragging=false
+    );
+
+    window.addEventListener(
+        "mousemove",
+        e=>{
+
+            if(!dragging)return;
+
+            const rect =
+                nodeGraph.getBoundingClientRect();
+
+            n.x =
+                e.clientX-rect.left-60;
+
+            n.y =
+                e.clientY-rect.top-25;
+
+            el.style.left =
+                n.x+"px";
+
+            el.style.top =
+                n.y+"px";
+
+            drawLines();
+        }
+    );
+}
+
+nodes.forEach(createNode);
+
+function drawLines(){
+
+    const svg =
+        document.getElementById(
+            "nodeLines"
+        );
+
+    svg.innerHTML="";
+
+    for(let i=0;i<nodes.length-1;i++){
+
+        const a = nodes[i];
+        const b = nodes[i+1];
+
+        const line =
+            document.createElementNS(
+                "http://www.w3.org/2000/svg",
+                "line"
+            );
+
+        line.setAttribute(
+            "x1",
+            a.x+60
+        );
+
+        line.setAttribute(
+            "y1",
+            a.y+25
+        );
+
+        line.setAttribute(
+            "x2",
+            b.x+60
+        );
+
+        line.setAttribute(
+            "y2",
+            b.y+25
+        );
+
+        line.setAttribute(
+            "stroke",
+            "#8ff"
+        );
+
+        line.setAttribute(
+            "stroke-width",
+            "2"
+        );
+
+        svg.appendChild(line);
+    }
+}
+
+drawLines();
+
+///////////////////////////////////////////////////////////
+// SCENE TREE
+///////////////////////////////////////////////////////////
+
+const sceneTree =
+    document.getElementById(
+        "sceneTree"
+    );
+
+[
+    "rearWheel",
+    "frontWheel",
+    "flywheel",
+    "rearGear",
+    "chain",
+    "derailleur",
+    "fork",
+    "frame"
+].forEach(name=>{
+
+    const div =
+        document.createElement("div");
+
+    div.style.padding="8px";
+    div.style.borderBottom=
+        "1px solid #333";
+
+    div.innerHTML=
+        `${name}<br>
+        <small>mechanical assembly</small>`;
+
+    sceneTree.appendChild(div);
+});
+
+///////////////////////////////////////////////////////////
+// UI
+///////////////////////////////////////////////////////////
+
+let simEnabled = true;
+
+document.getElementById(
+    "toggleSimBtn"
+).onclick = ()=>{
+
+    simEnabled =
+        !simEnabled;
+};
+
+document.getElementById(
+    "toggleChainsBtn"
+).onclick = ()=>{
+
+    chain.visible =
+        !chain.visible;
+};
+
+///////////////////////////////////////////////////////////
+// PHYSICS + TORQUE
+///////////////////////////////////////////////////////////
+
+let pedalAngle = 0;
+
+const gearRatio =
+    42/18;
+
+///////////////////////////////////////////////////////////
+// ANIMATION
+///////////////////////////////////////////////////////////
+
+function animate(){
+
+    requestAnimationFrame(
+        animate
+    );
+
+    if(simEnabled){
+
+        pedalAngle += 0.02;
+
+        //
+        // torque transfer
+        //
+
+        flywheel.rotation.x -=
+            0.02;
+
+        rearGear.rotation.x -=
+            0.02 * gearRatio;
+
+        rearWheel.rotation.z -=
+            0.018 * gearRatio;
+
+        frontWheel.rotation.z -=
+            0.018 * gearRatio;
+
+        //
+        // crank pedals
+        //
+
+        flywheel.children.forEach(c=>{
+
+            if(
+                c.geometry &&
+                c.geometry.type ===
+                "BoxGeometry"
+            ){
+
+                c.rotation.x +=
+                    0.02;
+            }
+        });
+
+        //
+        // suspension bob
+        //
+
+        fork.position.y =
+            160 +
+            Math.sin(
+                pedalAngle*2
+            )*2;
+    }
+
+    controls.update();
+
+    renderer.render(
+        scene,
+        camera
+    );
+}
+
+animate();
+
+///////////////////////////////////////////////////////////
+// RESIZE
+///////////////////////////////////////////////////////////
+
+window.addEventListener(
+    "resize",
+    ()=>{
+
+        const w =
+            viewport.clientWidth;
+
+        const h =
+            viewport.clientHeight;
+
+        camera.aspect =
+            w/h;
+
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(w,h);
+    }
+);
+
+</script>
+
+</body>
+</html>
