@@ -1,1 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>EDA + Mechanical CAD + PicoBlade Integrated Demo</title>
 
+<style>
+html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    font-family:Segoe UI,Arial,sans-serif;
+    background:#1e1f22;
+    color:#ddd;
+}
+
+#app{
+    display:flex;
+    width:100%;
+    height:100%;
+}
+
+#sidebar{
+    width:320px;
+    background:#2a2b2f;
+    border-right:1px solid #444;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+}
+
+.panelTitle{
+    padding:10px;
+    font-weight:bold;
+    background:#32343a;
+    border-bottom:1px solid #444;
+    font-size:14px;
+}
+
+.tree{
+    flex:1;
+    overflow:auto;
+}
+
+.treeItem{
+    padding:8px 12px;
+    border-bottom:1px solid #3a3a3a;
+    cursor:pointer;
+    user-select:none;
+}
+
+.treeItem:hover{
+    background:#3a3b42;
+}
+
+.treeItem.active{
+    background:#5865a8;
+}
+
+.sub{
+    padding-left:24px;
+    color:#aaa;
+}
+
+#properties{
+    height:420px;
+    overflow:auto;
+    border-top:1px solid #444;
+    background:#25262a;
+    padding:10px;
+}
+
+.prop{
+    margin-bottom:12px;
+}
+
+.prop label{
+    display:block;
+    font-size:12px;
+    color:#aaa;
+    margin-bottom:4px;
+}
+
+.prop input{
+    width:100%;
+}
+
+button{
+    background:#4e5668;
+    color:white;
+    border:none;
+    padding:8px 12px;
+    border-radius:5px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#64708a;
+}
+
+#main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+}
+
+#toolbar{
+    height:54px;
+    background:#2f3136;
+    border-bottom:1px solid #444;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:0 12px;
+}
+
+.tool{
+    background:#4a4f5a;
+    padding:8px 14px;
+    border-radius:6px;
+    cursor:pointer;
+    user-select:none;
+}
+
+.tool.active{
+    background:#6c86d9;
+}
+
+#viewport{
+    position:relative;
+    flex:1;
+    overflow:hidden;
+}
+
+canvas{
+    display:block;
+}
+
+#status{
+    position:absolute;
+    bottom:12px;
+    left:12px;
+    background:rgba(0,0,0,0.6);
+    padding:8px 12px;
+    border-radius:8px;
+    font-size:13px;
+    backdrop-filter:blur(4px);
+}
+
+#nodeEditor{
+    position:absolute;
+    right:18px;
+    top:18px;
+    width:320px;
+    background:#27282c;
+    border:1px solid #555;
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow:0 8px 30px rgba(0,0,0,0.5);
+}
+
+#nodeHeader{
+    background:#3b3f48;
+    padding:10px;
+    font-weight:bold;
+}
+
+.node{
+    margin:10px;
+    padding:10px;
+    background:#343740;
+    border-radius:8px;
+    border:1px solid #555;
+}
+
+.node label{
+    display:block;
+    margin-bottom:4px;
+    font-size:12px;
+    color:#aaa;
+}
+
+.node input{
+    width:100%;
+}
+
+#pinPanel{
+    position:absolute;
+    top:20px;
+    left:20px;
+    background:#1f1f1f;
+    padding:12px;
+    border-radius:10px;
+    border:1px solid #555;
+    z-index:10;
+}
+
+#pinPanel button{
+    margin:4px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="app">
+
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+
+        <div class="panelTitle">
+            Component / Feature Manager
+        </div>
+
+        <div class="tree" id="tree">
+
+            <div class="treeItem active">Hub Motor Assembly</div>
+
+            <div class="treeItem sub">Planetary Gear Set</div>
+            <div class="treeItem sub">Motor Stator</div>
+            <div class="treeItem sub">Motor Rotor</div>
+            <div class="treeItem sub">PCB Controller</div>
+            <div class="treeItem sub">MOSFET Array</div>
+            <div class="treeItem sub">Capacitor Bank</div>
+            <div class="treeItem sub">USB-C Adapter</div>
+            <div class="treeItem sub">PicoBlade Connector</div>
+            <div class="treeItem sub">Molex Female Connector</div>
+
+        </div>
+
+        <!-- PROPERTIES -->
+        <div id="properties">
+
+            <div class="prop">
+                <label>Gear Teeth</label>
+                <input type="range" min="6" max="40" value="14" id="teethRange">
+            </div>
+
+            <div class="prop">
+                <label>Outer Radius</label>
+                <input type="range" min="1" max="3" value="1.6" step="0.01" id="outerRadius">
+            </div>
+
+            <div class="prop">
+                <label>Gear Thickness</label>
+                <input type="range" min="0.1" max="2" value="0.6" step="0.01" id="thickness">
+            </div>
+
+            <div class="prop">
+                <label>PicoBlade Pin Count</label>
+                <input type="range" min="2" max="12" value="2" id="pinSlider">
+            </div>
+
+            <button id="rebuildBtn">
+                Rebuild Components
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- MAIN -->
+    <div id="main">
+
+        <div id="toolbar">
+
+            <div class="tool active">Select</div>
+            <div class="tool">Route</div>
+            <div class="tool">Autorouter</div>
+            <div class="tool">Via</div>
+            <div class="tool">DRC</div>
+            <div class="tool">3D</div>
+
+        </div>
+
+        <div id="viewport">
+
+            <div id="status">
+                Ready
+            </div>
+
+            <!-- PICO PANEL -->
+            <div id="pinPanel">
+                <b>PicoBlade Pin Count</b><br/>
+                <button id="minus">−</button>
+                <span id="count">2</span>
+                <button id="plus">+</button>
+            </div>
+
+            <!-- NODE EDITOR -->
+            <div id="nodeEditor">
+
+                <div id="nodeHeader">
+                    Geometry / PCB Nodes
+                </div>
+
+                <div class="node">
+                    <label>Gear Teeth</label>
+                    <input type="range" min="6" max="40" value="14" id="nodeTeeth">
+                </div>
+
+                <div class="node">
+                    <label>PCB Radius</label>
+                    <input type="range" min="2" max="6" value="4" step="0.01" id="pcbRadius">
+                </div>
+
+                <div class="node">
+                    <label>Motor Height</label>
+                    <input type="range" min="1" max="6" value="3" step="0.01" id="motorHeight">
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script type="module">
+
+import * as THREE from 'https://esm.sh/three@0.165.0';
+import { OrbitControls } from 'https://esm.sh/three@0.165.0/examples/jsm/controls/OrbitControls.js';
+
+/////////////////////////////////////////////////////////
+// SCENE
+/////////////////////////////////////////////////////////
+
+const viewport = document.getElementById("viewport");
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xdddddd);
+
+const camera = new THREE.PerspectiveCamera(
+    50,
+    viewport.clientWidth / viewport.clientHeight,
+    0.1,
+    1000
+);
+
+camera.position.set(10,8,10);
+
+const renderer = new THREE.WebGLRenderer({
+    antialias:true
+});
+
+renderer.setSize(
+    viewport.clientWidth,
+    viewport.clientHeight
+);
+
+renderer.setPixelRatio(devicePixelRatio);
+
+viewport.appendChild(renderer.domElement);
+
+/////////////////////////////////////////////////////////
+// CONTROLS
+/////////////////////////////////////////////////////////
+
+const controls = new OrbitControls(
+    camera,
+    renderer.domElement
+);
+
+controls.enableDamping = true;
+
+/////////////////////////////////////////////////////////
+// LIGHTS
+/////////////////////////////////////////////////////////
+
+scene.add(
+    new THREE.HemisphereLight(
+        0xffffff,
+        0x444444,
+        1.6
+    )
+);
+
+const dir = new THREE.DirectionalLight(
+    0xffffff,
+    2
+);
+
+dir.position.set(10,12,8);
+
+scene.add(dir);
+
+/////////////////////////////////////////////////////////
+// GRID
+/////////////////////////////////////////////////////////
+
+scene.add(new THREE.GridHelper(30,30));
+scene.add(new THREE.AxesHelper(4));
+
+/////////////////////////////////////////////////////////
+// PARAMS
+/////////////////////////////////////////////////////////
+
+const params = {
+    teeth:14,
+    outerRadius:1.6,
+    thickness:0.6,
+    pins:2,
+    pcbRadius:4,
+    motorHeight:3
+};
+
+/////////////////////////////////////////////////////////
+// MATERIALS
+/////////////////////////////////////////////////////////
+
+const metalMat = new THREE.MeshStandardMaterial({
+    color:0x777777,
+    metalness:0.9,
+    roughness:0.2
+});
+
+const blackMat = new THREE.MeshStandardMaterial({
+    color:0x222222,
+    metalness:0.4,
+    roughness:0.7
+});
+
+const goldMat = new THREE.MeshStandardMaterial({
+    color:0xd4af37,
+    metalness:1,
+    roughness:0.2
+});
+
+const pcbMat = new THREE.MeshStandardMaterial({
+    color:0x204030,
+    roughness:0.9
+});
+
+/////////////////////////////////////////////////////////
+// COMPONENT JSON LIBRARY
+/////////////////////////////////////////////////////////
+
+const componentLibrary = {
+
+    capacitors:[
+        {
+            name:"Electrolytic Capacitor",
+            shape:"cylinder",
+            voltage:"35V",
+            package:"Radial Can"
+        },
+        {
+            name:"MLCC Ceramic Capacitor",
+            shape:"rectangular",
+            package:"1206"
+        }
+    ],
+
+    connectors:[
+        {
+            name:"USB-C Connector",
+            pins:24,
+            type:"surface_mount"
+        },
+        {
+            name:"Molex PicoBlade",
+            pitch:"1.25mm",
+            pins:params.pins
+        },
+        {
+            name:"Molex Female Connector",
+            pins:6
+        }
+    ],
+
+    controller:[
+        {
+            name:"Motor Driver ASIC",
+            package:"QFN"
+        },
+        {
+            name:"MOSFET",
+            package:"Power SOIC"
+        }
+    ]
+};
+
+/////////////////////////////////////////////////////////
+// NETLIST
+/////////////////////////////////////////////////////////
+
+const pcbNetlist = [
+
+    {
+        net:"VBAT",
+        from:"Battery+",
+        to:"MOSFET_Array"
+    },
+
+    {
+        net:"GND",
+        from:"Battery-",
+        to:"PCB_Ground"
+    },
+
+    {
+        net:"USB_D+",
+        from:"USB-C",
+        to:"ASIC"
+    },
+
+    {
+        net:"MOTOR_PHASE_A",
+        from:"ASIC",
+        to:"MotorCoilA"
+    },
+
+    {
+        net:"MOTOR_PHASE_B",
+        from:"ASIC",
+        to:"MotorCoilB"
+    },
+
+    {
+        net:"MOTOR_PHASE_C",
+        from:"ASIC",
+        to:"MotorCoilC"
+    }
+
+];
+
+console.log("Component Library:", componentLibrary);
+console.log("PCB Netlist:", pcbNetlist);
+
+/////////////////////////////////////////////////////////
+// GEAR
+/////////////////////////////////////////////////////////
+
+let gearMesh;
+
+function buildGear(){
+
+    if(gearMesh){
+        scene.remove(gearMesh);
+        gearMesh.geometry.dispose();
+    }
+
+    const shape = new THREE.Shape();
+
+    const teeth = params.teeth;
+    const step = Math.PI * 2 / teeth;
+
+    for(let i=0;i<teeth;i++){
+
+        const a = i * step;
+
+        const r1 = params.outerRadius;
+        const r2 = params.outerRadius + 0.2;
+
+        const p1x = Math.cos(a) * r1;
+        const p1y = Math.sin(a) * r1;
+
+        const p2x = Math.cos(a + step*0.25) * r2;
+        const p2y = Math.sin(a + step*0.25) * r2;
+
+        const p3x = Math.cos(a + step*0.5) * r2;
+        const p3y = Math.sin(a + step*0.5) * r2;
+
+        const p4x = Math.cos(a + step*0.75) * r1;
+        const p4y = Math.sin(a + step*0.75) * r1;
+
+        if(i===0){
+            shape.moveTo(p1x,p1y);
+        }
+
+        shape.lineTo(p2x,p2y);
+        shape.lineTo(p3x,p3y);
+        shape.lineTo(p4x,p4y);
+    }
+
+    const hole = new THREE.Path();
+
+    hole.absellipse(0,0,0.6,0.6,0,Math.PI*2);
+
+    shape.holes.push(hole);
+
+    const geo = new THREE.ExtrudeGeometry(shape,{
+        depth:params.thickness,
+        bevelEnabled:false
+    });
+
+    geo.center();
+
+    gearMesh = new THREE.Mesh(
+        geo,
+        metalMat
+    );
+
+    gearMesh.position.y = 2;
+
+    scene.add(gearMesh);
+}
+
+/////////////////////////////////////////////////////////
+// MOTOR BODY
+/////////////////////////////////////////////////////////
+
+let motorGroup;
+
+function buildMotorAssembly(){
+
+    if(motorGroup){
+
+        motorGroup.traverse(o=>{
+
+            if(o.geometry) o.geometry.dispose();
+
+        });
+
+        scene.remove(motorGroup);
+    }
+
+    motorGroup = new THREE.Group();
+
+    /////////////////////////////////////////////////////
+    // MOTOR CYLINDER
+    /////////////////////////////////////////////////////
+
+    const motor = new THREE.Mesh(
+        new THREE.CylinderGeometry(
+            3,
+            3,
+            params.motorHeight,
+            64,
+            1,
+            true,
+            0,
+            Math.PI * 1.4
+        ),
+        blackMat
+    );
+
+    motor.rotation.z = Math.PI/2;
+
+    motorGroup.add(motor);
+
+    /////////////////////////////////////////////////////
+    // PCB ARC
+    /////////////////////////////////////////////////////
+
+    const pcb = new THREE.Mesh(
+        new THREE.CylinderGeometry(
+            params.pcbRadius,
+            params.pcbRadius,
+            0.12,
+            64,
+            1,
+            false,
+            0,
+            Math.PI * 1.1
+        ),
+        pcbMat
+    );
+
+    pcb.rotation.x = Math.PI/2;
+    pcb.position.set(0,0.4,0);
+
+    motorGroup.add(pcb);
+
+    /////////////////////////////////////////////////////
+    // ELECTROLYTIC CAPACITORS
+    /////////////////////////////////////////////////////
+
+    for(let i=0;i<6;i++){
+
+        const cap = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.22,0.22,0.6,24),
+            new THREE.MeshStandardMaterial({
+                color:0x999999,
+                metalness:0.7,
+                roughness:0.4
+            })
+        );
+
+        const angle = i * 0.5;
+
+        cap.position.set(
+            Math.cos(angle)*2,
+            0.8,
+            Math.sin(angle)*2
+        );
+
+        motorGroup.add(cap);
+    }
+
+    /////////////////////////////////////////////////////
+    // MLCC RECTANGULAR CAPS
+    /////////////////////////////////////////////////////
+
+    for(let i=0;i<10;i++){
+
+        const mlcc = new THREE.Mesh(
+            new THREE.BoxGeometry(0.16,0.08,0.08),
+            new THREE.MeshStandardMaterial({
+                color:0xd8cba7
+            })
+        );
+
+        mlcc.position.set(
+            -1 + (i*0.22),
+            0.5,
+            1.4
+        );
+
+        motorGroup.add(mlcc);
+    }
+
+    /////////////////////////////////////////////////////
+    // USB-C CONNECTOR
+    /////////////////////////////////////////////////////
+
+    const usb = new THREE.Mesh(
+        new THREE.BoxGeometry(0.8,0.3,0.35),
+        new THREE.MeshStandardMaterial({
+            color:0x999999,
+            metalness:0.9
+        })
+    );
+
+    usb.position.set(
+        2.6,
+        0.15,
+        0
+    );
+
+    motorGroup.add(usb);
+
+    /////////////////////////////////////////////////////
+    // MOLEX FEMALE CONNECTOR
+    /////////////////////////////////////////////////////
+
+    const molex = new THREE.Mesh(
+        new THREE.BoxGeometry(1.1,0.4,0.5),
+        new THREE.MeshStandardMaterial({
+            color:0xf0f0e8
+        })
+    );
+
+    molex.position.set(
+        -2.4,
+        0.2,
+        0
+    );
+
+    motorGroup.add(molex);
+
+    /////////////////////////////////////////////////////
+    // PICO BLADE CONNECTOR
+    /////////////////////////////////////////////////////
+
+    const pico = buildPicoBlade(params.pins);
+
+    pico.position.set(0,0.3,-2);
+
+    motorGroup.add(pico);
+
+    scene.add(motorGroup);
+}
+
+/////////////////////////////////////////////////////////
+// PICO BLADE BUILDER
+/////////////////////////////////////////////////////////
+
+function buildPicoBlade(pinCount){
+
+    const g = new THREE.Group();
+
+    const pitch = 0.14;
+    const totalWidth = pinCount * pitch + 0.2;
+
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(
+            totalWidth,
+            0.3,
+            0.45
+        ),
+        new THREE.MeshStandardMaterial({
+            color:0xf2f2e8
+        })
+    );
+
+    g.add(body);
+
+    for(let i=0;i<pinCount;i++){
+
+        const x =
+            -totalWidth/2 +
+            0.1 +
+            i*pitch;
+
+        const pin = new THREE.Mesh(
+            new THREE.BoxGeometry(
+                0.03,
+                0.12,
+                0.3
+            ),
+            goldMat
+        );
+
+        pin.position.set(
+            x,
+            -0.08,
+            0
+        );
+
+        g.add(pin);
+    }
+
+    return g;
+}
+
+/////////////////////////////////////////////////////////
+// BUILD
+/////////////////////////////////////////////////////////
+
+buildGear();
+buildMotorAssembly();
+
+/////////////////////////////////////////////////////////
+// UI BINDINGS
+/////////////////////////////////////////////////////////
+
+function rebuildAll(){
+
+    buildGear();
+    buildMotorAssembly();
+
+    document.getElementById("count").innerText =
+        params.pins;
+}
+
+document.getElementById("teethRange")
+.addEventListener("input",e=>{
+
+    params.teeth = parseInt(e.target.value);
+
+    rebuildAll();
+});
+
+document.getElementById("outerRadius")
+.addEventListener("input",e=>{
+
+    params.outerRadius = parseFloat(e.target.value);
+
+    rebuildAll();
+});
+
+document.getElementById("thickness")
+.addEventListener("input",e=>{
+
+    params.thickness = parseFloat(e.target.value);
+
+    rebuildAll();
+});
+
+document.getElementById("pinSlider")
+.addEventListener("input",e=>{
+
+    params.pins = parseInt(e.target.value);
+
+    rebuildAll();
+});
+
+document.getElementById("plus").onclick = ()=>{
+
+    if(params.pins < 12){
+
+        params.pins++;
+
+        rebuildAll();
+    }
+};
+
+document.getElementById("minus").onclick = ()=>{
+
+    if(params.pins > 2){
+
+        params.pins--;
+
+        rebuildAll();
+    }
+};
+
+/////////////////////////////////////////////////////////
+// NODE EDITOR
+/////////////////////////////////////////////////////////
+
+document.getElementById("nodeTeeth")
+.addEventListener("input",e=>{
+
+    params.teeth = parseInt(e.target.value);
+
+    rebuildAll();
+});
+
+document.getElementById("pcbRadius")
+.addEventListener("input",e=>{
+
+    params.pcbRadius = parseFloat(e.target.value);
+
+    rebuildAll();
+});
+
+document.getElementById("motorHeight")
+.addEventListener("input",e=>{
+
+    params.motorHeight = parseFloat(e.target.value);
+
+    rebuildAll();
+});
+
+/////////////////////////////////////////////////////////
+// TOOLBAR
+/////////////////////////////////////////////////////////
+
+document.querySelectorAll(".tool")
+.forEach(tool=>{
+
+    tool.addEventListener("click",()=>{
+
+        document
+        .querySelectorAll(".tool")
+        .forEach(t=>t.classList.remove("active"));
+
+        tool.classList.add("active");
+
+        document.getElementById("status").innerText =
+            "Tool: " + tool.innerText;
+    });
+});
+
+/////////////////////////////////////////////////////////
+// ANIMATE
+/////////////////////////////////////////////////////////
+
+function animate(){
+
+    requestAnimationFrame(animate);
+
+    controls.update();
+
+    if(gearMesh){
+        gearMesh.rotation.z += 0.004;
+    }
+
+    if(motorGroup){
+        motorGroup.rotation.y += 0.002;
+    }
+
+    renderer.render(scene,camera);
+}
+
+animate();
+
+/////////////////////////////////////////////////////////
+// RESIZE
+/////////////////////////////////////////////////////////
+
+window.addEventListener("resize",()=>{
+
+    camera.aspect =
+        viewport.clientWidth /
+        viewport.clientHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        viewport.clientWidth,
+        viewport.clientHeight
+    );
+});
+
+</script>
+
+</body>
+</html>
