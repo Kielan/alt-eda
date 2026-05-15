@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Alt-EDA Mechanical + PCB + Harness CAD</title>
+
+<style>
+html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    font-family:Segoe UI,Arial;
+    background:#1e1f22;
+    color:#ddd;
+}
+
+#app{
+    display:flex;
+    width:100%;
+    height:100%;
+}
+
+/* LEFT PANEL */
+#sidebar{
+    width:320px;
+    background:#26282d;
+    border-right:1px solid #444;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+}
+
+.panelTitle{
+    padding:10px;
+    font-weight:bold;
+    background:#30333a;
+    border-bottom:1px solid #444;
+}
+
+.tree{
+    flex:1;
+    overflow:auto;
+}
+
+.treeItem{
+    padding:8px 12px;
+    border-bottom:1px solid #333;
+    cursor:pointer;
+    user-select:none;
+}
+
+.treeItem:hover{
+    background:#3a3f47;
+}
+
+.sub{
+    padding-left:24px;
+    color:#aaa;
+}
+
+#properties{
+    height:360px;
+    overflow:auto;
+    border-top:1px solid #444;
+    padding:10px;
+    background:#222327;
+}
+
+.prop{
+    margin-bottom:14px;
+}
+
+.prop label{
+    display:block;
+    margin-bottom:4px;
+    font-size:12px;
+    color:#aaa;
+}
+
+.prop input{
+    width:100%;
+}
+
+button{
+    background:#50596a;
+    color:white;
+    border:none;
+    border-radius:4px;
+    padding:8px 12px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#697487;
+}
+
+/* MAIN */
+#main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+}
+
+/* TOOLBAR */
+#toolbar{
+    height:52px;
+    background:#2b2e34;
+    border-bottom:1px solid #444;
+    display:flex;
+    align-items:center;
+    padding:0 10px;
+    gap:8px;
+}
+
+.tool{
+    padding:8px 12px;
+    background:#4a4f59;
+    border-radius:6px;
+    cursor:pointer;
+    user-select:none;
+}
+
+.tool.active{
+    background:#5f7ed7;
+}
+
+.tool:hover{
+    background:#5b6473;
+}
+
+/* VIEWPORT */
+#viewport{
+    position:relative;
+    flex:1;
+    overflow:hidden;
+}
+
+canvas{
+    display:block;
+}
+
+/* STATUS */
+#status{
+    position:absolute;
+    left:12px;
+    bottom:12px;
+    background:rgba(0,0,0,0.6);
+    padding:8px 12px;
+    border-radius:8px;
+    backdrop-filter:blur(4px);
+}
+
+/* NODE WINDOW */
+#nodeEditor{
+    position:absolute;
+    right:20px;
+    top:20px;
+    width:320px;
+    background:#27282c;
+    border:1px solid #555;
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow:0 8px 30px rgba(0,0,0,0.5);
+}
+
+#nodeHeader{
+    background:#3a3d44;
+    padding:10px;
+    font-weight:bold;
+}
+
+.node{
+    margin:10px;
+    padding:10px;
+    border-radius:8px;
+    background:#35383f;
+    border:1px solid #555;
+}
+
+.node label{
+    display:block;
+    font-size:12px;
+    color:#aaa;
+    margin-bottom:4px;
+}
+
+.node input{
+    width:100%;
+}
+
+/* HARNESS NET PANEL */
+#netUI{
+    position:absolute;
+    left:20px;
+    top:80px;
+    width:180px;
+    max-height:300px;
+    overflow:auto;
+    background:#1f1f1f;
+    border:1px solid #444;
+    padding:10px;
+    border-radius:8px;
+}
+
+.netBtn{
+    width:100%;
+    margin-bottom:4px;
+}
+
+/* PICO UI */
+#picoPanel{
+    position:absolute;
+    left:220px;
+    top:80px;
+    background:#1f1f1f;
+    border:1px solid #444;
+    border-radius:8px;
+    padding:10px;
+}
+
+#picoPanel button{
+    width:32px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="app">
+
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+
+        <div class="panelTitle">
+            Feature Manager
+        </div>
+
+        <div class="tree" id="tree">
+
+            <div class="treeItem">PCB ASIC Motor Controller</div>
+
+            <div class="treeItem sub">Cylinder PCB</div>
+            <div class="treeItem sub">USB-C Connector</div>
+            <div class="treeItem sub">PicoBlade Harness</div>
+            <div class="treeItem sub">MOSFET Driver</div>
+            <div class="treeItem sub">Motor ASIC</div>
+            <div class="treeItem sub">Capacitor Bank</div>
+            <div class="treeItem sub">Battery Input</div>
+            <div class="treeItem sub">Relay + Fuse</div>
+            <div class="treeItem sub">Wire Harness</div>
+
+        </div>
+
+        <div id="properties">
+
+            <div class="prop">
+                <label>Gear Teeth</label>
+                <input id="teethRange" type="range" min="8" max="40" value="14"/>
+            </div>
+
+            <div class="prop">
+                <label>Outer Radius</label>
+                <input id="outerRadius" type="range" min="1" max="4" step="0.01" value="1.6"/>
+            </div>
+
+            <div class="prop">
+                <label>Thickness</label>
+                <input id="thickness" type="range" min="0.1" max="2" step="0.01" value="0.6"/>
+            </div>
+
+            <button id="rebuildBtn">
+                Rebuild Gear
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- MAIN -->
+    <div id="main">
+
+        <div id="toolbar">
+
+            <div class="tool active" data-tool="select">Select</div>
+            <div class="tool" data-tool="route">Route</div>
+            <div class="tool" data-tool="place">Place</div>
+            <div class="tool" data-tool="drag">Drag</div>
+            <div class="tool" data-tool="autoroute">Autoroute</div>
+
+        </div>
+
+        <div id="viewport">
+
+            <div id="status">
+                Alt-EDA Ready
+            </div>
+
+            <!-- NODE -->
+            <div id="nodeEditor">
+
+                <div id="nodeHeader">
+                    Geometry + PCB Nodes
+                </div>
+
+                <div class="node">
+                    <label>Gear Teeth</label>
+                    <input id="nodeTeeth" type="range" min="8" max="40" value="14"/>
+                </div>
+
+                <div class="node">
+                    <label>Radius</label>
+                    <input id="nodeRadius" type="range" min="1" max="4" step="0.01" value="1.6"/>
+                </div>
+
+                <div class="node">
+                    <label>Thickness</label>
+                    <input id="nodeThickness" type="range" min="0.1" max="2" step="0.01" value="0.6"/>
+                </div>
+
+            </div>
+
+            <!-- NETS -->
+            <div id="netUI">
+                <b>NETS</b><br/>
+            </div>
+
+            <!-- PICO -->
+            <div id="picoPanel">
+                <b>PicoBlade Pins</b><br/><br/>
+
+                <button id="minus">-</button>
+                <span id="count">2</span>
+                <button id="plus">+</button>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script type="module">
+
+import * as THREE from 'https://esm.sh/three@0.165.0';
+import { OrbitControls } from 'https://esm.sh/three@0.165.0/examples/jsm/controls/OrbitControls.js';
+
+///////////////////////////////////////////////////////////
+//// SCENE
+///////////////////////////////////////////////////////////
+
+const viewport = document.getElementById("viewport");
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111111);
+
+const camera = new THREE.PerspectiveCamera(
+    60,
+    viewport.clientWidth/viewport.clientHeight,
+    0.1,
+    2000
+);
+
+camera.position.set(20,18,20);
+
+const renderer = new THREE.WebGLRenderer({
+    antialias:true
+});
+
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(
+    viewport.clientWidth,
+    viewport.clientHeight
+);
+
+viewport.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(
+    camera,
+    renderer.domElement
+);
+
+controls.enableDamping = true;
+
+///////////////////////////////////////////////////////////
+//// LIGHTS
+///////////////////////////////////////////////////////////
+
+scene.add(
+    new THREE.HemisphereLight(0xffffff,0x222222,2)
+);
+
+const dir = new THREE.DirectionalLight(0xffffff,2);
+dir.position.set(10,20,10);
+scene.add(dir);
+
+///////////////////////////////////////////////////////////
+//// GRID
+///////////////////////////////////////////////////////////
+
+scene.add(new THREE.GridHelper(100,100));
+
+///////////////////////////////////////////////////////////
+//// MATERIALS
+///////////////////////////////////////////////////////////
+
+const metalMat = new THREE.MeshStandardMaterial({
+    color:0x888888,
+    metalness:0.9,
+    roughness:0.2
+});
+
+const pcbMat = new THREE.MeshStandardMaterial({
+    color:0x225533,
+    roughness:0.8
+});
+
+const goldMat = new THREE.MeshStandardMaterial({
+    color:0xd4af37,
+    metalness:1,
+    roughness:0.2
+});
+
+const blackMat = new THREE.MeshStandardMaterial({
+    color:0x111111
+});
+
+///////////////////////////////////////////////////////////
+//// PARAMS
+///////////////////////////////////////////////////////////
+
+const params = {
+    teeth:14,
+    outerRadius:1.6,
+    thickness:0.6
+};
+
+///////////////////////////////////////////////////////////
+//// GEAR
+///////////////////////////////////////////////////////////
+
+let gearMesh;
+
+function buildGear(){
+
+    if(gearMesh){
+        scene.remove(gearMesh);
+        gearMesh.geometry.dispose();
+    }
+
+    const shape = new THREE.Shape();
+
+    const teeth = params.teeth;
+    const step = Math.PI*2 / teeth;
+
+    for(let i=0;i<teeth;i++){
+
+        const a = i * step;
+
+        const r1 = params.outerRadius;
+        const r2 = params.outerRadius + 0.25;
+
+        const p1 = new THREE.Vector2(
+            Math.cos(a)*r1,
+            Math.sin(a)*r1
+        );
+
+        const p2 = new THREE.Vector2(
+            Math.cos(a+step*0.25)*r2,
+            Math.sin(a+step*0.25)*r2
+        );
+
+        const p3 = new THREE.Vector2(
+            Math.cos(a+step*0.5)*r2,
+            Math.sin(a+step*0.5)*r2
+        );
+
+        const p4 = new THREE.Vector2(
+            Math.cos(a+step*0.75)*r1,
+            Math.sin(a+step*0.75)*r1
+        );
+
+        if(i===0){
+            shape.moveTo(p1.x,p1.y);
+        }
+
+        shape.lineTo(p2.x,p2.y);
+        shape.lineTo(p3.x,p3.y);
+        shape.lineTo(p4.x,p4.y);
+    }
+
+    const hole = new THREE.Path();
+
+    hole.absellipse(0,0,0.6,0.6,0,Math.PI*2);
+
+    shape.holes.push(hole);
+
+    const geo = new THREE.ExtrudeGeometry(shape,{
+        depth:params.thickness,
+        bevelEnabled:false
+    });
+
+    geo.center();
+
+    gearMesh = new THREE.Mesh(geo,metalMat);
+
+    gearMesh.position.set(-8,2,0);
+
+    scene.add(gearMesh);
+}
+
+buildGear();
+
+///////////////////////////////////////////////////////////
+//// CYLINDER PCB
+///////////////////////////////////////////////////////////
+
+const pcbGroup = new THREE.Group();
+scene.add(pcbGroup);
+
+const cylinderPCB = new THREE.Mesh(
+    new THREE.CylinderGeometry(5,5,0.6,64,1,true,0,Math.PI*1.4),
+    pcbMat
+);
+
+cylinderPCB.rotation.x = Math.PI/2;
+cylinderPCB.position.set(0,4,0);
+
+pcbGroup.add(cylinderPCB);
+
+///////////////////////////////////////////////////////////
+//// COMPONENT JSON LIBRARY
+///////////////////////////////////////////////////////////
+
+const componentLibrary = {
+
+    capacitors:[
+        {
+            id:"C1",
+            type:"electrolytic",
+            package:"radial_can",
+            value:"100uF 35V",
+            shape:"cylinder"
+        },
+        {
+            id:"C2",
+            type:"ceramic",
+            package:"1210",
+            value:"1uF"
+        },
+        {
+            id:"C3",
+            type:"ceramic",
+            package:"0805",
+            value:"0.1uF"
+        }
+    ],
+
+    connectors:[
+        {
+            id:"J1",
+            type:"USB-C",
+            pins:24
+        },
+        {
+            id:"J2",
+            type:"Molex PicoBlade",
+            pins:12
+        }
+    ],
+
+    ics:[
+        {
+            id:"U1",
+            type:"Motor ASIC",
+            package:"QFN"
+        },
+        {
+            id:"U2",
+            type:"MOSFET Driver"
+        }
+    ]
+};
+
+console.log(componentLibrary);
+
+///////////////////////////////////////////////////////////
+//// CAPACITORS
+///////////////////////////////////////////////////////////
+
+function createElectrolytic(x,z){
+
+    const cap = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5,0.5,1.2,32),
+        metalMat
+    );
+
+    cap.position.set(x,5,z);
+
+    pcbGroup.add(cap);
+
+    return cap;
+}
+
+createElectrolytic(-2,0);
+createElectrolytic(0,0);
+createElectrolytic(2,0);
+
+///////////////////////////////////////////////////////////
+//// RECT CAPS
+///////////////////////////////////////////////////////////
+
+function createRectCap(x,z){
+
+    const cap = new THREE.Mesh(
+        new THREE.BoxGeometry(0.7,0.3,0.5),
+        new THREE.MeshStandardMaterial({
+            color:0xc9b27f
+        })
+    );
+
+    cap.position.set(x,4.6,z);
+
+    pcbGroup.add(cap);
+}
+
+for(let i=0;i<8;i++){
+    createRectCap(-3 + i*0.8, 2);
+}
+
+///////////////////////////////////////////////////////////
+//// USB-C
+///////////////////////////////////////////////////////////
+
+function createUSBC(){
+
+    const group = new THREE.Group();
+
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(2.2,0.8,0.8),
+        metalMat
+    );
+
+    group.add(body);
+
+    for(let i=0;i<12;i++){
+
+        const pin = new THREE.Mesh(
+            new THREE.BoxGeometry(0.08,0.04,0.3),
+            goldMat
+        );
+
+        pin.position.set(
+            -0.9 + i*0.16,
+            -0.25,
+            0.3
+        );
+
+        group.add(pin);
+    }
+
+    group.position.set(0,4.6,-4);
+
+    pcbGroup.add(group);
+}
+
+createUSBC();
+
+///////////////////////////////////////////////////////////
+//// PICO BLADE
+///////////////////////////////////////////////////////////
+
+const PicoBladeSpec = {
+    pitch:1.25,
+    pins:2
+};
+
+let pico;
+
+function buildPicoBlade(){
+
+    if(pico){
+        pcbGroup.remove(pico);
+    }
+
+    const g = new THREE.Group();
+
+    const totalWidth =
+        PicoBladeSpec.pins * PicoBladeSpec.pitch + 1;
+
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(totalWidth,1.2,2.2),
+        new THREE.MeshStandardMaterial({
+            color:0xf2f2e8
+        })
+    );
+
+    g.add(body);
+
+    for(let i=0;i<PicoBladeSpec.pins;i++){
+
+        const pin = new THREE.Mesh(
+            new THREE.BoxGeometry(0.15,0.15,1.5),
+            goldMat
+        );
+
+        pin.position.set(
+            -totalWidth/2 + 0.6 + i*1.25,
+            -0.4,
+            0
+        );
+
+        g.add(pin);
+    }
+
+    g.position.set(0,5,4);
+
+    pico = g;
+
+    pcbGroup.add(g);
+
+    document.getElementById("count").innerText =
+        PicoBladeSpec.pins;
+}
+
+buildPicoBlade();
+
+document.getElementById("plus").onclick = ()=>{
+
+    if(PicoBladeSpec.pins < 12){
+
+        PicoBladeSpec.pins++;
+
+        buildPicoBlade();
+    }
+};
+
+document.getElementById("minus").onclick = ()=>{
+
+    if(PicoBladeSpec.pins > 2){
+
+        PicoBladeSpec.pins--;
+
+        buildPicoBlade();
+    }
+};
+
+///////////////////////////////////////////////////////////
+//// HARNESS
+///////////////////////////////////////////////////////////
+
+const harnessGroup = new THREE.Group();
+scene.add(harnessGroup);
+
+function createWire(points,color,index){
+
+    const curve = new THREE.CatmullRomCurve3(points);
+
+    const geo = new THREE.TubeGeometry(
+        curve,
+        20,
+        0.08,
+        8
+    );
+
+    const mat = new THREE.MeshStandardMaterial({
+        color
+    });
+
+    const mesh = new THREE.Mesh(geo,mat);
+
+    mesh.userData.wireIndex = index;
+
+    harnessGroup.add(mesh);
+
+    return mesh;
+}
+
+const wireColors = [
+    0xff0000,
+    0x00ff00,
+    0x0000ff,
+    0xffff00,
+    0xff00ff,
+    0x00ffff
+];
+
+const wires = [];
+
+for(let i=0;i<6;i++){
+
+    const start = new THREE.Vector3(
+        -6 + i*0.5,
+        4,
+        -8
+    );
+
+    const mid = new THREE.Vector3(
+        -2 + i*0.3,
+        8,
+        0
+    );
+
+    const end = new THREE.Vector3(
+        0 + i*0.5,
+        5,
+        4
+    );
+
+    wires.push(
+        createWire(
+            [start,mid,end],
+            wireColors[i],
+            i
+        )
+    );
+}
+
+///////////////////////////////////////////////////////////
+//// DRAG ROUTING
+///////////////////////////////////////////////////////////
+
+const dragPoint = new THREE.Mesh(
+    new THREE.SphereGeometry(0.4),
+    new THREE.MeshBasicMaterial({
+        color:0xff00ff
+    })
+);
+
+dragPoint.position.set(-2,7,0);
+
+scene.add(dragPoint);
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+let selected = null;
+
+window.addEventListener("mousedown",(e)=>{
+
+    mouse.x = (e.clientX/innerWidth)*2-1;
+    mouse.y = -(e.clientY/innerHeight)*2+1;
+
+    raycaster.setFromCamera(mouse,camera);
+
+    const hit = raycaster.intersectObject(dragPoint);
+
+    if(hit.length){
+        selected = dragPoint;
+    }
+});
+
+window.addEventListener("mousemove",(e)=>{
+
+    if(!selected) return;
+
+    mouse.x = (e.clientX/innerWidth)*2-1;
+    mouse.y = -(e.clientY/innerHeight)*2+1;
+
+    raycaster.setFromCamera(mouse,camera);
+
+    const plane = new THREE.Plane(
+        new THREE.Vector3(0,1,0),
+        -5
+    );
+
+    const pos = new THREE.Vector3();
+
+    raycaster.ray.intersectPlane(
+        plane,
+        pos
+    );
+
+    selected.position.copy(pos);
+
+    updateWires();
+});
+
+window.addEventListener("mouseup",()=>{
+
+    selected = null;
+});
+
+function updateWires(){
+
+    wires.forEach((w,i)=>{
+
+        const start = new THREE.Vector3(
+            -6 + i*0.5,
+            4,
+            -8
+        );
+
+        const end = new THREE.Vector3(
+            0 + i*0.5,
+            5,
+            4
+        );
+
+        const curve = new THREE.CatmullRomCurve3([
+            start,
+            dragPoint.position,
+            end
+        ]);
+
+        w.geometry.dispose();
+
+        w.geometry = new THREE.TubeGeometry(
+            curve,
+            20,
+            0.08,
+            8
+        );
+    });
+}
+
+///////////////////////////////////////////////////////////
+//// NET UI
+///////////////////////////////////////////////////////////
+
+const netUI = document.getElementById("netUI");
+
+for(let i=0;i<wires.length;i++){
+
+    const btn = document.createElement("button");
+
+    btn.className = "netBtn";
+
+    btn.innerText = "NET_"+(i+1);
+
+    btn.onclick = ()=>{
+
+        wires.forEach((w,j)=>{
+
+            if(i===j){
+                w.material.emissive =
+                    new THREE.Color(0xffffff);
+            }else{
+                w.material.emissive =
+                    new THREE.Color(0x000000);
+            }
+        });
+    };
+
+    netUI.appendChild(btn);
+}
+
+///////////////////////////////////////////////////////////
+//// TOOLBAR
+///////////////////////////////////////////////////////////
+
+let currentTool = "select";
+
+document.querySelectorAll(".tool").forEach(tool=>{
+
+    tool.addEventListener("click",()=>{
+
+        document
+            .querySelectorAll(".tool")
+            .forEach(t=>t.classList.remove("active"));
+
+        tool.classList.add("active");
+
+        currentTool = tool.dataset.tool;
+
+        setStatus("Tool: " + currentTool);
+    });
+});
+
+///////////////////////////////////////////////////////////
+//// STATUS
+///////////////////////////////////////////////////////////
+
+function setStatus(text){
+    document.getElementById("status").innerText = text;
+}
+
+///////////////////////////////////////////////////////////
+//// SLIDERS
+///////////////////////////////////////////////////////////
+
+function bindSlider(id,key){
+
+    document
+        .getElementById(id)
+        .addEventListener("input",(e)=>{
+
+            params[key] = parseFloat(e.target.value);
+
+            buildGear();
+        });
+}
+
+bindSlider("teethRange","teeth");
+bindSlider("outerRadius","outerRadius");
+bindSlider("thickness","thickness");
+
+///////////////////////////////////////////////////////////
+//// NODE BINDINGS
+///////////////////////////////////////////////////////////
+
+document
+.getElementById("nodeTeeth")
+.addEventListener("input",(e)=>{
+
+    params.teeth = parseInt(e.target.value);
+
+    buildGear();
+});
+
+document
+.getElementById("nodeRadius")
+.addEventListener("input",(e)=>{
+
+    params.outerRadius = parseFloat(e.target.value);
+
+    buildGear();
+});
+
+document
+.getElementById("nodeThickness")
+.addEventListener("input",(e)=>{
+
+    params.thickness = parseFloat(e.target.value);
+
+    buildGear();
+});
+
+///////////////////////////////////////////////////////////
+//// NETLIST
+///////////////////////////////////////////////////////////
+
+const routingNetlist = [
+
+    {
+        net:"VBAT",
+        from:"Battery+",
+        to:"Fuse"
+    },
+
+    {
+        net:"VBUS",
+        from:"Fuse",
+        to:"ASIC"
+    },
+
+    {
+        net:"USB_D+",
+        from:"USB-C",
+        to:"ASIC"
+    },
+
+    {
+        net:"MOTOR_PHASE_A",
+        from:"Driver",
+        to:"Motor"
+    }
+];
+
+console.log("Routing Netlist:",routingNetlist);
+
+///////////////////////////////////////////////////////////
+//// ANIMATE
+///////////////////////////////////////////////////////////
+
+function animate(){
+
+    requestAnimationFrame(animate);
+
+    controls.update();
+
+    gearMesh.rotation.z += 0.01;
+
+    renderer.render(scene,camera);
+}
+
+animate();
+
+///////////////////////////////////////////////////////////
+//// RESIZE
+///////////////////////////////////////////////////////////
+
+window.addEventListener("resize",()=>{
+
+    camera.aspect =
+        viewport.clientWidth /
+        viewport.clientHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        viewport.clientWidth,
+        viewport.clientHeight
+    );
+});
+
+</script>
+
+</body>
+</html>
