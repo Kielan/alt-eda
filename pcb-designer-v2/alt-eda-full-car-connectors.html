@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Hybrid ECAD + MCAD Browser CAD</title>
+
+<style>
+html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#1e1f22;
+    font-family:Segoe UI,Arial;
+    color:#ddd;
+}
+
+#app{
+    display:flex;
+    width:100%;
+    height:100%;
+}
+
+/* LEFT PANEL */
+
+#sidebar{
+    width:320px;
+    background:#25262b;
+    border-right:1px solid #444;
+    display:flex;
+    flex-direction:column;
+}
+
+.panelTitle{
+    background:#2f3137;
+    padding:10px;
+    border-bottom:1px solid #444;
+    font-weight:bold;
+}
+
+#featureTree{
+    flex:1;
+    overflow:auto;
+}
+
+.treeItem{
+    padding:8px 12px;
+    border-bottom:1px solid #333;
+    cursor:pointer;
+    user-select:none;
+}
+
+.treeItem:hover{
+    background:#343842;
+}
+
+.treeSub{
+    padding-left:24px;
+    color:#aaa;
+}
+
+#properties{
+    border-top:1px solid #444;
+    background:#202124;
+    padding:10px;
+    height:360px;
+    overflow:auto;
+}
+
+.prop{
+    margin-bottom:14px;
+}
+
+.prop label{
+    display:block;
+    margin-bottom:5px;
+    color:#aaa;
+    font-size:12px;
+}
+
+.prop input{
+    width:100%;
+}
+
+button{
+    background:#4c5464;
+    color:white;
+    border:none;
+    padding:8px 12px;
+    border-radius:4px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#657089;
+}
+
+/* MAIN */
+
+#main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+}
+
+#toolbar{
+    height:50px;
+    background:#2b2c30;
+    border-bottom:1px solid #444;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:0 10px;
+}
+
+.tool{
+    background:#424650;
+    padding:8px 12px;
+    border-radius:5px;
+    cursor:pointer;
+}
+
+.tool.active{
+    background:#6a7dd1;
+}
+
+#viewport{
+    position:relative;
+    flex:1;
+}
+
+#status{
+    position:absolute;
+    bottom:12px;
+    left:12px;
+    background:rgba(0,0,0,0.55);
+    padding:8px 12px;
+    border-radius:8px;
+    font-size:13px;
+    backdrop-filter:blur(4px);
+}
+
+#nodeEditor{
+    position:absolute;
+    top:16px;
+    right:16px;
+    width:320px;
+    background:#2a2b30;
+    border:1px solid #555;
+    border-radius:10px;
+    overflow:hidden;
+}
+
+#nodeHeader{
+    background:#3a3d45;
+    padding:10px;
+    font-weight:bold;
+}
+
+.node{
+    padding:10px;
+    border-top:1px solid #444;
+}
+
+.node label{
+    display:block;
+    margin-bottom:5px;
+    color:#aaa;
+    font-size:12px;
+}
+
+.node input{
+    width:100%;
+}
+
+.constraint{
+    color:#7fd6ff;
+}
+
+.dimension{
+    color:#ffcc66;
+}
+
+canvas{
+    display:block;
+}
+</style>
+</head>
+
+<body>
+
+<div id="app">
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+
+<div class="panelTitle">
+Feature Tree
+</div>
+
+<div id="featureTree"></div>
+
+<div id="properties">
+
+<div class="prop">
+<label>Case Width</label>
+<input id="caseWidth" type="range" min="80" max="200" value="140">
+</div>
+
+<div class="prop">
+<label>Case Height</label>
+<input id="caseHeight" type="range" min="50" max="160" value="90">
+</div>
+
+<div class="prop">
+<label>Case Depth</label>
+<input id="caseDepth" type="range" min="10" max="80" value="30">
+</div>
+
+<div class="prop">
+<label>Wall Thickness</label>
+<input id="wallThickness" type="range" min="1" max="10" value="3">
+</div>
+
+<button id="rebuildBtn">
+Rebuild CAD Model
+</button>
+
+</div>
+
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+<div id="toolbar">
+
+<div class="tool active" data-tool="select">
+Select
+</div>
+
+<div class="tool" data-tool="sketch">
+Sketch
+</div>
+
+<div class="tool" data-tool="dimension">
+Dimension
+</div>
+
+<div class="tool" data-tool="constraint">
+Constraint
+</div>
+
+<div class="tool" data-tool="extrude">
+Extrude
+</div>
+
+<div class="tool" data-tool="boolean">
+Boolean
+</div>
+
+<div class="tool" data-tool="connector">
+Connector Align
+</div>
+
+</div>
+
+<div id="viewport">
+
+<div id="status">
+Hybrid ECAD/MCAD Ready
+</div>
+
+<div id="nodeEditor">
+
+<div id="nodeHeader">
+Parametric CAD Nodes
+</div>
+
+<div class="node">
+<label>LCD Cutout Width</label>
+<input id="lcdWidth" type="range" min="20" max="100" value="60">
+</div>
+
+<div class="node">
+<label>Connector Offset</label>
+<input id="connectorOffset" type="range" min="-60" max="60" value="0">
+</div>
+
+<div class="node">
+<label>PCB Mount Radius</label>
+<input id="mountRadius" type="range" min="1" max="10" value="3">
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<script type="module">
+
+import * as THREE from "https://esm.sh/three@0.165.0";
+import { OrbitControls } from "https://esm.sh/three@0.165.0/examples/jsm/controls/OrbitControls.js";
+import { TransformControls } from "https://esm.sh/three@0.165.0/examples/jsm/controls/TransformControls.js";
+import { Evaluator, Brush, SUBTRACTION } from "https://esm.sh/three-bvh-csg";
+
+//////////////////////////////////////////////////////////
+// VIEWPORT
+//////////////////////////////////////////////////////////
+
+const viewport = document.getElementById("viewport");
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x101114);
+
+const camera = new THREE.PerspectiveCamera(
+    55,
+    viewport.clientWidth / viewport.clientHeight,
+    0.1,
+    2000
+);
+
+camera.position.set(120,100,120);
+
+const renderer = new THREE.WebGLRenderer({
+    antialias:true
+});
+
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(
+    viewport.clientWidth,
+    viewport.clientHeight
+);
+
+viewport.appendChild(renderer.domElement);
+
+//////////////////////////////////////////////////////////
+// CONTROLS
+//////////////////////////////////////////////////////////
+
+const controls = new OrbitControls(
+    camera,
+    renderer.domElement
+);
+
+controls.enableDamping = true;
+
+const transform = new TransformControls(
+    camera,
+    renderer.domElement
+);
+
+scene.add(transform);
+
+//////////////////////////////////////////////////////////
+// LIGHTING
+//////////////////////////////////////////////////////////
+
+scene.add(
+    new THREE.HemisphereLight(
+        0xffffff,
+        0x222233,
+        2
+    )
+);
+
+const dir = new THREE.DirectionalLight(
+    0xffffff,
+    2
+);
+
+dir.position.set(100,200,100);
+
+scene.add(dir);
+
+//////////////////////////////////////////////////////////
+// GRID
+//////////////////////////////////////////////////////////
+
+const grid = new THREE.GridHelper(
+    500,
+    100,
+    0x444444,
+    0x222222
+);
+
+scene.add(grid);
+
+//////////////////////////////////////////////////////////
+// PARAMETRIC MODEL
+//////////////////////////////////////////////////////////
+
+const params = {
+
+    width:140,
+    height:90,
+    depth:30,
+    wall:3,
+
+    lcdWidth:60,
+    connectorOffset:0,
+    mountRadius:3
+
+};
+
+//////////////////////////////////////////////////////////
+// FEATURE TREE
+//////////////////////////////////////////////////////////
+
+const features = [
+
+    {
+        type:"Sketch",
+        name:"Base Rectangle"
+    },
+
+    {
+        type:"Constraint",
+        name:"Horizontal/Vertical"
+    },
+
+    {
+        type:"Dimension",
+        name:"Width/Height"
+    },
+
+    {
+        type:"Extrude",
+        name:"Main Housing"
+    },
+
+    {
+        type:"Boolean",
+        name:"LCD Cutout"
+    },
+
+    {
+        type:"Connector",
+        name:"USB-C Alignment"
+    },
+
+    {
+        type:"Connector",
+        name:"PicoBlade Alignment"
+    }
+
+];
+
+function buildFeatureTree(){
+
+    const tree = document.getElementById("featureTree");
+
+    tree.innerHTML = "";
+
+    features.forEach(feature=>{
+
+        const div = document.createElement("div");
+
+        div.className = "treeItem";
+
+        div.innerHTML = `
+        ${feature.type}: ${feature.name}
+        `;
+
+        tree.appendChild(div);
+    });
+
+}
+
+buildFeatureTree();
+
+//////////////////////////////////////////////////////////
+// SKETCH CONSTRAINT SYSTEM
+//////////////////////////////////////////////////////////
+
+class SketchConstraint {
+
+    constructor(type,a,b){
+
+        this.type = type;
+
+        this.a = a;
+        this.b = b;
+    }
+
+}
+
+const constraints = [];
+
+constraints.push(
+    new SketchConstraint(
+        "horizontal",
+        "topEdge",
+        "bottomEdge"
+    )
+);
+
+constraints.push(
+    new SketchConstraint(
+        "vertical",
+        "leftEdge",
+        "rightEdge"
+    )
+);
+
+//////////////////////////////////////////////////////////
+// DIMENSION SYSTEM
+//////////////////////////////////////////////////////////
+
+function createDimensionLine(start,end,text){
+
+    const mat = new THREE.LineBasicMaterial({
+        color:0xffcc44
+    });
+
+    const geo = new THREE.BufferGeometry().setFromPoints([
+        start,
+        end
+    ]);
+
+    const line = new THREE.Line(geo,mat);
+
+    scene.add(line);
+
+    return line;
+}
+
+//////////////////////////////////////////////////////////
+// CASE GENERATOR
+//////////////////////////////////////////////////////////
+
+let caseMesh;
+
+function buildCase(){
+
+    if(caseMesh){
+
+        scene.remove(caseMesh);
+
+        caseMesh.traverse(c=>{
+
+            if(c.geometry) c.geometry.dispose();
+
+        });
+
+    }
+
+    //////////////////////////////////////////////////////
+    // OUTER SHAPE
+    //////////////////////////////////////////////////////
+
+    const shape = new THREE.Shape();
+
+    shape.moveTo(
+        -params.width/2,
+        -params.height/2
+    );
+
+    shape.lineTo(
+        params.width/2,
+        -params.height/2
+    );
+
+    shape.lineTo(
+        params.width/2,
+        params.height/2
+    );
+
+    shape.lineTo(
+        -params.width/2,
+        params.height/2
+    );
+
+    shape.lineTo(
+        -params.width/2,
+        -params.height/2
+    );
+
+    //////////////////////////////////////////////////////
+    // INNER WALL
+    //////////////////////////////////////////////////////
+
+    const hole = new THREE.Path();
+
+    hole.moveTo(
+        -params.width/2 + params.wall,
+        -params.height/2 + params.wall
+    );
+
+    hole.lineTo(
+        params.width/2 - params.wall,
+        -params.height/2 + params.wall
+    );
+
+    hole.lineTo(
+        params.width/2 - params.wall,
+        params.height/2 - params.wall
+    );
+
+    hole.lineTo(
+        -params.width/2 + params.wall,
+        params.height/2 - params.wall
+    );
+
+    hole.lineTo(
+        -params.width/2 + params.wall,
+        -params.height/2 + params.wall
+    );
+
+    shape.holes.push(hole);
+
+    //////////////////////////////////////////////////////
+    // EXTRUSION
+    //////////////////////////////////////////////////////
+
+    const housingGeo = new THREE.ExtrudeGeometry(
+        shape,
+        {
+            depth:params.depth,
+            bevelEnabled:false
+        }
+    );
+
+    housingGeo.center();
+
+    //////////////////////////////////////////////////////
+    // BOOLEAN CUTOUT
+    //////////////////////////////////////////////////////
+
+    const housingBrush = new Brush(housingGeo);
+
+    const lcdGeo = new THREE.BoxGeometry(
+        params.lcdWidth,
+        20,
+        10
+    );
+
+    lcdGeo.translate(
+        0,
+        20,
+        params.depth/2
+    );
+
+    const lcdBrush = new Brush(lcdGeo);
+
+    const evaluator = new Evaluator();
+
+    const result = evaluator.evaluate(
+        housingBrush,
+        lcdBrush,
+        SUBTRACTION
+    );
+
+    //////////////////////////////////////////////////////
+    // FINAL MESH
+    //////////////////////////////////////////////////////
+
+    const mat = new THREE.MeshStandardMaterial({
+
+        color:0x22252b,
+        metalness:0.3,
+        roughness:0.75
+
+    });
+
+    caseMesh = new THREE.Mesh(
+        result.geometry,
+        mat
+    );
+
+    scene.add(caseMesh);
+
+    //////////////////////////////////////////////////////
+    // PCB
+    //////////////////////////////////////////////////////
+
+    const pcb = new THREE.Mesh(
+
+        new THREE.BoxGeometry(
+            params.width-20,
+            2,
+            params.height-20
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color:0x1d5d2a
+        })
+
+    );
+
+    pcb.rotation.x = Math.PI/2;
+
+    pcb.position.y = -10;
+
+    caseMesh.add(pcb);
+
+    //////////////////////////////////////////////////////
+    // CONNECTORS
+    //////////////////////////////////////////////////////
+
+    createUSBConnector();
+    createPicoBladeConnector();
+
+    //////////////////////////////////////////////////////
+    // STANDOFFS
+    //////////////////////////////////////////////////////
+
+    createMounts();
+
+    //////////////////////////////////////////////////////
+    // DIMENSIONS
+    //////////////////////////////////////////////////////
+
+    createDimensions();
+
+}
+
+//////////////////////////////////////////////////////////
+// MOUNTS
+//////////////////////////////////////////////////////////
+
+function createMounts(){
+
+    const positions = [
+
+        [-50,-30],
+        [50,-30],
+        [-50,30],
+        [50,30]
+
+    ];
+
+    positions.forEach(pos=>{
+
+        const standoff = new THREE.Mesh(
+
+            new THREE.CylinderGeometry(
+                params.mountRadius,
+                params.mountRadius,
+                12,
+                32
+            ),
+
+            new THREE.MeshStandardMaterial({
+                color:0x999999
+            })
+
+        );
+
+        standoff.position.set(
+            pos[0],
+            -5,
+            pos[1]
+        );
+
+        caseMesh.add(standoff);
+
+    });
+
+}
+
+//////////////////////////////////////////////////////////
+// DIMENSIONS
+//////////////////////////////////////////////////////////
+
+function createDimensions(){
+
+    createDimensionLine(
+
+        new THREE.Vector3(
+            -params.width/2,
+            60,
+            0
+        ),
+
+        new THREE.Vector3(
+            params.width/2,
+            60,
+            0
+        )
+
+    );
+
+}
+
+//////////////////////////////////////////////////////////
+// CONNECTOR ALIGNMENT
+//////////////////////////////////////////////////////////
+
+let usbConnector;
+let picoConnector;
+
+function createUSBConnector(){
+
+    usbConnector = new THREE.Mesh(
+
+        new THREE.BoxGeometry(
+            14,
+            6,
+            8
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color:0xcccccc
+        })
+
+    );
+
+    usbConnector.position.set(
+        -params.width/2 + 4,
+        0,
+        params.connectorOffset
+    );
+
+    caseMesh.add(usbConnector);
+
+}
+
+function createPicoBladeConnector(){
+
+    picoConnector = new THREE.Mesh(
+
+        new THREE.BoxGeometry(
+            20,
+            4,
+            6
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color:0xf2f2e8
+        })
+
+    );
+
+    picoConnector.position.set(
+        params.width/2 - 10,
+        0,
+        0
+    );
+
+    caseMesh.add(picoConnector);
+
+}
+
+//////////////////////////////////////////////////////////
+// DRAGGABLE CONNECTORS
+//////////////////////////////////////////////////////////
+
+transform.addEventListener("dragging-changed",(e)=>{
+
+    controls.enabled = !e.value;
+
+});
+
+renderer.domElement.addEventListener(
+    "pointerdown",
+    onPointerDown
+);
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+function onPointerDown(e){
+
+    mouse.x =
+        (e.clientX / viewport.clientWidth)*2 -1;
+
+    mouse.y =
+        -(e.clientY / viewport.clientHeight)*2 +1;
+
+    raycaster.setFromCamera(mouse,camera);
+
+    const hits = raycaster.intersectObjects([
+        usbConnector,
+        picoConnector
+    ]);
+
+    if(hits.length){
+
+        transform.attach(hits[0].object);
+
+    }
+
+}
+
+//////////////////////////////////////////////////////////
+// UI BINDINGS
+//////////////////////////////////////////////////////////
+
+function bindSlider(id,key){
+
+    document.getElementById(id)
+    .addEventListener("input",(e)=>{
+
+        params[key] = parseFloat(
+            e.target.value
+        );
+
+        buildCase();
+
+    });
+
+}
+
+bindSlider("caseWidth","width");
+bindSlider("caseHeight","height");
+bindSlider("caseDepth","depth");
+bindSlider("wallThickness","wall");
+
+bindSlider("lcdWidth","lcdWidth");
+bindSlider("connectorOffset","connectorOffset");
+bindSlider("mountRadius","mountRadius");
+
+document.getElementById("rebuildBtn")
+.addEventListener("click",buildCase);
+
+//////////////////////////////////////////////////////////
+// TOOLBAR
+//////////////////////////////////////////////////////////
+
+let currentTool = "select";
+
+document.querySelectorAll(".tool")
+.forEach(tool=>{
+
+    tool.addEventListener("click",()=>{
+
+        document
+        .querySelectorAll(".tool")
+        .forEach(t=>t.classList.remove("active"));
+
+        tool.classList.add("active");
+
+        currentTool = tool.dataset.tool;
+
+        document.getElementById("status")
+        .innerText =
+            "Tool: " + currentTool;
+
+    });
+
+});
+
+//////////////////////////////////////////////////////////
+// BUILD INITIAL MODEL
+//////////////////////////////////////////////////////////
+
+buildCase();
+
+//////////////////////////////////////////////////////////
+// ANIMATE
+//////////////////////////////////////////////////////////
+
+function animate(){
+
+    requestAnimationFrame(animate);
+
+    controls.update();
+
+    renderer.render(scene,camera);
+
+}
+
+animate();
+
+//////////////////////////////////////////////////////////
+// RESIZE
+//////////////////////////////////////////////////////////
+
+window.addEventListener("resize",()=>{
+
+    camera.aspect =
+        viewport.clientWidth /
+        viewport.clientHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        viewport.clientWidth,
+        viewport.clientHeight
+    );
+
+});
+
+</script>
+</body>
+</html>
