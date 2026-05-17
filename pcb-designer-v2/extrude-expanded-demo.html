@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Hybrid CAD / PCB / EDA Workstation</title>
+
+<style>
+html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#1b1d22;
+    font-family:Segoe UI,Arial,sans-serif;
+    color:#ddd;
+}
+
+#app{
+    width:100%;
+    height:100%;
+    display:flex;
+}
+
+#sidebar{
+    width:320px;
+    background:#24272d;
+    border-right:1px solid #444;
+    display:flex;
+    flex-direction:column;
+}
+
+.panelTitle{
+    background:#2f333a;
+    height:42px;
+    display:flex;
+    align-items:center;
+    padding:0 12px;
+    font-weight:600;
+    border-bottom:1px solid #444;
+}
+
+#tree{
+    flex:1;
+    overflow:auto;
+}
+
+.treeItem{
+    padding:8px 12px;
+    border-bottom:1px solid #333;
+    cursor:pointer;
+}
+
+.treeItem:hover{
+    background:#353942;
+}
+
+.sub{
+    padding-left:28px;
+    color:#aaa;
+}
+
+#properties{
+    height:360px;
+    border-top:1px solid #444;
+    overflow:auto;
+    padding:10px;
+    background:#202226;
+}
+
+.prop{
+    margin-bottom:12px;
+}
+
+.prop label{
+    display:block;
+    margin-bottom:4px;
+    font-size:12px;
+    color:#aaa;
+}
+
+.prop input{
+    width:100%;
+}
+
+button{
+    background:#596273;
+    color:white;
+    border:none;
+    padding:8px 12px;
+    border-radius:5px;
+    cursor:pointer;
+    margin-top:4px;
+}
+
+button:hover{
+    background:#7080a0;
+}
+
+#main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+}
+
+#toolbar{
+    height:48px;
+    background:#2c3036;
+    border-bottom:1px solid #444;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:0 10px;
+}
+
+.tool{
+    background:#414752;
+    padding:8px 12px;
+    border-radius:6px;
+    cursor:pointer;
+    user-select:none;
+    font-size:13px;
+}
+
+.tool:hover{
+    background:#596273;
+}
+
+.tool.active{
+    background:#6e8ce6;
+}
+
+#viewport{
+    position:relative;
+    flex:1;
+}
+
+#status{
+    position:absolute;
+    left:12px;
+    bottom:12px;
+    background:rgba(0,0,0,0.6);
+    padding:8px 12px;
+    border-radius:8px;
+    font-size:13px;
+    pointer-events:none;
+}
+
+.dimension{
+    position:absolute;
+    color:#ffe06a;
+    font-size:12px;
+    background:rgba(0,0,0,0.6);
+    padding:2px 6px;
+    border-radius:4px;
+    pointer-events:none;
+}
+
+.lil-gui.root{
+    --background-color:#2a2d32;
+    --widget-color:#40454f;
+    --hover-color:#596273;
+    --focus-color:#7289da;
+    --text-color:#d6d6d6;
+    --title-background-color:#30343b;
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+<div id="sidebar">
+
+    <div class="panelTitle">
+        Feature Tree
+    </div>
+
+    <div id="tree">
+
+        <div class="treeItem">Part1</div>
+
+        <div class="treeItem sub">History</div>
+
+        <div class="treeItem sub">Sketch1</div>
+
+        <div class="treeItem sub">Extrude1</div>
+
+        <div class="treeItem sub">Fillet1</div>
+
+        <div class="treeItem sub">Chamfer1</div>
+
+        <div class="treeItem sub">PCB Board</div>
+
+        <div class="treeItem sub">Copper Top</div>
+
+        <div class="treeItem sub">Copper Bottom</div>
+
+        <div class="treeItem sub">Harness Loft</div>
+
+        <div class="treeItem sub">LCD Housing</div>
+
+        <div class="treeItem sub">Bosses</div>
+
+        <div class="treeItem sub">Screw Holes</div>
+
+    </div>
+
+    <div id="properties">
+
+        <div class="prop">
+            <label>Extrude Depth</label>
+            <input id="extrudeDepth" type="range" min="0.2" max="10" step="0.1" value="2">
+        </div>
+
+        <div class="prop">
+            <label>Fillet Radius</label>
+            <input id="filletRadius" type="range" min="0" max="1" step="0.05" value="0.2">
+        </div>
+
+        <div class="prop">
+            <label>Chamfer Size</label>
+            <input id="chamferSize" type="range" min="0" max="1" step="0.05" value="0.2">
+        </div>
+
+        <button id="finishSketch">
+            Finish Sketch
+        </button>
+
+        <button id="extrudeBtn">
+            Extrude Boss/Base
+        </button>
+
+        <button id="exportSTL">
+            Export STL
+        </button>
+
+        <button id="exportSTEP">
+            Export STEP
+        </button>
+
+    </div>
+
+</div>
+
+<div id="main">
+
+    <div id="toolbar">
+
+        <div class="tool active" data-tool="line">
+            2D Sketch
+        </div>
+
+        <div class="tool" data-tool="3dline">
+            3D Sketch
+        </div>
+
+        <div class="tool" data-tool="select">
+            Face Select
+        </div>
+
+        <div class="tool" data-tool="constraint">
+            Constraints
+        </div>
+
+        <div class="tool" data-tool="extrude">
+            Extrude
+        </div>
+
+        <div class="tool" data-tool="boolean">
+            Boolean
+        </div>
+
+        <div class="tool" id="planeBtn">
+            Plane: XY
+        </div>
+
+    </div>
+
+    <div id="viewport">
+
+        <div id="status">
+            Ready
+        </div>
+
+    </div>
+
+</div>
+
+</div>
+
+<script type="module">
+
+import * as THREE from "https://esm.sh/three@0.165.0";
+import { OrbitControls } from "https://esm.sh/three@0.165.0/examples/jsm/controls/OrbitControls.js";
+import { STLExporter } from "https://esm.sh/three@0.165.0/examples/jsm/exporters/STLExporter.js";
+import GUI from "https://esm.sh/lil-gui@0.19";
+
+/* =========================================================
+   SCENE
+========================================================= */
+
+const viewport = document.getElementById("viewport");
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1b1d22);
+
+const camera = new THREE.PerspectiveCamera(
+    60,
+    viewport.clientWidth / viewport.clientHeight,
+    0.1,
+    1000
+);
+
+camera.position.set(14,10,14);
+
+const renderer = new THREE.WebGLRenderer({
+    antialias:true
+});
+
+renderer.setSize(
+    viewport.clientWidth,
+    viewport.clientHeight
+);
+
+renderer.setPixelRatio(devicePixelRatio);
+
+viewport.appendChild(renderer.domElement);
+
+/* =========================================================
+   CONTROLS
+========================================================= */
+
+const controls = new OrbitControls(camera,renderer.domElement);
+controls.enableDamping = true;
+
+/* =========================================================
+   GRID
+========================================================= */
+
+scene.add(
+    new THREE.GridHelper(100,100,0x555555,0x333333)
+);
+
+scene.add(
+    new THREE.AxesHelper(4)
+);
+
+/* =========================================================
+   LIGHTING
+========================================================= */
+
+scene.add(
+    new THREE.HemisphereLight(0xffffff,0x444444,1.4)
+);
+
+const dir = new THREE.DirectionalLight(0xffffff,1.8);
+dir.position.set(10,20,15);
+scene.add(dir);
+
+/* =========================================================
+   PCB
+========================================================= */
+
+const pcb = new THREE.Mesh(
+    new THREE.BoxGeometry(16,0.3,12),
+    new THREE.MeshStandardMaterial({
+        color:0x1f5c2d,
+        roughness:0.85
+    })
+);
+
+pcb.position.y = -0.15;
+
+scene.add(pcb);
+
+/* =========================================================
+   PCB COPPER GEOMETRY
+========================================================= */
+
+const copperMat = new THREE.MeshStandardMaterial({
+    color:0xc87528,
+    metalness:1,
+    roughness:0.25
+});
+
+function createCopperTrace(x1,z1,x2,z2){
+
+    const len = Math.hypot(x2-x1,z2-z1);
+
+    const trace = new THREE.Mesh(
+        new THREE.BoxGeometry(len,0.02,0.18),
+        copperMat
+    );
+
+    trace.position.set(
+        (x1+x2)/2,
+        0.17,
+        (z1+z2)/2
+    );
+
+    trace.rotation.y = -Math.atan2(z2-z1,x2-x1);
+
+    scene.add(trace);
+}
+
+createCopperTrace(-5,-2,4,-2);
+createCopperTrace(4,-2,4,3);
+createCopperTrace(-3,3,4,3);
+
+/* =========================================================
+   PARAMETRIC DIMENSIONS
+========================================================= */
+
+const parameters = {
+    extrudeDepth:2,
+    fillet:0.2,
+    chamfer:0.2,
+    pcbThickness:0.3,
+    screwDiameter:0.4
+};
+
+/* =========================================================
+   GUI
+========================================================= */
+
+const gui = new GUI();
+
+gui.title("Hybrid CAD");
+
+gui.add(parameters,"extrudeDepth",0.2,10,0.1);
+
+gui.add(parameters,"fillet",0,1,0.05);
+
+gui.add(parameters,"chamfer",0,1,0.05);
+
+gui.add(parameters,"pcbThickness",0.1,1,0.05);
+
+gui.add(parameters,"screwDiameter",0.2,1,0.05);
+
+/* =========================================================
+   TOOL STATE
+========================================================= */
+
+let currentTool = "line";
+
+document.querySelectorAll(".tool[data-tool]")
+.forEach(btn=>{
+
+    btn.addEventListener("click",()=>{
+
+        document.querySelectorAll(".tool[data-tool]")
+            .forEach(b=>b.classList.remove("active"));
+
+        btn.classList.add("active");
+
+        currentTool = btn.dataset.tool;
+
+        setStatus("Tool: " + currentTool);
+
+    });
+
+});
+
+/* =========================================================
+   PLANES
+========================================================= */
+
+const planes = ["XY","YZ","ZX"];
+let planeIndex = 0;
+let currentPlane = "XY";
+
+function updatePlaneButton(){
+
+    document.getElementById("planeBtn")
+        .innerText = "Plane: " + currentPlane;
+}
+
+document.getElementById("planeBtn")
+.addEventListener("click",()=>{
+
+    planeIndex++;
+
+    if(planeIndex >= planes.length){
+        planeIndex = 0;
+    }
+
+    currentPlane = planes[planeIndex];
+
+    updatePlaneButton();
+
+});
+
+/* =========================================================
+   STATUS
+========================================================= */
+
+function setStatus(text){
+    document.getElementById("status").innerText = text;
+}
+
+/* =========================================================
+   SKETCH ENGINE
+========================================================= */
+
+const sketchGroup = new THREE.Group();
+scene.add(sketchGroup);
+
+let sketchPoints = [];
+let sketchLines = [];
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+function getIntersection(e){
+
+    mouse.x =
+        (e.clientX / viewport.clientWidth) * 2 - 1;
+
+    mouse.y =
+        -(e.clientY / viewport.clientHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse,camera);
+
+    let plane;
+
+    if(currentPlane==="XY"){
+        plane = new THREE.Plane(
+            new THREE.Vector3(0,0,1),0
+        );
+    }
+
+    if(currentPlane==="YZ"){
+        plane = new THREE.Plane(
+            new THREE.Vector3(1,0,0),0
+        );
+    }
+
+    if(currentPlane==="ZX"){
+        plane = new THREE.Plane(
+            new THREE.Vector3(0,1,0),0
+        );
+    }
+
+    const pos = new THREE.Vector3();
+
+    raycaster.ray.intersectPlane(plane,pos);
+
+    pos.x = Math.round(pos.x);
+    pos.y = Math.round(pos.y);
+    pos.z = Math.round(pos.z);
+
+    return pos;
+}
+
+function addPoint(pos){
+
+    const sphere = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1),
+        new THREE.MeshBasicMaterial({
+            color:0x00ffff
+        })
+    );
+
+    sphere.position.copy(pos);
+
+    sketchGroup.add(sphere);
+
+    sketchPoints.push(pos.clone());
+
+    if(sketchPoints.length > 1){
+
+        const a = sketchPoints[sketchPoints.length-2];
+        const b = sketchPoints[sketchPoints.length-1];
+
+        const geo = new THREE.BufferGeometry()
+            .setFromPoints([a,b]);
+
+        const line = new THREE.Line(
+            geo,
+            new THREE.LineBasicMaterial({
+                color:0xffd94a
+            })
+        );
+
+        sketchGroup.add(line);
+
+        sketchLines.push(line);
+    }
+
+}
+
+/* =========================================================
+   CONSTRAINT SOLVER
+========================================================= */
+
+function applyHorizontalConstraint(){
+
+    if(sketchPoints.length < 2) return;
+
+    const a = sketchPoints[sketchPoints.length-2];
+    const b = sketchPoints[sketchPoints.length-1];
+
+    b.y = a.y;
+
+    setStatus("Horizontal constraint applied");
+}
+
+function applyVerticalConstraint(){
+
+    if(sketchPoints.length < 2) return;
+
+    const a = sketchPoints[sketchPoints.length-2];
+    const b = sketchPoints[sketchPoints.length-1];
+
+    b.x = a.x;
+
+    setStatus("Vertical constraint applied");
+}
+
+/* =========================================================
+   POINTER
+========================================================= */
+
+renderer.domElement.addEventListener(
+    "pointerdown",
+    e=>{
+
+        if(currentTool==="line"
+        || currentTool==="3dline"){
+
+            const pos = getIntersection(e);
+
+            addPoint(pos);
+
+        }
+
+    }
+);
+
+/* =========================================================
+   KEYBOARD CONSTRAINTS
+========================================================= */
+
+window.addEventListener("keydown",(e)=>{
+
+    if(e.key==="h"){
+        applyHorizontalConstraint();
+    }
+
+    if(e.key==="v"){
+        applyVerticalConstraint();
+    }
+
+});
+
+/* =========================================================
+   EXTRUSION
+========================================================= */
+
+let extrudeMesh;
+
+function extrudeSketch(){
+
+    if(sketchPoints.length < 3){
+        return;
+    }
+
+    if(extrudeMesh){
+        scene.remove(extrudeMesh);
+    }
+
+    const shape = new THREE.Shape();
+
+    sketchPoints.forEach((p,i)=>{
+
+        if(i===0){
+            shape.moveTo(p.x,p.y);
+        }else{
+            shape.lineTo(p.x,p.y);
+        }
+
+    });
+
+    const geo = new THREE.ExtrudeGeometry(
+        shape,
+        {
+            depth:parameters.extrudeDepth,
+            bevelEnabled:false
+        }
+    );
+
+    const mat = new THREE.MeshStandardMaterial({
+        color:0x8f98a8,
+        metalness:0.4,
+        roughness:0.5
+    });
+
+    extrudeMesh = new THREE.Mesh(geo,mat);
+
+    scene.add(extrudeMesh);
+
+    setStatus("Extrude created");
+}
+
+document.getElementById("extrudeBtn")
+.addEventListener("click",extrudeSketch);
+
+/* =========================================================
+   BOOLEAN ENGINE
+========================================================= */
+
+const booleanA = new THREE.Mesh(
+    new THREE.BoxGeometry(2,2,2),
+    new THREE.MeshStandardMaterial({
+        color:0x6666ff,
+        transparent:true,
+        opacity:0.5
+    })
+);
+
+booleanA.position.set(6,1,0);
+
+scene.add(booleanA);
+
+const booleanB = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.8,0.8,3,32),
+    new THREE.MeshStandardMaterial({
+        color:0xff4444,
+        transparent:true,
+        opacity:0.5
+    })
+);
+
+booleanB.rotation.z = Math.PI/2;
+booleanB.position.set(6,1,0);
+
+scene.add(booleanB);
+
+/* =========================================================
+   FACE SELECTION
+========================================================= */
+
+let selectedFace = null;
+
+renderer.domElement.addEventListener(
+    "dblclick",
+    e=>{
+
+        mouse.x =
+            (e.clientX / viewport.clientWidth) * 2 -1;
+
+        mouse.y =
+            -(e.clientY / viewport.clientHeight) *2 +1;
+
+        raycaster.setFromCamera(mouse,camera);
+
+        const hits = raycaster.intersectObjects(scene.children,true);
+
+        if(hits.length){
+
+            selectedFace = hits[0];
+
+            if(selectedFace.object.material.color){
+
+                selectedFace.object.material.color.set(0xffff00);
+            }
+
+            setStatus("Face selected");
+        }
+
+    }
+);
+
+/* =========================================================
+   LCD HOUSING
+========================================================= */
+
+const housing = new THREE.Mesh(
+    new THREE.BoxGeometry(8,2,5),
+    new THREE.MeshStandardMaterial({
+        color:0x565d67
+    })
+);
+
+housing.position.set(0,1,-8);
+
+scene.add(housing);
+
+/* =========================================================
+   LCD CUTOUT
+========================================================= */
+
+const lcdCutout = new THREE.Mesh(
+    new THREE.BoxGeometry(5,0.2,2),
+    new THREE.MeshBasicMaterial({
+        color:0x00ffff,
+        wireframe:true
+    })
+);
+
+lcdCutout.position.set(0,2.01,-8);
+
+scene.add(lcdCutout);
+
+/* =========================================================
+   MOUNTING BOSSES
+========================================================= */
+
+function createBoss(x,z){
+
+    const boss = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.3,0.3,1.2,24),
+        new THREE.MeshStandardMaterial({
+            color:0x7c8798
+        })
+    );
+
+    boss.position.set(x,0.6,z);
+
+    scene.add(boss);
+
+    return boss;
+}
+
+createBoss(-3,-9.5);
+createBoss(3,-9.5);
+createBoss(-3,-6.5);
+createBoss(3,-6.5);
+
+/* =========================================================
+   SCREW GENERATORS
+========================================================= */
+
+function createScrew(x,z){
+
+    const screw = new THREE.Group();
+
+    const shaft = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12,0.12,1.2,16),
+        new THREE.MeshStandardMaterial({
+            color:0xcccccc,
+            metalness:1
+        })
+    );
+
+    screw.add(shaft);
+
+    const head = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.25,0.25,0.15,16),
+        new THREE.MeshStandardMaterial({
+            color:0xeeeeee,
+            metalness:1
+        })
+    );
+
+    head.position.y = 0.65;
+
+    screw.add(head);
+
+    screw.position.set(x,0.6,z);
+
+    scene.add(screw);
+}
+
+createScrew(-3,-9.5);
+createScrew(3,-9.5);
+
+/* =========================================================
+   FILLET / CHAMFER VISUALS
+========================================================= */
+
+const filletPreview = new THREE.Mesh(
+    new THREE.SphereGeometry(0.25,16,16),
+    new THREE.MeshBasicMaterial({
+        color:0x00ffff,
+        wireframe:true
+    })
+);
+
+filletPreview.position.set(4,2,-8);
+
+scene.add(filletPreview);
+
+const chamferPreview = new THREE.Mesh(
+    new THREE.ConeGeometry(0.25,0.4,4),
+    new THREE.MeshBasicMaterial({
+        color:0xffaa00,
+        wireframe:true
+    })
+);
+
+chamferPreview.rotation.x = Math.PI/2;
+chamferPreview.position.set(-4,2,-8);
+
+scene.add(chamferPreview);
+
+/* =========================================================
+   HARNESS SWEEP LOFTS
+========================================================= */
+
+function createHarness(points,color){
+
+    const curve = new THREE.CatmullRomCurve3(points);
+
+    const geo = new THREE.TubeGeometry(
+        curve,
+        64,
+        0.12,
+        16
+    );
+
+    const mesh = new THREE.Mesh(
+        geo,
+        new THREE.MeshStandardMaterial({
+            color
+        })
+    );
+
+    scene.add(mesh);
+
+    return mesh;
+}
+
+createHarness([
+    new THREE.Vector3(-6,1,5),
+    new THREE.Vector3(-3,3,2),
+    new THREE.Vector3(0,2,-2),
+    new THREE.Vector3(4,1,-6)
+],0xff3333);
+
+/* =========================================================
+   CONNECTOR ALIGNMENT
+========================================================= */
+
+const connectorA = new THREE.Mesh(
+    new THREE.BoxGeometry(1.5,0.5,0.5),
+    new THREE.MeshStandardMaterial({
+        color:0xf0e0c0
+    })
+);
+
+connectorA.position.set(-5,1,6);
+
+scene.add(connectorA);
+
+const connectorB = new THREE.Mesh(
+    new THREE.BoxGeometry(1.5,0.5,0.5),
+    new THREE.MeshStandardMaterial({
+        color:0xe0d0b0
+    })
+);
+
+connectorB.position.set(-2,1,6);
+
+scene.add(connectorB);
+
+/* =========================================================
+   STEP EXPORTER
+========================================================= */
+
+function exportSTEP(){
+
+    let text = `
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('STEP DEMO'),'2;1');
+ENDSEC;
+DATA;
+ENDSEC;
+END-ISO-10303-21;
+`;
+
+    const blob = new Blob([text],{
+        type:"application/step"
+    });
+
+    const a = document.createElement("a");
+
+    a.href = URL.createObjectURL(blob);
+
+    a.download = "model.step";
+
+    a.click();
+
+    setStatus("STEP exported");
+}
+
+document.getElementById("exportSTEP")
+.addEventListener("click",exportSTEP);
+
+/* =========================================================
+   STL EXPORTER
+========================================================= */
+
+const exporter = new STLExporter();
+
+function exportSTL(){
+
+    const data = exporter.parse(scene);
+
+    const blob = new Blob([data],{
+        type:"text/plain"
+    });
+
+    const a = document.createElement("a");
+
+    a.href = URL.createObjectURL(blob);
+
+    a.download = "model.stl";
+
+    a.click();
+
+    setStatus("STL exported");
+}
+
+document.getElementById("exportSTL")
+.addEventListener("click",exportSTL);
+
+/* =========================================================
+   BREP KERNEL NOTES
+========================================================= */
+
+console.log(`
+Pseudo-BREP architecture:
+
+Vertex
+Edge
+Loop
+Face
+Shell
+Solid
+
+Recommended future:
+- verb-nurbs
+- opencascade wasm
+- manifold cad
+- csg.js
+- step parser
+`);
+
+/* =========================================================
+   ANIMATE
+========================================================= */
+
+function animate(){
+
+    requestAnimationFrame(animate);
+
+    controls.update();
+
+    connectorB.lookAt(connectorA.position);
+
+    renderer.render(scene,camera);
+}
+
+animate();
+
+/* =========================================================
+   RESIZE
+========================================================= */
+
+window.addEventListener("resize",()=>{
+
+    camera.aspect =
+        viewport.clientWidth /
+        viewport.clientHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        viewport.clientWidth,
+        viewport.clientHeight
+    );
+
+});
+
+</script>
+</body>
+</html>
