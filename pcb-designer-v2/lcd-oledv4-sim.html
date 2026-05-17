@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>LCD / OLED Pixel Electrical + Crystal Physics Simulator v3</title>
+<style>
+body { margin:0; overflow:hidden; font-family:monospace; background:#111; color:#0f0;}
+#ui {
+ position:fixed; right:0; top:0; width:360px; height:100%;
+ background:#000c; padding:10px; overflow:auto;
+}
+button{width:100%; margin:4px 0; background:#222; color:#0f0; border:1px solid #0f0;}
+canvas{display:block;}
+</style>
+</head>
+<body>
+<div id="ui">
+<h3>LCD / OLED Simulator v3</h3>
+<button onclick="toggleBlowout()">Blowout View</button>
+<button onclick="toggleIPS()">IPS / TN</button>
+<button onclick="toggleOLED()">LCD / OLED</button>
+<button onclick="toggleTouch()">Touch Grid</button>
+<button onclick="toggleVcom()">Vcom Inversion</button>
+<button onclick="showTiming()">Show Timing Diagram</button>
+<canvas id="scope" width="320" height="180"></canvas>
+<div id="info"></div>
+</div>
+
+<script type="module">
+import * as THREE from "https://esm.sh/three@0.160.0";
+
+let scene = new THREE.Scene();
+let camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, .1, 1000);
+let renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+camera.position.set(0,6,12);
+camera.lookAt(0,0,0);
+
+let blowout=false, ips=false, oled=false, touch=false, vcom=true;
+let time=0;
+
+// ---------- LCD LAYERS ----------
+const layers=[];
+function makeLayer(y,color,name){
+ const g=new THREE.PlaneGeometry(10,6);
+ const m=new THREE.MeshBasicMaterial({color,transparent:true,opacity:.35,side:THREE.DoubleSide});
+ const mesh=new THREE.Mesh(g,m);
+ mesh.position.y=y;
+ mesh.userData.name=name;
+ scene.add(mesh);
+ layers.push(mesh);
+}
+
+makeLayer(0,"#444","Backlight");
+makeLayer(.5,"#888","Rear Polarizer");
+makeLayer(1,"#2244ff","TFT Glass");
+makeLayer(1.5,"#ffffff","Liquid Crystal");
+makeLayer(2,"#ffccaa","RGB Filter");
+makeLayer(2.5,"#ffffff","Front Polarizer");
+makeLayer(3,"#66ffaa","Touch Layer");
+
+// ---------- SUBPIXEL GRID ----------
+const grid=new THREE.Group();
+const sx=60, sy=45;
+for(let y=0;y<sy;y++){
+ for(let x=0;x<sx;x++){
+  const colors=[0xff0000,0x00ff00,0x0000ff];
+  for(let i=0;i<3;i++){
+    const g=new THREE.PlaneGeometry(.045,.045);
+    const m=new THREE.MeshBasicMaterial({color:colors[i]});
+    const p=new THREE.Mesh(g,m);
+    p.position.set(x*.06-1.8+i*.02,y*.06-1.3,2);
+    p.userData={x,y,i};
+    grid.add(p);
+  }
+ }
+}
+scene.add(grid);
+
+// ---------- LIQUID CRYSTAL ZOOM ----------
+const lcGeom=new THREE.CylinderGeometry(.02,.02,1,8);
+const lcMat=new THREE.MeshBasicMaterial({color:0xffffff});
+const lcMolecule=new THREE.Mesh(lcGeom,lcMat);
+lcMolecule.position.set(-4,0,0);
+scene.add(lcMolecule);
+
+// ---------- TOUCH GRID ----------
+let touchLines=new THREE.Group();
+for(let i=0;i<20;i++){
+ let g=new THREE.BufferGeometry().setFromPoints([
+  new THREE.Vector3(-3+i*.3,3,3.1),
+  new THREE.Vector3(-3+i*.3,-3,3.1)
+ ]);
+ touchLines.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:0x00ffff})));
+}
+scene.add(touchLines);
+touchLines.visible=false;
+
+// ---------- CLICK PIXEL ----------
+renderer.domElement.addEventListener("click",e=>{
+ const ray=new THREE.Raycaster();
+ const mouse=new THREE.Vector2(
+  (e.clientX/innerWidth)*2-1,
+  -(e.clientY/innerHeight)*2+1
+ );
+ ray.setFromCamera(mouse,camera);
+ const hit=ray.intersectObjects(grid.children)[0];
+ if(hit){
+   document.getElementById("info").innerText=
+   `Pixel (${hit.object.userData.x},${hit.object.userData.y})
+Subpixel ${hit.object.userData.i}
+TFT Charging capacitor...
+Column voltage applied.`;
+ }
+});
+
+// ---------- OSCILLOSCOPE ----------
+const scope=document.getElementById("scope");
+const ctx=scope.getContext("2d");
+
+function drawWave(){
+ ctx.fillStyle="#000"; ctx.fillRect(0,0,320,180);
+ ctx.strokeStyle="#0f0"; ctx.beginPath();
+ for(let x=0;x<320;x++){
+   let t=(x/320)*Math.PI*4+time*2;
+   let v=Math.sin(t);
+   if(vcom) v*=Math.sign(Math.sin(time));
+   ctx.lineTo(x,90+v*60);
+ }
+ ctx.stroke();
+ requestAnimationFrame(drawWave);
+}
+drawWave();
+
+// ---------- TIMING DIAGRAM ----------
+window.showTiming=()=>{
+ alert(`800x600 @60Hz Timing (Typical)
+Pixel Clock ≈ 40 MHz
+
+Horizontal:
+Visible:800
+Front Porch:40
+Sync:128
+Back Porch:88
+Total:1056
+
+Vertical:
+Visible:600
+Front Porch:1
+Sync:4
+Back Porch:23
+Total:628`);
+};
+
+// ---------- TOGGLES ----------
+window.toggleBlowout=()=>{
+ blowout=!blowout;
+ layers.forEach((l,i)=>l.position.y=i*(blowout?1.5:.5));
+};
+
+window.toggleIPS=()=> ips=!ips;
+window.toggleOLED=()=> oled=!oled;
+window.toggleTouch=()=> touchLines.visible=!touchLines.visible;
+window.toggleVcom=()=> vcom=!vcom;
+
+// ---------- ANIMATION ----------
+function animate(){
+ requestAnimationFrame(animate);
+ time+=.01;
+
+ // subpixel flicker simulating scan
+ grid.children.forEach(p=>{
+   let phase=(p.userData.x+time*50)%60;
+   let bright=phase<30?1:.2;
+   p.material.opacity=bright;
+ });
+
+ // LC molecule rotation
+ lcMolecule.rotation.z = oled?0:
+   ips?Math.sin(time)*1.2:
+   Math.cos(time)*.4;
+
+ renderer.render(scene,camera);
+}
+animate();
+</script>
+</body>
+</html>
