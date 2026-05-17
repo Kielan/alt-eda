@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>LCD TFT Controller + Layer Simulation</title>
+<style>
+  body { margin:0; overflow:hidden; font-family:monospace; background:#111; color:#0f0;}
+  #panel {
+    position:absolute; right:0; top:0; width:320px; height:100%;
+    background:#000c; padding:10px; overflow:auto;
+    border-left:1px solid #0f0;
+  }
+  button { width:100%; margin:6px 0; padding:6px; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <button id="toggleView">Toggle Exploded / Assembled</button>
+  <h3>Signal Inspector</h3>
+  <div id="signals"></div>
+</div>
+
+<script type="module">
+import * as THREE from 'https://esm.sh/three@0.161.0';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x101010);
+
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(0, 6, 18);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const light = new THREE.PointLight(0xffffff, 2);
+light.position.set(10,10,10);
+scene.add(light);
+
+const layers = [];
+const layerSpacing = 0.5;
+
+// ---------- LCD LAYERS ----------
+function makeLayer(color, name, opacity=0.5) {
+  const geo = new THREE.BoxGeometry(12, 8, 0.1);
+  const mat = new THREE.MeshStandardMaterial({
+    color, transparent:true, opacity
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.userData.name = name;
+  scene.add(mesh);
+  layers.push(mesh);
+}
+
+makeLayer(0x00ffff, "Touch Layer", 0.25);
+makeLayer(0xffffff, "Top Polarizer", 0.2);
+makeLayer(0xff0000, "RGB Color Filter", 0.4);
+makeLayer(0x8888ff, "Liquid Crystal", 0.35);
+makeLayer(0xffff00, "TFT Transistor Glass", 0.45);
+makeLayer(0xffffff, "Rear Polarizer", 0.2);
+makeLayer(0xffffff, "Backlight Diffuser", 0.15);
+
+// ---------- PCB + FPGA ----------
+const pcb = new THREE.Mesh(
+  new THREE.BoxGeometry(14, 2, 0.4),
+  new THREE.MeshStandardMaterial({color:0x004400})
+);
+pcb.position.set(0, -6, 0);
+scene.add(pcb);
+
+const fpga = new THREE.Mesh(
+  new THREE.BoxGeometry(3, 1, 0.6),
+  new THREE.MeshStandardMaterial({color:0x222222})
+);
+fpga.position.set(0, -6, 0.6);
+scene.add(fpga);
+
+// ---------- Ribbon Cable ----------
+const cableGeo = new THREE.BoxGeometry(0.3, 4, 0.05);
+const cable = new THREE.Mesh(cableGeo,
+  new THREE.MeshStandardMaterial({color:0xffaa00})
+);
+cable.position.set(6.2, -2, 0);
+scene.add(cable);
+
+// ---------- Exploded vs Assembled ----------
+let exploded = true;
+
+function updateLayerPositions() {
+  layers.forEach((l, i) => {
+    l.position.y = exploded ? (i * layerSpacing) : 0;
+  });
+}
+updateLayerPositions();
+
+document.getElementById('toggleView').onclick = () => {
+  exploded = !exploded;
+  updateLayerPositions();
+};
+
+// ---------- Signal Simulation ----------
+const signalDiv = document.getElementById("signals");
+
+let frame = 0;
+let row = 0;
+let col = 0;
+
+const WIDTH = 800;
+const HEIGHT = 600;
+const FPS = 60;
+
+function simulateSignals(dt) {
+  const pixelsPerFrame = WIDTH * HEIGHT;
+  const pixelsPerSecond = pixelsPerFrame * FPS;
+
+  col += pixelsPerSecond * dt;
+  if (col >= WIDTH) {
+    col = 0;
+    row++;
+  }
+  if (row >= HEIGHT) {
+    row = 0;
+    frame++;
+  }
+
+  const PCLK = (col % 2) < 1;
+  const HSYNC = col === 0;
+  const VSYNC = row === 0 && col === 0;
+  const DE = row < HEIGHT;
+
+  const colors = ["Red","Green","Blue","Yellow","White","Black"];
+  const color = colors[(row + col) % colors.length];
+
+  signalDiv.innerHTML = `
+  Frame: ${frame}<br>
+  Row: ${row}<br>
+  Column: ${Math.floor(col)}<br><br>
+  PCLK: ${PCLK}<br>
+  HSYNC: ${HSYNC}<br>
+  VSYNC: ${VSYNC}<br>
+  DE: ${DE}<br>
+  Data Bus Color: ${color}
+  `;
+}
+
+// ---------- Animate scanning highlight ----------
+const scanLine = new THREE.Mesh(
+  new THREE.BoxGeometry(12, 0.1, 0.2),
+  new THREE.MeshStandardMaterial({color:0x00ff00})
+);
+scene.add(scanLine);
+
+function animate(time) {
+  requestAnimationFrame(animate);
+  const dt = 0.016;
+
+  simulateSignals(dt);
+
+  scanLine.position.y = (row / HEIGHT) * 8 - 4;
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
