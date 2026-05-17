@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Hybrid CAD / PCB / SolidWorks Style Sketch Extrude Demo</title>
+
+<style>
+html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    font-family:Segoe UI,Arial,sans-serif;
+    background:#1e1f22;
+    color:#d8d8d8;
+}
+
+/* ===== LAYOUT ===== */
+
+#app{
+    width:100%;
+    height:100%;
+    display:flex;
+}
+
+/* ===== LEFT FEATURE TREE ===== */
+
+#leftPanel{
+    width:290px;
+    background:#25272b;
+    border-right:1px solid #444;
+    display:flex;
+    flex-direction:column;
+}
+
+.panelHeader{
+    height:40px;
+    display:flex;
+    align-items:center;
+    padding:0 12px;
+    background:#2d3035;
+    border-bottom:1px solid #444;
+    font-weight:600;
+    font-size:14px;
+}
+
+#featureTree{
+    flex:1;
+    overflow:auto;
+}
+
+.treeItem{
+    padding:8px 12px;
+    border-bottom:1px solid #333;
+    cursor:pointer;
+    user-select:none;
+}
+
+.treeItem:hover{
+    background:#353942;
+}
+
+.treeItem.active{
+    background:#4a5b82;
+}
+
+.treeSub{
+    padding-left:26px;
+    color:#aaa;
+    font-size:13px;
+}
+
+/* ===== PROPERTY PANEL ===== */
+
+#properties{
+    height:320px;
+    border-top:1px solid #444;
+    overflow:auto;
+    padding:10px;
+    background:#202226;
+}
+
+.prop{
+    margin-bottom:12px;
+}
+
+.prop label{
+    display:block;
+    margin-bottom:4px;
+    font-size:12px;
+    color:#aaa;
+}
+
+.prop input{
+    width:100%;
+}
+
+/* ===== MAIN ===== */
+
+#main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+}
+
+/* ===== TOOLBAR ===== */
+
+#toolbar{
+    height:48px;
+    background:#2d3035;
+    border-bottom:1px solid #444;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:0 10px;
+}
+
+.tool{
+    background:#3c4048;
+    padding:8px 12px;
+    border-radius:6px;
+    cursor:pointer;
+    user-select:none;
+    font-size:13px;
+}
+
+.tool:hover{
+    background:#505865;
+}
+
+.tool.active{
+    background:#6f8fe8;
+}
+
+/* ===== VIEWPORT ===== */
+
+#viewport{
+    position:relative;
+    flex:1;
+}
+
+/* ===== STATUS ===== */
+
+#status{
+    position:absolute;
+    left:14px;
+    bottom:14px;
+    background:rgba(0,0,0,0.6);
+    padding:8px 12px;
+    border-radius:8px;
+    font-size:13px;
+    pointer-events:none;
+}
+
+/* ===== DIMENSIONS ===== */
+
+.dimension{
+    position:absolute;
+    color:#ffe06a;
+    font-size:12px;
+    pointer-events:none;
+    background:rgba(0,0,0,0.5);
+    padding:2px 6px;
+    border-radius:4px;
+}
+
+/* ===== lil-gui styling ===== */
+
+.lil-gui.root{
+    --background-color:#2a2d32;
+    --widget-color:#40454f;
+    --hover-color:#596273;
+    --focus-color:#7289da;
+    --text-color:#d6d6d6;
+    --title-background-color:#30343b;
+}
+
+button{
+    background:#4b5362;
+    color:white;
+    border:none;
+    padding:8px 12px;
+    border-radius:4px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#677287;
+}
+
+</style>
+</head>
+<body>
+
+<div id="app">
+
+    <!-- LEFT -->
+    <div id="leftPanel">
+
+        <div class="panelHeader">
+            Feature Manager
+        </div>
+
+        <div id="featureTree">
+
+            <div class="treeItem active">Part1</div>
+
+            <div class="treeItem treeSub">History</div>
+
+            <div class="treeItem treeSub">Front Plane</div>
+
+            <div class="treeItem treeSub">Top Plane</div>
+
+            <div class="treeItem treeSub">Right Plane</div>
+
+            <div class="treeItem treeSub">Origin</div>
+
+            <div class="treeItem treeSub" id="sketchNode">
+                Sketch1
+            </div>
+
+            <div class="treeItem treeSub" id="extrudeNode">
+                Extrude1
+            </div>
+
+        </div>
+
+        <!-- PROPERTIES -->
+        <div id="properties">
+
+            <div class="prop">
+                <label>Extrude Depth</label>
+                <input id="extrudeDepth" type="range" min="0.2" max="10" step="0.1" value="2">
+            </div>
+
+            <div class="prop">
+                <label>Grid Snap</label>
+                <input id="gridSnap" type="range" min="0.25" max="5" step="0.25" value="1">
+            </div>
+
+            <button id="finishSketch">
+                Finish Sketch
+            </button>
+
+            <button id="extrudeButton">
+                Extrude Boss/Base
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- MAIN -->
+    <div id="main">
+
+        <!-- TOOLBAR -->
+        <div id="toolbar">
+
+            <div class="tool active" data-tool="line">
+                2D Sketch
+            </div>
+
+            <div class="tool" data-tool="3dline">
+                3D Sketch
+            </div>
+
+            <div class="tool" data-tool="select">
+                Select
+            </div>
+
+            <div class="tool" data-tool="extrude">
+                Extrude
+            </div>
+
+            <div class="tool" id="switchPlane">
+                Plane: XY
+            </div>
+
+            <div class="tool" id="clearSketch">
+                Clear
+            </div>
+
+        </div>
+
+        <!-- VIEWPORT -->
+        <div id="viewport">
+
+            <div id="status">
+                Ready
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script type="module">
+
+import * as THREE from "https://esm.sh/three@0.165.0";
+import { OrbitControls } from "https://esm.sh/three@0.165.0/examples/jsm/controls/OrbitControls.js";
+import GUI from "https://esm.sh/lil-gui@0.19";
+
+/* =========================================================
+   SCENE
+========================================================= */
+
+const viewport = document.getElementById("viewport");
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1c1d21);
+
+const camera = new THREE.PerspectiveCamera(
+    60,
+    viewport.clientWidth / viewport.clientHeight,
+    0.1,
+    1000
+);
+
+camera.position.set(12,10,12);
+
+const renderer = new THREE.WebGLRenderer({
+    antialias:true
+});
+
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(viewport.clientWidth, viewport.clientHeight);
+
+viewport.appendChild(renderer.domElement);
+
+/* =========================================================
+   CONTROLS
+========================================================= */
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+/* =========================================================
+   GRID / AXES
+========================================================= */
+
+const grid = new THREE.GridHelper(100,100,0x555555,0x333333);
+scene.add(grid);
+
+const axes = new THREE.AxesHelper(4);
+scene.add(axes);
+
+/* =========================================================
+   LIGHTS
+========================================================= */
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x444444,1.2));
+
+const dir = new THREE.DirectionalLight(0xffffff,1.8);
+dir.position.set(10,20,15);
+scene.add(dir);
+
+/* =========================================================
+   PCB BOARD
+========================================================= */
+
+const pcb = new THREE.Mesh(
+    new THREE.BoxGeometry(14,0.3,10),
+    new THREE.MeshStandardMaterial({
+        color:0x184624,
+        roughness:0.8
+    })
+);
+
+pcb.position.y = -0.15;
+scene.add(pcb);
+
+/* =========================================================
+   SKETCH SYSTEM
+========================================================= */
+
+let currentTool = "line";
+
+let sketchPoints = [];
+let sketchLines = [];
+let sketchSpheres = [];
+
+let currentPlane = "XY";
+
+let currentExtrudeMesh = null;
+
+let dragPoint = null;
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+const sketchGroup = new THREE.Group();
+scene.add(sketchGroup);
+
+/* =========================================================
+   GUI
+========================================================= */
+
+const params = {
+    extrudeDepth:2,
+    snap:1,
+    autoClose:true,
+    wireframe:false,
+    showDimensions:true
+};
+
+const gui = new GUI();
+
+gui.title("Hybrid CAD");
+
+gui.add(params,"extrudeDepth",0.2,10,0.1).name("Extrude");
+
+gui.add(params,"snap",0.25,5,0.25).name("Grid Snap");
+
+gui.add(params,"autoClose").name("Auto Close");
+
+gui.add(params,"wireframe").name("Wireframe");
+
+gui.add(params,"showDimensions").name("Dimensions");
+
+/* =========================================================
+   STATUS
+========================================================= */
+
+function setStatus(text){
+    document.getElementById("status").innerText = text;
+}
+
+/* =========================================================
+   TOOLBAR
+========================================================= */
+
+document.querySelectorAll(".tool[data-tool]").forEach(btn=>{
+
+    btn.addEventListener("click",()=>{
+
+        document.querySelectorAll(".tool[data-tool]")
+            .forEach(b=>b.classList.remove("active"));
+
+        btn.classList.add("active");
+
+        currentTool = btn.dataset.tool;
+
+        setStatus("Tool: " + currentTool);
+
+    });
+
+});
+
+/* =========================================================
+   PLANE SWITCH
+========================================================= */
+
+const planeOrder = ["XY","YZ","ZX"];
+let planeIndex = 0;
+
+function updatePlaneButton(){
+    document.getElementById("switchPlane")
+        .innerText = "Plane: " + currentPlane;
+}
+
+document.getElementById("switchPlane")
+.addEventListener("click",()=>{
+
+    planeIndex++;
+
+    if(planeIndex >= planeOrder.length){
+        planeIndex = 0;
+    }
+
+    currentPlane = planeOrder[planeIndex];
+
+    updatePlaneButton();
+
+    setStatus("Plane switched to " + currentPlane);
+
+});
+
+/* =========================================================
+   TAB KEY SWITCH
+========================================================= */
+
+window.addEventListener("keydown",(e)=>{
+
+    if(e.key === "Tab"){
+
+        e.preventDefault();
+
+        planeIndex++;
+
+        if(planeIndex >= planeOrder.length){
+            planeIndex = 0;
+        }
+
+        currentPlane = planeOrder[planeIndex];
+
+        updatePlaneButton();
+
+        setStatus("Plane switched to " + currentPlane);
+    }
+
+});
+
+/* =========================================================
+   SKETCH POINT CREATION
+========================================================= */
+
+function getPlaneIntersection(event){
+
+    mouse.x = (event.clientX / viewport.clientWidth) * 2 - 1;
+    mouse.y = -(event.clientY / viewport.clientHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse,camera);
+
+    let plane;
+
+    if(currentPlane === "XY"){
+        plane = new THREE.Plane(
+            new THREE.Vector3(0,0,1),
+            0
+        );
+    }
+
+    if(currentPlane === "YZ"){
+        plane = new THREE.Plane(
+            new THREE.Vector3(1,0,0),
+            0
+        );
+    }
+
+    if(currentPlane === "ZX"){
+        plane = new THREE.Plane(
+            new THREE.Vector3(0,1,0),
+            0
+        );
+    }
+
+    const pos = new THREE.Vector3();
+
+    raycaster.ray.intersectPlane(plane,pos);
+
+    pos.x = Math.round(pos.x / params.snap) * params.snap;
+    pos.y = Math.round(pos.y / params.snap) * params.snap;
+    pos.z = Math.round(pos.z / params.snap) * params.snap;
+
+    return pos;
+}
+
+/* =========================================================
+   CREATE POINT
+========================================================= */
+
+function createSketchPoint(pos){
+
+    const point = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12,16,16),
+        new THREE.MeshBasicMaterial({
+            color:0x00ffff
+        })
+    );
+
+    point.position.copy(pos);
+
+    sketchGroup.add(point);
+
+    sketchSpheres.push(point);
+
+}
+
+/* =========================================================
+   CREATE LINE
+========================================================= */
+
+function createSketchLine(a,b){
+
+    const geo = new THREE.BufferGeometry().setFromPoints([a,b]);
+
+    const line = new THREE.Line(
+        geo,
+        new THREE.LineBasicMaterial({
+            color:0xffd94a
+        })
+    );
+
+    sketchGroup.add(line);
+
+    sketchLines.push(line);
+
+}
+
+/* =========================================================
+   DIMENSIONS
+========================================================= */
+
+function addDimension(a,b){
+
+    if(!params.showDimensions) return;
+
+    const dist = a.distanceTo(b).toFixed(2);
+
+    const div = document.createElement("div");
+
+    div.className = "dimension";
+
+    div.innerText = dist;
+
+    viewport.appendChild(div);
+
+    const mid = new THREE.Vector3().addVectors(a,b).multiplyScalar(0.5);
+
+    function update(){
+
+        const p = mid.clone().project(camera);
+
+        const x = (p.x * 0.5 + 0.5) * viewport.clientWidth;
+        const y = (-p.y * 0.5 + 0.5) * viewport.clientHeight;
+
+        div.style.left = x + "px";
+        div.style.top = y + "px";
+    }
+
+    update();
+
+    return update;
+}
+
+const dimensionUpdates = [];
+
+/* =========================================================
+   POINTER
+========================================================= */
+
+renderer.domElement.addEventListener("pointerdown",(e)=>{
+
+    if(currentTool !== "line" && currentTool !== "3dline"){
+        return;
+    }
+
+    const pos = getPlaneIntersection(e);
+
+    sketchPoints.push(pos.clone());
+
+    createSketchPoint(pos);
+
+    if(sketchPoints.length > 1){
+
+        const a = sketchPoints[sketchPoints.length-2];
+        const b = sketchPoints[sketchPoints.length-1];
+
+        createSketchLine(a,b);
+
+        const updater = addDimension(a,b);
+
+        if(updater){
+            dimensionUpdates.push(updater);
+        }
+    }
+
+});
+
+/* =========================================================
+   CLOSE SKETCH
+========================================================= */
+
+document.getElementById("finishSketch")
+.addEventListener("click",()=>{
+
+    if(sketchPoints.length < 3){
+        setStatus("Need 3+ points");
+        return;
+    }
+
+    if(params.autoClose){
+
+        const a = sketchPoints[sketchPoints.length-1];
+        const b = sketchPoints[0];
+
+        createSketchLine(a,b);
+
+        const updater = addDimension(a,b);
+
+        if(updater){
+            dimensionUpdates.push(updater);
+        }
+    }
+
+    setStatus("Sketch Closed");
+
+});
+
+/* =========================================================
+   EXTRUDE
+========================================================= */
+
+function extrudeSketch(){
+
+    if(sketchPoints.length < 3){
+        setStatus("Need closed sketch");
+        return;
+    }
+
+    if(currentExtrudeMesh){
+
+        scene.remove(currentExtrudeMesh);
+
+        currentExtrudeMesh.geometry.dispose();
+    }
+
+    const shape = new THREE.Shape();
+
+    sketchPoints.forEach((p,i)=>{
+
+        let x,y;
+
+        if(currentPlane === "XY"){
+            x = p.x;
+            y = p.y;
+        }
+
+        if(currentPlane === "YZ"){
+            x = p.y;
+            y = p.z;
+        }
+
+        if(currentPlane === "ZX"){
+            x = p.z;
+            y = p.x;
+        }
+
+        if(i===0){
+            shape.moveTo(x,y);
+        }else{
+            shape.lineTo(x,y);
+        }
+
+    });
+
+    const geo = new THREE.ExtrudeGeometry(shape,{
+        depth:params.extrudeDepth,
+        bevelEnabled:false
+    });
+
+    const mat = new THREE.MeshStandardMaterial({
+        color:0x9aa2ad,
+        metalness:0.35,
+        roughness:0.5,
+        wireframe:params.wireframe
+    });
+
+    currentExtrudeMesh = new THREE.Mesh(geo,mat);
+
+    if(currentPlane === "XY"){
+        currentExtrudeMesh.rotation.x = 0;
+    }
+
+    if(currentPlane === "YZ"){
+        currentExtrudeMesh.rotation.y = Math.PI/2;
+    }
+
+    if(currentPlane === "ZX"){
+        currentExtrudeMesh.rotation.x = -Math.PI/2;
+    }
+
+    scene.add(currentExtrudeMesh);
+
+    setStatus("Extrude Created");
+
+}
+
+document.getElementById("extrudeButton")
+.addEventListener("click",extrudeSketch);
+
+/* =========================================================
+   CLEAR
+========================================================= */
+
+document.getElementById("clearSketch")
+.addEventListener("click",()=>{
+
+    sketchPoints = [];
+
+    sketchLines.forEach(l=>{
+        sketchGroup.remove(l);
+        l.geometry.dispose();
+    });
+
+    sketchSpheres.forEach(s=>{
+        sketchGroup.remove(s);
+        s.geometry.dispose();
+    });
+
+    sketchLines = [];
+    sketchSpheres = [];
+
+    document.querySelectorAll(".dimension")
+        .forEach(d=>d.remove());
+
+    setStatus("Sketch Cleared");
+
+});
+
+/* =========================================================
+   FEATURE TREE
+========================================================= */
+
+document.getElementById("sketchNode")
+.addEventListener("click",()=>{
+
+    sketchGroup.visible = !sketchGroup.visible;
+
+});
+
+document.getElementById("extrudeNode")
+.addEventListener("click",()=>{
+
+    if(currentExtrudeMesh){
+        currentExtrudeMesh.visible =
+            !currentExtrudeMesh.visible;
+    }
+
+});
+
+/* =========================================================
+   CONNECTOR ALIGNMENT DEMO
+========================================================= */
+
+const connectorA = new THREE.Mesh(
+    new THREE.BoxGeometry(1.5,0.5,0.5),
+    new THREE.MeshStandardMaterial({
+        color:0xf0d8b0
+    })
+);
+
+connectorA.position.set(-4,1,0);
+
+scene.add(connectorA);
+
+const connectorB = new THREE.Mesh(
+    new THREE.BoxGeometry(1.5,0.5,0.5),
+    new THREE.MeshStandardMaterial({
+        color:0xd8c8a0
+    })
+);
+
+connectorB.position.set(-1,1,0);
+
+scene.add(connectorB);
+
+/* =========================================================
+   BOOLEAN CUT DEMO
+========================================================= */
+
+const housing = new THREE.Mesh(
+    new THREE.BoxGeometry(4,2,3),
+    new THREE.MeshStandardMaterial({
+        color:0x555d68
+    })
+);
+
+housing.position.set(5,1,0);
+
+scene.add(housing);
+
+const lcdCutPreview = new THREE.Mesh(
+    new THREE.BoxGeometry(2.5,0.2,1.5),
+    new THREE.MeshBasicMaterial({
+        color:0x00ffff,
+        wireframe:true
+    })
+);
+
+lcdCutPreview.position.set(5,1.1,0);
+
+scene.add(lcdCutPreview);
+
+/* =========================================================
+   BEST PRACTICE NOTES
+========================================================= */
+
+console.log(`
+Hybrid CAD/PCB Architecture:
+
+[✓] 2D sketch engine
+[✓] 3D sketch planes
+[✓] Tab plane switching
+[✓] Feature tree
+[✓] Dimension system
+[✓] Extrude boss/base
+[✓] Connector alignment
+[✓] PCB board
+[✓] Housing preview
+[✓] Blender/SolidWorks style UI
+
+Recommended next modules:
+
+[ ] Constraint solver
+[ ] Parametric dimensions
+[ ] Face selection
+[ ] Boolean CSG engine
+[ ] STEP exporter
+[ ] STL exporter
+[ ] PCB copper geometry
+[ ] Real BREP kernel
+[ ] Wire harness sweep lofts
+[ ] LCD mounting bosses
+[ ] Screw generators
+[ ] Fillets/chamfers
+`);
+
+/* =========================================================
+   ANIMATE
+========================================================= */
+
+function animate(){
+
+    requestAnimationFrame(animate);
+
+    controls.update();
+
+    connectorA.position.z =
+        Math.sin(performance.now()*0.001) * 0.5;
+
+    connectorB.lookAt(connectorA.position);
+
+    dimensionUpdates.forEach(fn=>fn());
+
+    renderer.render(scene,camera);
+
+}
+
+animate();
+
+/* =========================================================
+   RESIZE
+========================================================= */
+
+window.addEventListener("resize",()=>{
+
+    camera.aspect =
+        viewport.clientWidth /
+        viewport.clientHeight;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        viewport.clientWidth,
+        viewport.clientHeight
+    );
+
+});
+
+</script>
+</body>
+</html>
