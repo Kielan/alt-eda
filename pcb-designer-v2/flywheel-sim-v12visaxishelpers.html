@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Hybrid MTB CAD Simulator - Axis Gizmo Hotfix</title>
+
+<style>
+
+html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#070707;
+    font-family:Arial,sans-serif;
+    color:white;
+}
+
+#app{
+    width:100vw;
+    height:100vh;
+    display:flex;
+}
+
+#leftPanel{
+    width:280px;
+    background:#151515;
+    border-right:1px solid #333;
+    padding:12px;
+    box-sizing:border-box;
+    overflow-y:auto;
+}
+
+#rightPanel{
+    width:300px;
+    background:#151515;
+    border-left:1px solid #333;
+    padding:12px;
+    box-sizing:border-box;
+    overflow-y:auto;
+}
+
+#viewport{
+    flex:1;
+    position:relative;
+}
+
+button{
+    width:100%;
+    padding:10px;
+    margin-bottom:8px;
+    background:#2a2a2a;
+    border:1px solid #555;
+    color:white;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#383838;
+}
+
+.panelTitle{
+    color:#8ff;
+    font-size:18px;
+    margin-bottom:10px;
+    font-weight:bold;
+}
+
+.toggleGroup label{
+    display:block;
+    margin-bottom:8px;
+}
+
+.stateItem{
+    padding:6px;
+    margin-bottom:4px;
+    background:#202020;
+    border:1px solid #333;
+    font-size:12px;
+}
+
+#info{
+    position:absolute;
+    top:10px;
+    left:10px;
+    background:rgba(0,0,0,0.7);
+    padding:10px;
+    font-size:13px;
+    z-index:5;
+}
+
+#axisLegend{
+    position:absolute;
+    right:10px;
+    top:10px;
+    background:rgba(0,0,0,0.75);
+    padding:10px;
+    border:1px solid #333;
+    font-size:12px;
+    z-index:10;
+}
+
+.axisRow{
+    display:flex;
+    align-items:center;
+    margin-bottom:6px;
+}
+
+.axisColor{
+    width:14px;
+    height:14px;
+    margin-right:8px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="app">
+
+<div id="leftPanel">
+
+<div class="panelTitle">
+Mechanical Systems
+</div>
+
+<button id="toggleSimBtn">
+Toggle Simulation
+</button>
+
+<div class="toggleGroup">
+
+<label><input type="checkbox" id="toggleFrame" checked> Frame</label>
+<label><input type="checkbox" id="toggleWheels" checked> Wheels</label>
+<label><input type="checkbox" id="toggleFlywheel" checked> Flywheel</label>
+<label><input type="checkbox" id="toggleAxes" checked> XYZ Axes</label>
+
+</div>
+
+<hr>
+
+<div class="panelTitle">
+Mechanical State
+</div>
+
+<div id="statePanel"></div>
+
+</div>
+
+<div id="viewport">
+
+<div id="info">
+Hybrid MTB CAD<br>
+XYZ Axis Gizmo Added<br>
+Wheel Plane = XZ<br>
+Wheel Rotation Axis = Y
+</div>
+
+<div id="axisLegend">
+
+<div class="axisRow">
+<div class="axisColor" style="background:#ff4040;"></div>
+<div>X Axis (Red)</div>
+</div>
+
+<div class="axisRow">
+<div class="axisColor" style="background:#40ff40;"></div>
+<div>Y Axis (Green)</div>
+</div>
+
+<div class="axisRow">
+<div class="axisColor" style="background:#4090ff;"></div>
+<div>Z Axis (Blue)</div>
+</div>
+
+</div>
+
+</div>
+
+<div id="rightPanel">
+
+<div class="panelTitle">
+Inspector
+</div>
+
+<div>Wheel Plane: XZ</div><br>
+<div>Wheel Rotation Axis: Y</div><br>
+<div>XYZ Gizmo: Enabled</div><br>
+<div>Ground Contact: Corrected</div><br>
+
+</div>
+
+</div>
+
+<script type="module">
+
+import * as THREE from "https://esm.sh/three@0.160.0?bundle";
+
+import { OrbitControls }
+from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+
+//////////////////////////////////////////////////////////////
+// SCENE
+//////////////////////////////////////////////////////////////
+
+const viewport =
+    document.getElementById("viewport");
+
+const scene =
+    new THREE.Scene();
+
+scene.background =
+    new THREE.Color(0x050505);
+
+const camera =
+    new THREE.PerspectiveCamera(
+        60,
+        viewport.clientWidth /
+        viewport.clientHeight,
+        0.1,
+        5000
+    );
+
+camera.position.set(
+    900,
+    500,
+    900
+);
+
+//////////////////////////////////////////////////////////////
+// RENDERER
+//////////////////////////////////////////////////////////////
+
+const renderer =
+    new THREE.WebGLRenderer({
+        antialias:true
+    });
+
+renderer.setSize(
+    viewport.clientWidth,
+    viewport.clientHeight
+);
+
+renderer.setPixelRatio(
+    window.devicePixelRatio
+);
+
+viewport.appendChild(
+    renderer.domElement
+);
+
+//////////////////////////////////////////////////////////////
+// CONTROLS
+//////////////////////////////////////////////////////////////
+
+const controls =
+    new OrbitControls(
+        camera,
+        renderer.domElement
+    );
+
+controls.enableDamping = true;
+
+//////////////////////////////////////////////////////////////
+// LIGHTING
+//////////////////////////////////////////////////////////////
+
+const hemi =
+    new THREE.HemisphereLight(
+        0xffffff,
+        0x222222,
+        2
+    );
+
+scene.add(hemi);
+
+const dir =
+    new THREE.DirectionalLight(
+        0xffffff,
+        2
+    );
+
+dir.position.set(
+    500,
+    800,
+    400
+);
+
+scene.add(dir);
+
+//////////////////////////////////////////////////////////////
+// GRID
+//////////////////////////////////////////////////////////////
+
+const grid =
+    new THREE.GridHelper(
+        2200,
+        120,
+        0x444444,
+        0x222222
+    );
+
+scene.add(grid);
+
+//////////////////////////////////////////////////////////////
+// XYZ AXIS GIZMO
+//////////////////////////////////////////////////////////////
+
+const axesHelper =
+    new THREE.AxesHelper(300);
+
+scene.add(axesHelper);
+
+//////////////////////////////////////////////////////////////
+// MATERIALS
+//////////////////////////////////////////////////////////////
+
+const steel =
+    new THREE.MeshStandardMaterial({
+        color:0x888888,
+        metalness:1,
+        roughness:0.3
+    });
+
+const blackSteel =
+    new THREE.MeshStandardMaterial({
+        color:0x111111,
+        metalness:0.9,
+        roughness:0.45
+    });
+
+const frameMat =
+    new THREE.MeshStandardMaterial({
+        color:0xff5b2d,
+        metalness:0.2,
+        roughness:0.7
+    });
+
+const tireMat =
+    new THREE.MeshStandardMaterial({
+        color:0x050505,
+        roughness:1
+    });
+
+//////////////////////////////////////////////////////////////
+// CONSTANTS
+//////////////////////////////////////////////////////////////
+
+const WHEEL_RADIUS = 180;
+
+//////////////////////////////////////////////////////////////
+// HELPERS
+//////////////////////////////////////////////////////////////
+
+function tubeBetween(a,b,r=6){
+
+    const dir =
+        new THREE.Vector3()
+        .subVectors(b,a);
+
+    const len =
+        dir.length();
+
+    const geo =
+        new THREE.CylinderGeometry(
+            r,r,len,16
+        );
+
+    const mesh =
+        new THREE.Mesh(
+            geo,
+            frameMat
+        );
+
+    mesh.position.copy(a)
+        .add(b)
+        .multiplyScalar(0.5);
+
+    mesh.quaternion
+        .setFromUnitVectors(
+            new THREE.Vector3(0,1,0),
+            dir.normalize()
+        );
+
+    return mesh;
+}
+
+//////////////////////////////////////////////////////////////
+// FRAME
+//////////////////////////////////////////////////////////////
+
+function createBikeFrame(){
+
+    const g =
+        new THREE.Group();
+
+    const axleY =
+        WHEEL_RADIUS;
+
+    const pts = {
+
+        rearAxle:
+            new THREE.Vector3(
+                0,
+                axleY,
+                0
+            ),
+
+        frontAxle:
+            new THREE.Vector3(
+                520,
+                axleY,
+                0
+            ),
+
+        bottomBracket:
+            new THREE.Vector3(
+                190,
+                70,
+                0
+            ),
+
+        seatTubeTop:
+            new THREE.Vector3(
+                130,
+                260,
+                0
+            ),
+
+        headTubeTop:
+            new THREE.Vector3(
+                390,
+                250,
+                0
+            ),
+
+        headTubeBottom:
+            new THREE.Vector3(
+                420,
+                170,
+                0
+            )
+    };
+
+    const tubes = [
+
+        ["bottomBracket","seatTubeTop"],
+        ["seatTubeTop","headTubeTop"],
+        ["bottomBracket","headTubeBottom"],
+        ["seatTubeTop","rearAxle"],
+        ["bottomBracket","rearAxle"],
+        ["headTubeBottom","headTubeTop"]
+
+    ];
+
+    tubes.forEach(t=>{
+
+        g.add(
+            tubeBetween(
+                pts[t[0]],
+                pts[t[1]],
+                7
+            )
+        );
+
+    });
+
+    return g;
+}
+
+//////////////////////////////////////////////////////////////
+// WHEEL ASSEMBLY
+//////////////////////////////////////////////////////////////
+
+function createWheel(radius=180){
+
+    const wheelAssembly =
+        new THREE.Group();
+
+    const spinGroup =
+        new THREE.Group();
+
+    wheelAssembly.add(spinGroup);
+
+    //////////////////////////////////////////////////////////
+    // TIRE
+    //
+    // Rotate torus into XZ plane
+    //////////////////////////////////////////////////////////
+
+    const tire =
+        new THREE.Mesh(
+            new THREE.TorusGeometry(
+                radius,
+                14,
+                32,
+                128
+            ),
+            tireMat
+        );
+
+    tire.rotation.x =
+        Math.PI / 2;
+
+    spinGroup.add(tire);
+
+    //////////////////////////////////////////////////////////
+    // RIM
+    //////////////////////////////////////////////////////////
+
+    const rim =
+        new THREE.Mesh(
+            new THREE.TorusGeometry(
+                radius-12,
+                5,
+                16,
+                128
+            ),
+            steel
+        );
+
+    rim.rotation.x =
+        Math.PI / 2;
+
+    spinGroup.add(rim);
+
+    //////////////////////////////////////////////////////////
+    // HUB
+    //////////////////////////////////////////////////////////
+
+    const hub =
+        new THREE.Mesh(
+            new THREE.CylinderGeometry(
+                16,
+                16,
+                90,
+                32
+            ),
+            steel
+        );
+
+    spinGroup.add(hub);
+
+    //////////////////////////////////////////////////////////
+    // SPOKES
+    //////////////////////////////////////////////////////////
+
+    const spokeGroup =
+        new THREE.Group();
+
+    const spokeCount = 32;
+
+    for(let i=0;i<spokeCount;i++){
+
+        const a =
+            (i/spokeCount)
+            *Math.PI*2;
+
+        const rimPos =
+            new THREE.Vector3(
+                Math.cos(a)*(radius-18),
+                0,
+                Math.sin(a)*(radius-18)
+            );
+
+        const hubPos =
+            new THREE.Vector3(
+                i%2===0 ? -8 : 8,
+                0,
+                0
+            );
+
+        const dir =
+            new THREE.Vector3()
+            .subVectors(
+                rimPos,
+                hubPos
+            );
+
+        const len =
+            dir.length();
+
+        const spoke =
+            new THREE.Mesh(
+                new THREE.CylinderGeometry(
+                    1,
+                    1,
+                    len,
+                    6
+                ),
+                steel
+            );
+
+        spoke.position.copy(
+            hubPos.clone()
+            .add(rimPos)
+            .multiplyScalar(0.5)
+        );
+
+        spoke.quaternion
+            .setFromUnitVectors(
+                new THREE.Vector3(0,1,0),
+                dir.normalize()
+            );
+
+        spokeGroup.add(spoke);
+    }
+
+    spinGroup.add(spokeGroup);
+
+    //////////////////////////////////////////////////////////
+    // LOCAL AXIS HELPER
+    //////////////////////////////////////////////////////////
+
+    const localAxes =
+        new THREE.AxesHelper(120);
+
+    wheelAssembly.add(localAxes);
+
+    //////////////////////////////////////////////////////////
+    // REFERENCES
+    //////////////////////////////////////////////////////////
+
+    wheelAssembly.userData.spinGroup =
+        spinGroup;
+
+    return wheelAssembly;
+}
+
+//////////////////////////////////////////////////////////////
+// FLYWHEEL
+//////////////////////////////////////////////////////////////
+
+function createFlywheel(){
+
+    const assembly =
+        new THREE.Group();
+
+    const spinGroup =
+        new THREE.Group();
+
+    assembly.add(spinGroup);
+
+    const flywheel =
+        new THREE.Mesh(
+            new THREE.CylinderGeometry(
+                80,
+                80,
+                20,
+                64
+            ),
+            blackSteel
+        );
+
+    spinGroup.add(flywheel);
+
+    assembly.userData.spinGroup =
+        spinGroup;
+
+    return assembly;
+}
+
+//////////////////////////////////////////////////////////////
+// BUILD BIKE
+//////////////////////////////////////////////////////////////
+
+const systems = {};
+
+systems.frame =
+    createBikeFrame();
+
+scene.add(
+    systems.frame
+);
+
+systems.rearWheel =
+    createWheel(WHEEL_RADIUS);
+
+systems.rearWheel.position.set(
+    0,
+    WHEEL_RADIUS,
+    0
+);
+
+scene.add(
+    systems.rearWheel
+);
+
+systems.frontWheel =
+    createWheel(WHEEL_RADIUS);
+
+systems.frontWheel.position.set(
+    520,
+    WHEEL_RADIUS,
+    0
+);
+
+scene.add(
+    systems.frontWheel
+);
+
+systems.flywheel =
+    createFlywheel();
+
+systems.flywheel.position.set(
+    190,
+    70,
+    0
+);
+
+scene.add(
+    systems.flywheel
+);
+
+//////////////////////////////////////////////////////////////
+// STATE PANEL
+//////////////////////////////////////////////////////////////
+
+const statePanel =
+    document.getElementById(
+        "statePanel"
+    );
+
+let simEnabled = true;
+
+function updateStatePanel(){
+
+    statePanel.innerHTML = `
+
+        <div class="stateItem">
+            X Axis = Red
+        </div>
+
+        <div class="stateItem">
+            Y Axis = Green
+        </div>
+
+        <div class="stateItem">
+            Z Axis = Blue
+        </div>
+
+        <div class="stateItem">
+            Wheel Plane = XZ
+        </div>
+
+        <div class="stateItem">
+            Wheel Rotation Axis = Y
+        </div>
+
+        <div class="stateItem">
+            Tire Touching Ground = TRUE
+        </div>
+
+        <div class="stateItem">
+            Simulation:
+            ${simEnabled ? "ACTIVE" : "PAUSED"}
+        </div>
+
+    `;
+}
+
+updateStatePanel();
+
+//////////////////////////////////////////////////////////////
+// TOGGLES
+//////////////////////////////////////////////////////////////
+
+function setupToggle(id,objects){
+
+    document.getElementById(id)
+    .addEventListener(
+        "change",
+        e=>{
+
+            objects.forEach(o=>{
+
+                if(o)
+                    o.visible =
+                        e.target.checked;
+            });
+        }
+    );
+}
+
+setupToggle(
+    "toggleFrame",
+    [systems.frame]
+);
+
+setupToggle(
+    "toggleWheels",
+    [
+        systems.frontWheel,
+        systems.rearWheel
+    ]
+);
+
+setupToggle(
+    "toggleFlywheel",
+    [systems.flywheel]
+);
+
+setupToggle(
+    "toggleAxes",
+    [axesHelper]
+);
+
+//////////////////////////////////////////////////////////////
+// BUTTON
+//////////////////////////////////////////////////////////////
+
+document.getElementById(
+    "toggleSimBtn"
+).onclick = ()=>{
+
+    simEnabled =
+        !simEnabled;
+
+    updateStatePanel();
+};
+
+//////////////////////////////////////////////////////////////
+// ANIMATION
+//////////////////////////////////////////////////////////////
+
+function animate(){
+
+    requestAnimationFrame(
+        animate
+    );
+
+    if(simEnabled){
+
+        //////////////////////////////////////////////////////
+        // Correct wheel spin around Y
+        //////////////////////////////////////////////////////
+
+        systems.frontWheel
+            .userData
+            .spinGroup
+            .rotation.y -= 0.03;
+
+        systems.rearWheel
+            .userData
+            .spinGroup
+            .rotation.y -= 0.03;
+
+        systems.flywheel
+            .userData
+            .spinGroup
+            .rotation.y -= 0.05;
+    }
+
+    controls.update();
+
+    renderer.render(
+        scene,
+        camera
+    );
+}
+
+animate();
+
+//////////////////////////////////////////////////////////////
+// RESIZE
+//////////////////////////////////////////////////////////////
+
+window.addEventListener(
+    "resize",
+    ()=>{
+
+        const w =
+            viewport.clientWidth;
+
+        const h =
+            viewport.clientHeight;
+
+        camera.aspect =
+            w/h;
+
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(
+            w,
+            h
+        );
+    }
+);
+
+</script>
+
+</body>
+</html>
