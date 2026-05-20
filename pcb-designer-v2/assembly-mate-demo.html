@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Assembly Mate Demo</title>
+
+<style>
+html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#1e1f22;
+    font-family:Segoe UI,Arial;
+    color:#ddd;
+}
+
+#app{
+    display:flex;
+    width:100%;
+    height:100%;
+}
+
+/* SIDEBAR */
+#sidebar{
+    width:340px;
+    background:#25272b;
+    border-right:1px solid #3b3e45;
+    display:flex;
+    flex-direction:column;
+}
+
+.panelTitle{
+    padding:10px;
+    background:#2d3036;
+    border-bottom:1px solid #3b3e45;
+    font-weight:bold;
+    font-size:14px;
+}
+
+#featureTree{
+    flex:1;
+    overflow:auto;
+}
+
+.treeItem{
+    padding:7px 12px;
+    border-bottom:1px solid #34363b;
+    cursor:pointer;
+    user-select:none;
+}
+
+.treeItem:hover{
+    background:#383c45;
+}
+
+.treeItem.active{
+    background:#4d5f87;
+}
+
+.sub{
+    padding-left:26px;
+    color:#a7a7a7;
+}
+
+#properties{
+    height:420px;
+    overflow:auto;
+    border-top:1px solid #3b3e45;
+    padding:10px;
+    background:#212327;
+}
+
+.prop{
+    margin-bottom:14px;
+}
+
+.prop label{
+    display:block;
+    margin-bottom:5px;
+    font-size:12px;
+    color:#aaa;
+}
+
+.prop input{
+    width:100%;
+}
+
+button{
+    background:#4f5c73;
+    color:white;
+    border:none;
+    border-radius:5px;
+    padding:8px 12px;
+    cursor:pointer;
+    margin-top:5px;
+    width:100%;
+}
+
+button:hover{
+    background:#66789a;
+}
+
+#main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+}
+
+#toolbar{
+    height:54px;
+    background:#2c2f35;
+    border-bottom:1px solid #3b3e45;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:0 10px;
+}
+
+.tool{
+    background:#414854;
+    border-radius:6px;
+    padding:8px 12px;
+    cursor:pointer;
+    user-select:none;
+}
+
+.tool:hover{
+    background:#566073;
+}
+
+.tool.active{
+    background:#6b84c6;
+}
+
+#viewport{
+    flex:1;
+    position:relative;
+}
+
+canvas{
+    display:block;
+}
+
+#status{
+    position:absolute;
+    left:12px;
+    bottom:12px;
+    background:rgba(0,0,0,0.65);
+    padding:8px 12px;
+    border-radius:8px;
+    font-size:13px;
+    pointer-events:none;
+}
+
+.dimension{
+    position:absolute;
+    color:#ffe66d;
+    font-size:12px;
+    pointer-events:none;
+    background:rgba(0,0,0,0.5);
+    padding:2px 4px;
+    border-radius:4px;
+}
+
+#matePanel{
+    position:absolute;
+    right:16px;
+    top:16px;
+    width:320px;
+    background:#26282d;
+    border:1px solid #444;
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow:0 8px 25px rgba(0,0,0,0.4);
+}
+
+#mateHeader{
+    background:#343840;
+    padding:10px;
+    font-weight:bold;
+}
+
+.infoBody{
+    padding:10px;
+    font-size:13px;
+    line-height:1.5em;
+}
+
+.mateRow{
+    margin-bottom:10px;
+    padding:8px;
+    background:#1d1f24;
+    border-radius:6px;
+}
+
+kbd{
+    background:#111;
+    border:1px solid #444;
+    padding:2px 4px;
+    border-radius:4px;
+}
+
+.selectSlot{
+    background:#31353d;
+    padding:6px;
+    border-radius:4px;
+    margin-top:5px;
+    font-size:12px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="app">
+
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+
+        <div class="panelTitle">
+            Feature Manager Design Tree
+        </div>
+
+        <div id="featureTree">
+
+            <div class="treeItem active">
+                Assembly1
+            </div>
+
+            <div class="treeItem sub">History</div>
+            <div class="treeItem sub">Front Plane</div>
+            <div class="treeItem sub">Top Plane</div>
+            <div class="treeItem sub">Right Plane</div>
+
+            <div class="treeItem sub">Sketch1</div>
+            <div class="treeItem sub">Extrude1</div>
+            <div class="treeItem sub">Revolve1</div>
+            <div class="treeItem sub">MateGroup1</div>
+
+            <div class="treeItem sub">BatteryPack</div>
+            <div class="treeItem sub">PicoBladeConnector</div>
+            <div class="treeItem sub">WireHarness</div>
+            <div class="treeItem sub">LCDHousing</div>
+
+        </div>
+
+        <div id="properties">
+
+            <div class="prop">
+                <label>Circle Diameter</label>
+                <input type="range" min="1" max="10" step="0.1" value="4" id="diameterRange">
+            </div>
+
+            <div class="prop">
+                <label>Extrude Depth</label>
+                <input type="range" min="0.2" max="10" step="0.1" value="2" id="depthRange">
+            </div>
+
+            <div class="prop">
+                <label>Mate Width Offset</label>
+                <input type="range" min="-10" max="10" step="0.1" value="0" id="mateOffsetRange">
+            </div>
+
+            <button id="buildCircleBtn">
+                Build Circular Sketch
+            </button>
+
+            <button id="extrudeBtn">
+                Extruded Boss/Base
+            </button>
+
+            <button id="revolveBtn">
+                Revolved Boss/Base
+            </button>
+
+            <button id="mateBtn">
+                Create Width Mate
+            </button>
+
+            <button id="explodeBtn">
+                Exploded View
+            </button>
+
+            <button id="alignBtn">
+                Align Connectors
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- MAIN -->
+    <div id="main">
+
+        <div id="toolbar">
+
+            <div class="tool active" data-tool="select">
+                Select
+            </div>
+
+            <div class="tool" data-tool="line">
+                Line
+            </div>
+
+            <div class="tool" data-tool="circle">
+                Circle
+            </div>
+
+            <div class="tool" data-tool="extrude">
+                Extrude
+            </div>
+
+            <div class="tool" data-tool="revolve">
+                Revolve
+            </div>
+
+            <div class="tool" data-tool="mate">
+                Mate
+            </div>
+
+            <div class="tool" data-tool="3dsketch">
+                3D Sketch
+            </div>
+
+        </div>
+
+        <div id="viewport">
+
+            <div id="status">
+                Ready
+            </div>
+
+            <div id="matePanel">
+
+                <div id="mateHeader">
+                    Assembly → Mates → Width Selection
+                </div>
+
+                <div class="infoBody">
+
+                    <div class="mateRow">
+                        <b>Mate Selection</b>
+
+                        <div class="selectSlot" id="selectionA">
+                            Selection A: none
+                        </div>
+
+                        <div class="selectSlot" id="selectionB">
+                            Selection B: none
+                        </div>
+                    </div>
+
+                    <div class="mateRow">
+                        <b>Mate Type Tabs</b><br><br>
+
+                        • Coincident<br>
+                        • Concentric<br>
+                        • Width Mate<br>
+                        • Distance Mate<br>
+                        • Parallel<br>
+                    </div>
+
+                    <div class="mateRow">
+                        <b>3D Sketch</b><br>
+
+                        Press <kbd>TAB</kbd> to cycle:
+                        XY → YZ → ZX
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script type="module">
+
+//////////////////////////////////////////////////////////
+// IMPORTS
+//////////////////////////////////////////////////////////
+
+import * as THREE from "https://esm.sh/three@0.165.0";
+import { OrbitControls } from "https://esm.sh/three@0.165.0/examples/jsm/controls/OrbitControls.js";
+import GUI from "https://esm.sh/lil-gui@0.19";
+
+//////////////////////////////////////////////////////////
+// VIEWPORT
+//////////////////////////////////////////////////////////
+
+const viewport = document.getElementById("viewport");
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1f2125);
+
+const camera = new THREE.PerspectiveCamera(
+    60,
+    viewport.clientWidth / viewport.clientHeight,
+    0.1,
+    2000
+);
+
+camera.position.set(18,14,18);
+
+const renderer = new THREE.WebGLRenderer({
+    antialias:true
+});
+
+renderer.setSize(
+    viewport.clientWidth,
+    viewport.clientHeight
+);
+
+renderer.setPixelRatio(devicePixelRatio);
+
+viewport.appendChild(renderer.domElement);
+
+//////////////////////////////////////////////////////////
+// CONTROLS
+//////////////////////////////////////////////////////////
+
+const controls = new OrbitControls(
+    camera,
+    renderer.domElement
+);
+
+controls.enableDamping = true;
+
+//////////////////////////////////////////////////////////
+// GRID
+//////////////////////////////////////////////////////////
+
+const grid = new THREE.GridHelper(
+    120,
+    120,
+    0x444444,
+    0x333333
+);
+
+scene.add(grid);
+
+const axes = new THREE.AxesHelper(5);
+scene.add(axes);
+
+//////////////////////////////////////////////////////////
+// LIGHTS
+//////////////////////////////////////////////////////////
+
+scene.add(
+    new THREE.HemisphereLight(
+        0xffffff,
+        0x222222,
+        1.5
+    )
+);
+
+const dir = new THREE.DirectionalLight(
+    0xffffff,
+    2
+);
+
+dir.position.set(12,16,10);
+
+scene.add(dir);
+
+//////////////////////////////////////////////////////////
+// PARAMS
+//////////////////////////////////////////////////////////
+
+const params = {
+    diameter:4,
+    depth:2,
+    mateOffset:0
+};
+
+//////////////////////////////////////////////////////////
+// MATERIALS
+//////////////////////////////////////////////////////////
+
+const metalMat = new THREE.MeshStandardMaterial({
+    color:0x9aa3b2,
+    metalness:0.4,
+    roughness:0.5
+});
+
+const pcbMat = new THREE.MeshStandardMaterial({
+    color:0x184b2a,
+    roughness:0.7,
+    metalness:0.1
+});
+
+//////////////////////////////////////////////////////////
+// PCB
+//////////////////////////////////////////////////////////
+
+const pcb = new THREE.Mesh(
+    new THREE.BoxGeometry(20,0.4,14),
+    pcbMat
+);
+
+pcb.position.y = -0.2;
+pcb.name = "PCB";
+
+scene.add(pcb);
+
+//////////////////////////////////////////////////////////
+// LCD HOUSING
+//////////////////////////////////////////////////////////
+
+const housing = new THREE.Mesh(
+    new THREE.BoxGeometry(26,4,18),
+    new THREE.MeshStandardMaterial({
+        color:0x40444d
+    })
+);
+
+housing.position.set(0,2,-18);
+housing.name = "LCDHousing";
+
+scene.add(housing);
+
+//////////////////////////////////////////////////////////
+// BATTERY
+//////////////////////////////////////////////////////////
+
+const battery = new THREE.Mesh(
+    new THREE.BoxGeometry(10,3,5),
+    new THREE.MeshStandardMaterial({
+        color:0x111111
+    })
+);
+
+battery.position.set(-10,1.5,0);
+battery.name = "BatteryPack";
+
+scene.add(battery);
+
+//////////////////////////////////////////////////////////
+// BICYCLE WHEEL TEST PART
+//////////////////////////////////////////////////////////
+
+const wheel = new THREE.Mesh(
+    new THREE.TorusGeometry(3,0.4,20,60),
+    new THREE.MeshStandardMaterial({
+        color:0x777777,
+        metalness:0.5
+    })
+);
+
+wheel.position.set(12,4,0);
+wheel.rotation.y = Math.PI/2;
+wheel.name = "Wheel";
+
+scene.add(wheel);
+
+//////////////////////////////////////////////////////////
+// FRAME TEST PART
+//////////////////////////////////////////////////////////
+
+const frame = new THREE.Mesh(
+    new THREE.BoxGeometry(1,8,1),
+    new THREE.MeshStandardMaterial({
+        color:0x5c6675
+    })
+);
+
+frame.position.set(12,4,-5);
+frame.name = "Frame";
+
+scene.add(frame);
+
+//////////////////////////////////////////////////////////
+// PICO BLADE CONNECTOR
+//////////////////////////////////////////////////////////
+
+function buildPicoBlade(){
+
+    const g = new THREE.Group();
+
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(4,2,3),
+        new THREE.MeshStandardMaterial({
+            color:0xf0eadf
+        })
+    );
+
+    g.add(body);
+
+    for(let i=0;i<6;i++){
+
+        const pin = new THREE.Mesh(
+            new THREE.BoxGeometry(0.15,0.8,2),
+            new THREE.MeshStandardMaterial({
+                color:0xd4af37,
+                metalness:1
+            })
+        );
+
+        pin.position.set(
+            -1.5 + i*0.6,
+            -0.7,
+            -0.2
+        );
+
+        g.add(pin);
+    }
+
+    g.position.set(0,1,8);
+    g.name = "PicoBladeConnector";
+
+    return g;
+}
+
+const connector = buildPicoBlade();
+
+scene.add(connector);
+
+//////////////////////////////////////////////////////////
+// WIRE HARNESS
+//////////////////////////////////////////////////////////
+
+const harnessGroup = new THREE.Group();
+
+scene.add(harnessGroup);
+
+function createWire(points,color){
+
+    const curve =
+        new THREE.CatmullRomCurve3(points);
+
+    const geo =
+        new THREE.TubeGeometry(
+            curve,
+            24,
+            0.12,
+            10
+        );
+
+    const mat =
+        new THREE.MeshStandardMaterial({
+            color
+        });
+
+    return new THREE.Mesh(geo,mat);
+}
+
+for(let i=0;i<6;i++){
+
+    const wire = createWire(
+        [
+            new THREE.Vector3(-8,2,0),
+            new THREE.Vector3(-4,4,4-i),
+            new THREE.Vector3(0,1,8)
+        ],
+        i%2 ? 0xff0000 : 0x111111
+    );
+
+    harnessGroup.add(wire);
+}
+
+//////////////////////////////////////////////////////////
+// SKETCH
+//////////////////////////////////////////////////////////
+
+let sketchCircle;
+let extrudeMesh;
+
+const sketchMat =
+new THREE.LineBasicMaterial({
+    color:0x7ec3ff
+});
+
+function buildCircleSketch(){
+
+    if(sketchCircle){
+        scene.remove(sketchCircle);
+    }
+
+    const curve = new THREE.EllipseCurve(
+        0,
+        0,
+        params.diameter/2,
+        params.diameter/2,
+        0,
+        Math.PI*2
+    );
+
+    const points = curve.getPoints(128);
+
+    const geo =
+        new THREE.BufferGeometry()
+        .setFromPoints(points);
+
+    sketchCircle = new THREE.LineLoop(
+        geo,
+        sketchMat
+    );
+
+    sketchCircle.rotation.x = -Math.PI/2;
+    sketchCircle.position.set(0,0.1,0);
+
+    scene.add(sketchCircle);
+
+    setStatus(
+        "Sketch circle generated"
+    );
+}
+
+//////////////////////////////////////////////////////////
+// EXTRUDE
+//////////////////////////////////////////////////////////
+
+function buildExtrude(){
+
+    if(extrudeMesh){
+        scene.remove(extrudeMesh);
+    }
+
+    const shape = new THREE.Shape();
+
+    shape.absarc(
+        0,
+        0,
+        params.diameter/2,
+        0,
+        Math.PI*2
+    );
+
+    const geo = new THREE.ExtrudeGeometry(
+        shape,
+        {
+            depth:params.depth,
+            bevelEnabled:true,
+            bevelSize:0.08,
+            bevelThickness:0.08
+        }
+    );
+
+    geo.center();
+
+    extrudeMesh = new THREE.Mesh(
+        geo,
+        metalMat
+    );
+
+    extrudeMesh.position.set(0,3,0);
+    extrudeMesh.name = "ExtrudeFeature";
+
+    scene.add(extrudeMesh);
+
+    addFeatureTreeItem(
+        "ExtrudeFeature"
+    );
+
+    setStatus(
+        "Extruded Boss/Base complete"
+    );
+}
+
+//////////////////////////////////////////////////////////
+// REVOLVE
+//////////////////////////////////////////////////////////
+
+function buildRevolve(){
+
+    const pts = [];
+
+    for(let i=0;i<24;i++){
+
+        pts.push(
+            new THREE.Vector2(
+                Math.sin(i*0.18)*0.3 + 1.4,
+                (i-12)*0.2
+            )
+        );
+    }
+
+    const geo =
+        new THREE.LatheGeometry(
+            pts,
+            64
+        );
+
+    const mesh = new THREE.Mesh(
+        geo,
+        metalMat
+    );
+
+    mesh.position.set(8,3,0);
+
+    scene.add(mesh);
+
+    addFeatureTreeItem(
+        "RevolveFeature"
+    );
+
+    setStatus(
+        "Revolved Boss/Base complete"
+    );
+}
+
+//////////////////////////////////////////////////////////
+// MATE SYSTEM
+//////////////////////////////////////////////////////////
+
+let currentTool = "select";
+
+let selectedA = null;
+let selectedB = null;
+
+const selectable = [
+    housing,
+    battery,
+    wheel,
+    frame,
+    pcb
+];
+
+function setSelectionUI(){
+
+    document.getElementById(
+        "selectionA"
+    ).innerText =
+        "Selection A: " +
+        (selectedA?.name || "none");
+
+    document.getElementById(
+        "selectionB"
+    ).innerText =
+        "Selection B: " +
+        (selectedB?.name || "none");
+}
+
+function applyWidthMate(){
+
+    if(!selectedA || !selectedB){
+        setStatus(
+            "Select two parts first"
+        );
+        return;
+    }
+
+    const boxA = new THREE.Box3()
+        .setFromObject(selectedA);
+
+    const boxB = new THREE.Box3()
+        .setFromObject(selectedB);
+
+    const centerA = new THREE.Vector3();
+    const centerB = new THREE.Vector3();
+
+    boxA.getCenter(centerA);
+    boxB.getCenter(centerB);
+
+    const offset =
+        params.mateOffset;
+
+    selectedB.position.x =
+        selectedA.position.x + offset;
+
+    selectedB.position.z =
+        selectedA.position.z;
+
+    selectedB.position.y =
+        selectedA.position.y;
+
+    setStatus(
+        "Width Mate Applied"
+    );
+
+    addFeatureTreeItem(
+        "WidthMate"
+    );
+}
+
+//////////////////////////////////////////////////////////
+// CONNECTOR ALIGNMENT
+//////////////////////////////////////////////////////////
+
+function alignConnector(){
+
+    connector.position.x =
+        housing.position.x;
+
+    connector.position.z =
+        housing.position.z + 10;
+
+    connector.position.y =
+        housing.position.y;
+
+    setStatus(
+        "Connector aligned to housing"
+    );
+}
+
+//////////////////////////////////////////////////////////
+// EXPLODED VIEW
+//////////////////////////////////////////////////////////
+
+let exploded = false;
+
+function toggleExplode(){
+
+    exploded = !exploded;
+
+    if(exploded){
+
+        housing.position.z -= 10;
+        battery.position.x -= 6;
+        connector.position.z += 8;
+
+    }else{
+
+        housing.position.z += 10;
+        battery.position.x += 6;
+        connector.position.z -= 8;
+    }
+
+    setStatus(
+        exploded ?
+        "Exploded View Enabled" :
+        "Exploded View Disabled"
+    );
+}
+
+//////////////////////////////////////////////////////////
+// FEATURE TREE
+//////////////////////////////////////////////////////////
+
+function addFeatureTreeItem(name){
+
+    const div =
+        document.createElement("div");
+
+    div.className =
+        "treeItem sub";
+
+    div.innerText = name;
+
+    document
+        .getElementById("featureTree")
+        .appendChild(div);
+}
+
+//////////////////////////////////////////////////////////
+// STATUS
+//////////////////////////////////////////////////////////
+
+function setStatus(txt){
+
+    document
+        .getElementById("status")
+        .innerText = txt;
+}
+
+//////////////////////////////////////////////////////////
+// DIMENSIONS
+//////////////////////////////////////////////////////////
+
+const dim = document.createElement("div");
+
+dim.className = "dimension";
+
+viewport.appendChild(dim);
+
+//////////////////////////////////////////////////////////
+// RAYCAST
+//////////////////////////////////////////////////////////
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+renderer.domElement.addEventListener(
+    "pointerdown",
+    e=>{
+
+        mouse.x =
+            (e.clientX/viewport.clientWidth)*2-1;
+
+        mouse.y =
+            -(e.clientY/viewport.clientHeight)*2+1;
+
+        raycaster.setFromCamera(mouse,camera);
+
+        const hits =
+            raycaster.intersectObjects(
+                selectable,
+                false
+            );
+
+        if(hits.length){
+
+            const obj = hits[0].object;
+
+            if(currentTool==="mate"){
+
+                if(!selectedA){
+
+                    selectedA = obj;
+
+                }else{
+
+                    selectedB = obj;
+                }
+
+                setSelectionUI();
+            }
+        }
+
+    }
+);
+
+//////////////////////////////////////////////////////////
+// TOOLBAR
+//////////////////////////////////////////////////////////
+
+document
+.querySelectorAll(".tool")
+.forEach(tool=>{
+
+    tool.onclick = ()=>{
+
+        document
+        .querySelectorAll(".tool")
+        .forEach(t=>t.classList.remove("active"));
+
+        tool.classList.add("active");
+
+        currentTool =
+            tool.dataset.tool;
+
+        setStatus(
+            "Tool: " + currentTool
+        );
+    };
+});
+
+//////////////////////////////////////////////////////////
+// BUTTONS
+//////////////////////////////////////////////////////////
+
+document
+.getElementById("buildCircleBtn")
+.onclick = buildCircleSketch;
+
+document
+.getElementById("extrudeBtn")
+.onclick = buildExtrude;
+
+document
+.getElementById("revolveBtn")
+.onclick = buildRevolve;
+
+document
+.getElementById("mateBtn")
+.onclick = applyWidthMate;
+
+document
+.getElementById("explodeBtn")
+.onclick = toggleExplode;
+
+document
+.getElementById("alignBtn")
+.onclick = alignConnector;
+
+//////////////////////////////////////////////////////////
+// SLIDERS
+//////////////////////////////////////////////////////////
+
+document
+.getElementById("diameterRange")
+.oninput = e=>{
+
+    params.diameter =
+        parseFloat(e.target.value);
+
+    buildCircleSketch();
+};
+
+document
+.getElementById("depthRange")
+.oninput = e=>{
+
+    params.depth =
+        parseFloat(e.target.value);
+};
+
+document
+.getElementById("mateOffsetRange")
+.oninput = e=>{
+
+    params.mateOffset =
+        parseFloat(e.target.value);
+};
+
+//////////////////////////////////////////////////////////
+// 3D SKETCH
+//////////////////////////////////////////////////////////
+
+let sketchPlane = "XY";
+
+window.addEventListener(
+    "keydown",
+    e=>{
+
+        if(e.key==="Tab"){
+
+            e.preventDefault();
+
+            if(sketchPlane==="XY"){
+                sketchPlane="YZ";
+            }
+            else if(sketchPlane==="YZ"){
+                sketchPlane="ZX";
+            }
+            else{
+                sketchPlane="XY";
+            }
+
+            setStatus(
+                "3D Sketch Plane: " +
+                sketchPlane
+            );
+        }
+
+    }
+);
+
+//////////////////////////////////////////////////////////
+// GUI
+//////////////////////////////////////////////////////////
+
+const gui = new GUI({
+    title:"Assembly Parameters"
+});
+
+gui.add(
+    params,
+    "diameter",
+    1,
+    10,
+    0.1
+).onChange(buildCircleSketch);
+
+gui.add(
+    params,
+    "depth",
+    0.2,
+    10,
+    0.1
+);
+
+gui.add(
+    params,
+    "mateOffset",
+    -10,
+    10,
+    0.1
+);
+
+gui.add(
+    {
+        Mate:applyWidthMate
+    },
+    "Mate"
+);
+
+gui.add(
+    {
+        Align:alignConnector
+    },
+    "Align"
+);
+
+//////////////////////////////////////////////////////////
+// INITIAL BUILD
+//////////////////////////////////////////////////////////
+
+buildCircleSketch();
+buildExtrude();
+buildRevolve();
+
+//////////////////////////////////////////////////////////
+// ANIMATION
+//////////////////////////////////////////////////////////
+
+function animate(){
+
+    requestAnimationFrame(animate);
+
+    controls.update();
+
+    wheel.rotation.z += 0.01;
+
+    const pos =
+        new THREE.Vector3(0,5,0);
+
+    pos.project(camera);
+
+    dim.innerText =
+        "Ø " +
+        params.diameter.toFixed(2);
+
+    dim.style.left =
+        ((pos.x*0.5+0.5)*
+        viewport.clientWidth)+"px";
+
+    dim.style.top =
+        ((-pos.y*0.5+0.5)*
+        viewport.clientHeight)+"px";
+
+    renderer.render(scene,camera);
+}
+
+animate();
+
+//////////////////////////////////////////////////////////
+// RESIZE
+//////////////////////////////////////////////////////////
+
+window.addEventListener(
+    "resize",
+    ()=>{
+
+        camera.aspect =
+            viewport.clientWidth /
+            viewport.clientHeight;
+
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(
+            viewport.clientWidth,
+            viewport.clientHeight
+        );
+    }
+);
+
+</script>
+</body>
+</html>
