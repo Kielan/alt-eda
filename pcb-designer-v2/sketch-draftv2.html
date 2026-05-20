@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Hybrid CAD Dimension Draft System</title>
+
+<style>
+html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#1e1f22;
+    font-family:Segoe UI,Arial;
+    color:#ddd;
+}
+
+#app{
+    display:flex;
+    width:100%;
+    height:100%;
+}
+
+#sidebar{
+    width:320px;
+    background:#25272b;
+    border-right:1px solid #3b3e45;
+    display:flex;
+    flex-direction:column;
+}
+
+.panelTitle{
+    padding:10px;
+    background:#2d3036;
+    border-bottom:1px solid #3b3e45;
+    font-weight:bold;
+}
+
+#featureTree{
+    flex:1;
+    overflow:auto;
+}
+
+.treeItem{
+    padding:7px 12px;
+    border-bottom:1px solid #34363b;
+    cursor:pointer;
+}
+
+.treeItem:hover{
+    background:#3a3d45;
+}
+
+.sub{
+    padding-left:26px;
+    color:#aaa;
+}
+
+#properties{
+    padding:10px;
+    border-top:1px solid #3b3e45;
+    background:#212327;
+}
+
+button{
+    background:#4f5c73;
+    color:white;
+    border:none;
+    border-radius:5px;
+    padding:8px 12px;
+    cursor:pointer;
+    margin-top:5px;
+    width:100%;
+}
+
+button:hover{
+    background:#66789a;
+}
+
+#main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+}
+
+#toolbar{
+    height:54px;
+    background:#2c2f35;
+    border-bottom:1px solid #3b3e45;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:0 10px;
+}
+
+.tool{
+    background:#414854;
+    border-radius:6px;
+    padding:8px 12px;
+    cursor:pointer;
+}
+
+.tool.active{
+    background:#6b84c6;
+}
+
+#viewport{
+    flex:1;
+    position:relative;
+}
+
+canvas{
+    display:block;
+}
+
+.dimension{
+    position:absolute;
+    color:#ffe66d;
+    background:rgba(0,0,0,0.6);
+    padding:2px 5px;
+    border-radius:4px;
+    font-size:12px;
+    pointer-events:none;
+}
+
+#status{
+    position:absolute;
+    bottom:10px;
+    left:10px;
+    background:rgba(0,0,0,0.7);
+    padding:8px 12px;
+    border-radius:6px;
+    font-size:13px;
+}
+
+/* SOLIDWORKS STYLE DIMENSION WINDOW */
+
+#dimensionPopup{
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    width:280px;
+    background:#d8d8d8;
+    color:#222;
+    border:1px solid #777;
+    box-shadow:0 12px 30px rgba(0,0,0,0.5);
+    border-radius:6px;
+    overflow:hidden;
+    display:none;
+    z-index:999;
+}
+
+#dimensionHeader{
+    background:#c4c4c4;
+    padding:8px 10px;
+    font-weight:bold;
+    border-bottom:1px solid #999;
+}
+
+#dimensionBody{
+    padding:12px;
+}
+
+#dimensionBody label{
+    font-size:13px;
+    display:block;
+    margin-bottom:6px;
+}
+
+#dimensionInput{
+    width:100%;
+    padding:8px;
+    font-size:16px;
+    margin-bottom:14px;
+    box-sizing:border-box;
+}
+
+#dimensionButtons{
+    display:flex;
+    justify-content:flex-end;
+    gap:8px;
+}
+
+.modalBtn{
+    padding:8px 14px;
+    border:none;
+    border-radius:4px;
+    cursor:pointer;
+}
+
+.okBtn{
+    background:#5f83d6;
+    color:white;
+}
+
+.cancelBtn{
+    background:#888;
+    color:white;
+}
+
+#checkboxRow{
+    margin-top:10px;
+    font-size:12px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="app">
+
+<div id="sidebar">
+
+    <div class="panelTitle">
+        Feature Manager
+    </div>
+
+    <div id="featureTree">
+
+        <div class="treeItem">Part1</div>
+        <div class="treeItem sub">Front Plane</div>
+        <div class="treeItem sub">Top Plane</div>
+        <div class="treeItem sub">Right Plane</div>
+        <div class="treeItem sub">Sketch1</div>
+        <div class="treeItem sub">Extrude1</div>
+        <div class="treeItem sub">MateGroup1</div>
+
+    </div>
+
+    <div id="properties">
+
+        <button id="buildExtrude">
+            Extrude Boss/Base
+        </button>
+
+        <button id="dimensionModeBtn">
+            Smart Dimension
+        </button>
+
+    </div>
+
+</div>
+
+<div id="main">
+
+    <div id="toolbar">
+
+        <div class="tool active" data-tool="select">
+            Select
+        </div>
+
+        <div class="tool" data-tool="dimension">
+            Dimension
+        </div>
+
+    </div>
+
+    <div id="viewport">
+
+        <div id="status">
+            Ready
+        </div>
+
+    </div>
+
+</div>
+
+</div>
+
+<!-- DIMENSION VALUE POPUP -->
+
+<div id="dimensionPopup">
+
+    <div id="dimensionHeader">
+        Modify Dimension
+    </div>
+
+    <div id="dimensionBody">
+
+        <label>
+            Distance
+        </label>
+
+        <input
+            id="dimensionInput"
+            type="number"
+            step="0.1"
+            value="10"
+        />
+
+        <div id="checkboxRow">
+            <input type="checkbox" id="drivenCheck"/>
+            <span>Driven Dimension</span>
+        </div>
+
+        <div id="dimensionButtons">
+
+            <button class="modalBtn cancelBtn" id="cancelDimension">
+                Cancel
+            </button>
+
+            <button class="modalBtn okBtn" id="okDimension">
+                OK
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script type="module">
+
+import * as THREE from "https://esm.sh/three@0.165.0";
+import { OrbitControls } from "https://esm.sh/three@0.165.0/examples/jsm/controls/OrbitControls.js";
+
+////////////////////////////////////////////////////////////
+// BASIC SCENE
+////////////////////////////////////////////////////////////
+
+const viewport = document.getElementById("viewport");
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1f2125);
+
+const camera = new THREE.PerspectiveCamera(
+    60,
+    viewport.clientWidth / viewport.clientHeight,
+    0.1,
+    2000
+);
+
+camera.position.set(12,10,12);
+
+const renderer = new THREE.WebGLRenderer({
+    antialias:true
+});
+
+renderer.setSize(
+    viewport.clientWidth,
+    viewport.clientHeight
+);
+
+viewport.appendChild(renderer.domElement);
+
+////////////////////////////////////////////////////////////
+// CONTROLS
+////////////////////////////////////////////////////////////
+
+const controls = new OrbitControls(
+    camera,
+    renderer.domElement
+);
+
+controls.enableDamping = true;
+
+////////////////////////////////////////////////////////////
+// GRID
+////////////////////////////////////////////////////////////
+
+const grid = new THREE.GridHelper(
+    100,
+    100,
+    0x444444,
+    0x333333
+);
+
+scene.add(grid);
+
+scene.add(new THREE.AxesHelper(5));
+
+////////////////////////////////////////////////////////////
+// LIGHTS
+////////////////////////////////////////////////////////////
+
+scene.add(
+    new THREE.HemisphereLight(
+        0xffffff,
+        0x222222,
+        1.5
+    )
+);
+
+const dir = new THREE.DirectionalLight(
+    0xffffff,
+    2
+);
+
+dir.position.set(5,10,8);
+
+scene.add(dir);
+
+////////////////////////////////////////////////////////////
+// SAMPLE PART
+////////////////////////////////////////////////////////////
+
+const partMaterial = new THREE.MeshStandardMaterial({
+    color:0x9ea7b8,
+    metalness:0.3,
+    roughness:0.45
+});
+
+const part = new THREE.Mesh(
+    new THREE.BoxGeometry(4,2,6),
+    partMaterial
+);
+
+part.position.y = 1;
+
+scene.add(part);
+
+////////////////////////////////////////////////////////////
+// FACE PICKING
+////////////////////////////////////////////////////////////
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+let currentTool = "select";
+
+document.querySelectorAll(".tool")
+.forEach(t=>{
+
+    t.addEventListener("click",()=>{
+
+        document.querySelectorAll(".tool")
+        .forEach(x=>x.classList.remove("active"));
+
+        t.classList.add("active");
+
+        currentTool = t.dataset.tool;
+
+        setStatus("Tool: " + currentTool);
+    });
+
+});
+
+////////////////////////////////////////////////////////////
+// DIMENSION DRAFT
+////////////////////////////////////////////////////////////
+
+let dimensionStart = null;
+let tempDimensionLine = null;
+let tempDimensionLabel = null;
+
+let currentDimensionData = null;
+
+const dimensionPopup =
+    document.getElementById("dimensionPopup");
+
+const dimensionInput =
+    document.getElementById("dimensionInput");
+
+////////////////////////////////////////////////////////////
+// CREATE DIMENSION LABEL
+////////////////////////////////////////////////////////////
+
+function createDimensionHTML(text){
+
+    const div = document.createElement("div");
+
+    div.className = "dimension";
+
+    div.innerText = text;
+
+    viewport.appendChild(div);
+
+    return div;
+}
+
+////////////////////////////////////////////////////////////
+// POINTER
+////////////////////////////////////////////////////////////
+
+renderer.domElement.addEventListener(
+    "pointerdown",
+    e=>{
+
+        mouse.x =
+            (e.clientX / viewport.clientWidth) * 2 - 1;
+
+        mouse.y =
+            -(e.clientY / viewport.clientHeight) * 2 + 1;
+
+        raycaster.setFromCamera(mouse,camera);
+
+        const hit = raycaster.intersectObject(part);
+
+        if(!hit.length) return;
+
+        const point = hit[0].point.clone();
+
+        //////////////////////////////////////////////////////
+        // DIMENSION MODE
+        //////////////////////////////////////////////////////
+
+        if(currentTool === "dimension"){
+
+            if(!dimensionStart){
+
+                dimensionStart = point;
+
+                setStatus(
+                    "Dimension start selected"
+                );
+
+            }else{
+
+                const end = point;
+
+                const pts = [
+                    dimensionStart,
+                    end
+                ];
+
+                const geo =
+                    new THREE.BufferGeometry()
+                    .setFromPoints(pts);
+
+                const line =
+                    new THREE.Line(
+                        geo,
+                        new THREE.LineBasicMaterial({
+                            color:0xffdd55
+                        })
+                    );
+
+                scene.add(line);
+
+                tempDimensionLine = line;
+
+                const distance =
+                    dimensionStart.distanceTo(end);
+
+                const label =
+                    createDimensionHTML(
+                        distance.toFixed(2)
+                    );
+
+                tempDimensionLabel = label;
+
+                currentDimensionData = {
+                    start:dimensionStart.clone(),
+                    end:end.clone(),
+                    line,
+                    label
+                };
+
+                dimensionInput.value =
+                    distance.toFixed(2);
+
+                openDimensionPopup();
+
+                dimensionStart = null;
+            }
+        }
+
+    }
+);
+
+////////////////////////////////////////////////////////////
+// POPUP
+////////////////////////////////////////////////////////////
+
+function openDimensionPopup(){
+
+    dimensionPopup.style.display = "block";
+}
+
+function closeDimensionPopup(){
+
+    dimensionPopup.style.display = "none";
+}
+
+////////////////////////////////////////////////////////////
+// OK BUTTON
+////////////////////////////////////////////////////////////
+
+document
+.getElementById("okDimension")
+.onclick = ()=>{
+
+    if(!currentDimensionData) return;
+
+    const value =
+        parseFloat(dimensionInput.value);
+
+    const dir =
+        currentDimensionData.end
+        .clone()
+        .sub(currentDimensionData.start)
+        .normalize();
+
+    currentDimensionData.end =
+        currentDimensionData.start
+        .clone()
+        .add(
+            dir.multiplyScalar(value)
+        );
+
+    ////////////////////////////////////////////////////////
+    // UPDATE GEOMETRY
+    ////////////////////////////////////////////////////////
+
+    const pts = [
+        currentDimensionData.start,
+        currentDimensionData.end
+    ];
+
+    currentDimensionData.line.geometry.dispose();
+
+    currentDimensionData.line.geometry =
+        new THREE.BufferGeometry()
+        .setFromPoints(pts);
+
+    currentDimensionData.label.innerText =
+        value.toFixed(2);
+
+    addFeatureTreeItem(
+        "DimensionFeature"
+    );
+
+    closeDimensionPopup();
+
+    setStatus(
+        "Dimension updated: " +
+        value.toFixed(2)
+    );
+};
+
+////////////////////////////////////////////////////////////
+// CANCEL
+////////////////////////////////////////////////////////////
+
+document
+.getElementById("cancelDimension")
+.onclick = ()=>{
+
+    closeDimensionPopup();
+
+    setStatus(
+        "Dimension cancelled"
+    );
+};
+
+////////////////////////////////////////////////////////////
+// STATUS
+////////////////////////////////////////////////////////////
+
+function setStatus(txt){
+
+    document.getElementById("status")
+    .innerText = txt;
+}
+
+////////////////////////////////////////////////////////////
+// FEATURE TREE
+////////////////////////////////////////////////////////////
+
+function addFeatureTreeItem(name){
+
+    const div = document.createElement("div");
+
+    div.className = "treeItem sub";
+
+    div.innerText = name;
+
+    document
+    .getElementById("featureTree")
+    .appendChild(div);
+}
+
+////////////////////////////////////////////////////////////
+// EXTRUDE PLACEHOLDER
+////////////////////////////////////////////////////////////
+
+document
+.getElementById("buildExtrude")
+.onclick = ()=>{
+
+    const geo = new THREE.CylinderGeometry(
+        1,
+        1,
+        6,
+        48
+    );
+
+    const mesh = new THREE.Mesh(
+        geo,
+        partMaterial
+    );
+
+    mesh.position.set(
+        Math.random()*4-2,
+        3,
+        Math.random()*4-2
+    );
+
+    scene.add(mesh);
+
+    addFeatureTreeItem(
+        "ExtrudeBossBase"
+    );
+
+    setStatus(
+        "Extruded feature generated"
+    );
+};
+
+////////////////////////////////////////////////////////////
+// SMART DIMENSION BUTTON
+////////////////////////////////////////////////////////////
+
+document
+.getElementById("dimensionModeBtn")
+.onclick = ()=>{
+
+    currentTool = "dimension";
+
+    document.querySelectorAll(".tool")
+    .forEach(x=>x.classList.remove("active"));
+
+    document
+    .querySelector('[data-tool="dimension"]')
+    .classList.add("active");
+
+    setStatus(
+        "Smart Dimension active"
+    );
+};
+
+////////////////////////////////////////////////////////////
+// DIMENSION LABEL SCREEN POSITION
+////////////////////////////////////////////////////////////
+
+function updateDimensionLabels(){
+
+    if(!currentDimensionData) return;
+
+    const mid =
+        currentDimensionData.start
+        .clone()
+        .lerp(
+            currentDimensionData.end,
+            0.5
+        );
+
+    mid.project(camera);
+
+    const x =
+        (mid.x * 0.5 + 0.5)
+        * viewport.clientWidth;
+
+    const y =
+        (-mid.y * 0.5 + 0.5)
+        * viewport.clientHeight;
+
+    currentDimensionData.label.style.left =
+        x + "px";
+
+    currentDimensionData.label.style.top =
+        y + "px";
+}
+
+////////////////////////////////////////////////////////////
+// ANIMATE
+////////////////////////////////////////////////////////////
+
+function animate(){
+
+    requestAnimationFrame(animate);
+
+    controls.update();
+
+    updateDimensionLabels();
+
+    renderer.render(scene,camera);
+}
+
+animate();
+
+////////////////////////////////////////////////////////////
+// RESIZE
+////////////////////////////////////////////////////////////
+
+window.addEventListener(
+    "resize",
+    ()=>{
+
+        camera.aspect =
+            viewport.clientWidth /
+            viewport.clientHeight;
+
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(
+            viewport.clientWidth,
+            viewport.clientHeight
+        );
+    }
+);
+
+</script>
+
+</body>
+</html>
