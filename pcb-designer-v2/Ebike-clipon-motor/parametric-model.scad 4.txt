@@ -1,0 +1,521 @@
+include <BOSL2/std.scad>
+
+/* [Exploded View] */
+// Distance to separate the components
+explode_distance = 30; // [0:1:100]
+
+/* [Toggle Components] */
+show_top_cover = true;
+show_oring = true;
+show_gears = true;
+show_shaft = true;
+show_main_chassis = true;
+show_pcb = true;
+show_motor_core = true;
+show_motor_cap = true;
+show_latch = true;
+show_external_drive = true;
+show_hardware = true;
+
+/* [Dimensions] */
+housing_thickness = 22;
+cover_thickness = 15;
+motor_cap_depth = 26;
+gear_radius = 42;
+motor_radius = 34;
+center_dist = 65;
+wall_thickness = 3.5;
+
+/* [Colors] */
+case_color = "#202326";
+chassis_color = "#2C3034";
+accent_color = "#E6B800";
+metal_color = "#99A0A5";
+pcb_color = "#1B4D3E";
+copper_color = "#B87333";
+magnet_color = "#333333";
+oring_color = "#111111";
+
+$fn = 72;
+
+// --- Helper Functions ---
+
+module body_2d(offset_val = 0) {
+    hull() {
+        translate([0, center_dist/2]) 
+            circle(r=max(1, gear_radius + offset_val));
+        translate([15, -center_dist/2]) 
+            circle(r=max(1, motor_radius + offset_val));
+        translate([28, 0]) 
+            circle(r=max(1, 16 + offset_val));
+    }
+}
+
+module gear_profile(r, teeth) {
+    union() {
+        circle(r=r-2.5);
+        for(i=[0:teeth-1]) {
+            rotate([0, 0, i*360/teeth])
+                translate([r-1.5, 0])
+                    square([4, (r*2*PI)/teeth * 0.4], center=true);
+        }
+    }
+}
+
+module screw_hw(len, d) {
+    color(metal_color) {
+        // Threaded shaft
+        translate([0, 0, -len]) cylinder(h=len, d=d);
+        // Countersunk / Button head
+        cylinder(h=d*0.6, d=d*1.8);
+        // Hex socket detail
+        translate([0, 0, d*0.4])
+            color("#222") cylinder(h=d*0.3, d=d*0.8, $fn=6);
+    }
+}
+
+
+// --- Layout Assembly ---
+
+ed = explode_distance;
+
+// Top Cover Assembly
+if (show_top_cover) {
+    translate([0, 0, housing_thickness + ed*4.5]) top_cover();
+    
+    if (show_hardware) {
+        translate([0, 0, housing_thickness + cover_thickness + ed*5.5]) {
+            translate([-gear_radius+8, center_dist/2+18, 0]) screw_hw(12, 3);
+            translate([gear_radius-8, center_dist/2+18, 0]) screw_hw(12, 3);
+            translate([35, -center_dist/2, 0]) screw_hw(12, 3);
+        }
+    }
+}
+
+if (show_oring) {
+    translate([0, 0, housing_thickness + ed*3.5])
+    color(oring_color)
+    linear_extrude(height=1.5)
+        difference() {
+            body_2d(-wall_thickness/2 + 0.5);
+            body_2d(-wall_thickness/2 - 0.5);
+        }
+}
+
+// Internal Gears
+if (show_gears) {
+    translate([0, center_dist/2, housing_thickness/2 + ed*2.5]) 
+        large_gear();
+    translate([15, -center_dist/2, housing_thickness/2 + ed*2.5]) 
+        pinion_gear();
+}
+
+// Latch Assembly
+if (show_latch) {
+    translate([-gear_radius/2 + 2, -5, housing_thickness/2 + ed*1.5]) 
+        latch_mechanism();
+}
+
+// Mid Chassis
+if (show_main_chassis) {
+    translate([0, 0, ed*1]) 
+        main_chassis();
+}
+
+// PCB & Motor Internals
+if (show_pcb) {
+    translate([0, 0, -4 - ed*0.5]) 
+        pcb_board();
+}
+
+if (show_motor_core) {
+    translate([15, -center_dist/2, -12 - ed*1.5]) 
+        motor_internals();
+}
+
+// Lower Motor Cap
+if (show_motor_cap) {
+    translate([15, -center_dist/2, -26 - ed*3]) {
+        rotate([180, 0, 0]) motor_cap();
+        
+        if (show_hardware) {
+            translate([motor_radius - 6, -12, 2]) rotate([180,0,0]) screw_hw(10, 3);
+            translate([-motor_radius + 6, -12, 2]) rotate([180,0,0]) screw_hw(10, 3);
+        }
+    }
+}
+
+// Right/Lower Drive Assembly (Output side)
+if (show_shaft) {
+    // Shaft extends down to catch the external gear
+    translate([0, center_dist/2, -ed*1]) 
+        output_shaft();
+}
+
+if (show_external_drive) {
+    // Bearing cartridge / spacer
+    translate([0, center_dist/2, -housing_thickness/2 - ed*2.5])
+        lower_bearing();
+        
+    // Rotor Mount Adapter (Silver lobed piece)
+    translate([0, center_dist/2, -housing_thickness/2 - ed*4])
+        rotor_adapter();
+        
+    // External Drive Gear (Large Black Cog)
+    translate([0, center_dist/2, -housing_thickness/2 - ed*5.5])
+        external_drive_gear();
+        
+    if (show_hardware) {
+        translate([0, center_dist/2, -housing_thickness/2 - ed*6.5]) {
+            for(i=[0:5]) {
+                rotate([0, 0, i*60])
+                translate([22, 0, 0]) rotate([180,0,0]) screw_hw(14, 4);
+            }
+        }
+    }
+}
+
+
+// --- Component Modules ---
+
+module large_gear() {
+    color("#1A1A1A")
+    difference() {
+        linear_extrude(height=12, twist=15, slices=12, center=true, convexity=5)
+            gear_profile(36, 36);
+        // Inner shaft/bearing bore
+        cylinder(h=15, r=10, center=true);
+    }
+    // Upper bearing insert
+    color(metal_color)
+    translate([0, 0, 8])
+    difference() {
+        cylinder(h=6, r=14, center=true);
+        cylinder(h=7, r=10, center=true);
+    }
+}
+
+module pinion_gear() {
+    color(metal_color)
+    difference() {
+        linear_extrude(height=12, twist=-17.5, slices=12, center=true, convexity=5)
+            gear_profile(30.5, 30);
+        cylinder(h=15, r=6, center=true);
+    }
+}
+
+module output_shaft() {
+    color(metal_color)
+    union() {
+        // Upper Internal Spline tip
+        translate([0, 0, housing_thickness/2 + 5])
+        intersection() {
+            cylinder(h=20, r=7, center=true);
+            for(i=[0:11]) rotate([0,0,i*30]) translate([0,0,-10]) cube([15, 2, 20], center=true);
+        }
+        // Main structural shaft
+        cylinder(h=housing_thickness + 35, r=6, center=true);
+        // Base flange (retention)
+        translate([0, 0, -housing_thickness/2 - 5])
+            cylinder(h=4, r=14, center=true);
+            
+        // Lower External Spline (mounts the drive gear)
+        translate([0, 0, -housing_thickness/2 - 25])
+        intersection() {
+            cylinder(h=25, r=7, center=true);
+            for(i=[0:11]) rotate([0,0,i*30]) translate([0,0,-15]) cube([15, 2, 30], center=true);
+        }
+    }
+}
+
+module pcb_board() {
+    // Board Base
+    color(pcb_color)
+    difference() {
+        linear_extrude(height=1.5, convexity=4) 
+            body_2d(-6);
+        
+        // Output shaft clearance
+        translate([0, center_dist/2, -1]) cylinder(h=4, r=20);
+        // Motor shaft clearance
+        translate([15, -center_dist/2, -1]) cylinder(h=4, r=12);
+        // Latch clearance
+        translate([-gear_radius/2, -5, -1]) cylinder(h=4, r=10);
+    }
+    
+    // Electronic Components
+    color("Silver") {
+        translate([12, -8, 1.5]) cylinder(h=6, r=3.5);
+        translate([22, -2, 1.5]) cylinder(h=6, r=3.5);
+        translate([28, 10, 1.5]) cylinder(h=5, r=3);
+    }
+    color("#111") {
+        translate([15, 15, 1.5]) cube([10, 10, 2]);
+        translate([5, -15, 1.5]) cube([8, 12, 1.5]);
+    }
+    // Copper traces
+    color(accent_color)
+    translate([25, -20, 1.5])
+        cube([4, 15, 0.2]);
+}
+
+module motor_internals() {
+    // Stator (Inner coils)
+    color(copper_color)
+    union() {
+        difference() {
+            cylinder(h=16, r=24, center=true);
+            cylinder(h=17, r=6, center=true);
+        }
+        for(i=[0:11]) {
+            rotate([0, 0, i*30])
+                translate([18, 0, 0])
+                    cube([12, 4, 17], center=true);
+        }
+    }
+    
+    // Rotor (Outer spinning can with magnets)
+    color(magnet_color)
+    difference() {
+        cylinder(h=22, r=31, center=true);
+        cylinder(h=23, r=25, center=true);
+    }
+    
+    // Rotor Cap & Shaft
+    color(metal_color)
+    translate([0, 0, 10])
+    difference() {
+        cylinder(h=2, r=31, center=true);
+        for(i=[0:5]) {
+            rotate([0, 0, i*60])
+                translate([15, 0, 0])
+                    cylinder(h=4, r=6, center=true);
+        }
+    }
+    
+    // Central motor shaft
+    color(metal_color)
+    cylinder(h=45, r=6, center=true);
+}
+
+module main_chassis() {
+    color(chassis_color)
+    difference() {
+        linear_extrude(height=housing_thickness, convexity=4) 
+            body_2d();
+
+        // Upper main gear cavity
+        translate([0, center_dist/2, housing_thickness/2 + 2])
+            cylinder(h=housing_thickness + 4, r=gear_radius - wall_thickness, center=true);
+
+        // Lower motor shaft pass-through
+        translate([15, -center_dist/2, housing_thickness/2])
+            cylinder(h=housing_thickness + 2, r=16, center=true);
+
+        // PCB recess
+        translate([0, 0, housing_thickness - 8])
+            linear_extrude(height=10)
+                body_2d(-wall_thickness - 4);
+
+        // Exposed gear slot (side cut)
+        translate([-gear_radius - 2, center_dist/2 - 15, -1])
+            cube([gear_radius, 40, housing_thickness + 2]);
+            
+        // Bearing pocket for output shaft
+        translate([0, center_dist/2, -1])
+            cylinder(h=housing_thickness/2 + 1, r=12.5);
+            
+        // Latch pivot pin hole
+        translate([-gear_radius/2 + 2, -5, -1])
+            cylinder(h=housing_thickness + 2, r=4.5);
+            
+        // Fastener through-holes for cover
+        for(p = [[-gear_radius+8, center_dist/2+18], [gear_radius-8, center_dist/2+18], [35, -center_dist/2]]) {
+            translate([p[0], p[1], -1]) 
+                cylinder(h=housing_thickness+2, r=2.5);
+        }
+    }
+}
+
+module top_cover() {
+    color(case_color)
+    difference() {
+        union() {
+            linear_extrude(height=cover_thickness, convexity=4) 
+                body_2d();
+            translate([0, 0, -2.5])
+                linear_extrude(height=3) 
+                    body_2d(-1);
+        }
+        
+        translate([0, 0, -3])
+            linear_extrude(height=cover_thickness)
+                body_2d(-wall_thickness - 1);
+        
+        // Finned Cutouts
+        translate([0, center_dist/2, cover_thickness + 0.1]) {
+            for(i = [0 : 7]) {
+                y_offset = (i - 3.5) * 6.5;
+                translate([0, y_offset, 0]) {
+                    prismoid(
+                        size1=[gear_radius*2 + 10, 3.5], 
+                        size2=[gear_radius*2 + 10, 2], 
+                        h=6 + 0.2, 
+                        anchor=TOP
+                    );
+                }
+            }
+        }
+        
+        // Fastener holes
+        for(p = [[-gear_radius+8, center_dist/2+18], [gear_radius-8, center_dist/2+18], [35, -center_dist/2]]) {
+            translate([p[0], p[1], -5]) 
+                cylinder(h=cover_thickness+10, r=1.6);
+            // Countersink
+            translate([p[0], p[1], cover_thickness-2]) 
+                cylinder(h=3, r=3.5);
+        }
+    }
+
+    // Branding
+    color(accent_color)
+    translate([8, -8, cover_thickness]) {
+        linear_extrude(height=0.6) {
+            polygon([[-24, -4.5], [-17, 4.5], [-10, -4.5], [-17, -1]]);
+            translate([-6, -4, 0])
+                text("bimotal", size=10, font="Arial:style=Bold");
+        }
+    }
+}
+
+module motor_cap() {
+    color(case_color)
+    difference() {
+        union() {
+            cylinder(h=motor_cap_depth, r=motor_radius);
+            hull() {
+                translate([motor_radius - 6, -12, 0]) cylinder(h=motor_cap_depth, r=6);
+                translate([motor_radius, 0, 0]) cylinder(h=motor_cap_depth, r=1);
+            }
+            hull() {
+                translate([-motor_radius + 6, -12, 0]) cylinder(h=motor_cap_depth, r=6);
+                translate([-motor_radius, 0, 0]) cylinder(h=motor_cap_depth, r=1);
+            }
+        }
+        
+        translate([0, 0, wall_thickness])
+            cylinder(h=motor_cap_depth, r=motor_radius - wall_thickness + 1);
+            
+        translate([0, 0, -1])
+            cylinder(h=wall_thickness + 2, r=10);
+            
+        translate([motor_radius - 6, -12, -1]) cylinder(h=wall_thickness+2, r=1.5);
+        translate([-motor_radius + 6, -12, -1]) cylinder(h=wall_thickness+2, r=1.5);
+    }
+}
+
+module latch_mechanism() {
+    color(metal_color)
+    union() {
+        cylinder(h=7, r=8, center=true);
+        translate([0, 0, -housing_thickness/2 - 4])
+            cylinder(h=housing_thickness/2 + 4, r=4);
+        hull() {
+            translate([0, 0, 1]) cylinder(h=5, r=8, center=true);
+            translate([15, -35, 1]) cylinder(h=5, r=5, center=true);
+        }
+        translate([15, -35, 0])
+            cylinder(h=11, r=6, center=true);
+    }
+}
+
+// --- NEW EXTERNAL DRIVE COMPONENTS ---
+
+module lower_bearing() {
+    // Spacer and seal cartridge
+    color("#444")
+    difference() {
+        cylinder(h=8, r=16, center=true);
+        cylinder(h=10, r=10, center=true);
+    }
+    color(metal_color)
+    difference() {
+        cylinder(h=7, r=10, center=true);
+        cylinder(h=9, r=6, center=true);
+    }
+}
+
+module rotor_adapter() {
+    // Lobed disc brake mount interface (6-bolt IS standard shape)
+    color(metal_color)
+    difference() {
+        union() {
+            cylinder(h=5, r=17, center=true);
+            for(i=[0:5]) {
+                rotate([0,0,i*60]) 
+                translate([22, 0, 0]) 
+                    cylinder(h=5, r=6, center=true);
+            }
+        }
+        
+        // Inner shaft pass-through
+        cylinder(h=7, r=9, center=true);
+        
+        // Bolt holes
+        for(i=[0:5]) {
+            rotate([0,0,i*60]) 
+            translate([22, 0, 0]) 
+                cylinder(h=7, r=2.5, center=true);
+        }
+        
+        // Recessed weight savings
+        difference() {
+            cylinder(h=7, r=15, center=true);
+            cylinder(h=7, r=11, center=true);
+        }
+    }
+}
+
+module external_drive_gear() {
+    // Large external cog that drives the bike's chain/wheel
+    color("#1E1E1E")
+    difference() {
+        union() {
+            // Main gear body
+            cylinder(h=6, r=42, center=true);
+            // Thickened central hub
+            cylinder(h=8, r=28, center=true);
+        }
+        
+        // Inner Spline Bore
+        intersection() {
+            cylinder(h=10, r=7.2, center=true);
+            for(i=[0:11]) rotate([0,0,i*30]) translate([0,0,-5]) cube([15, 2.2, 10], center=true);
+        }
+        
+        // 6 Mounting Bolt Holes (Aligns with adapter)
+        for(i=[0:5]) {
+            rotate([0,0,i*60]) {
+                translate([22, 0, 0]) {
+                    cylinder(h=10, r=2.5, center=true);
+                    // Countersink for flush screws
+                    translate([0,0,-2]) cylinder(h=4, r=4.5);
+                }
+            }
+        }
+        
+        // Weight reduction cutouts
+        for(i=[0:5]) {
+            rotate([0,0,i*60 + 30]) {
+                translate([22, 0, 0]) cylinder(h=10, r=6, center=true);
+            }
+        }
+        
+        // Outer Gear Teeth Profile
+        for(i=[0:45]) { // Approx tooth count
+            rotate([0,0,i * 360/46])
+            translate([42, 0, 0]) 
+                cylinder(h=8, r=2, center=true, $fn=16);
+        }
+    }
+}
