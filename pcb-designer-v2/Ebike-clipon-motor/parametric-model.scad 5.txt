@@ -1,0 +1,315 @@
+include <BOSL2/std.scad>
+include <BOSL2/rounding.scad>
+
+/* [Bike Geometry] */
+// Overall scale (1 = ~1mm, so 20" wheel = ~508mm dia)
+wheel_diameter = 508; 
+wheel_thickness = 45;
+hub_width = 100;
+bb_drop = 30;
+chainstay_length = 360;
+wheelbase = 880;
+head_tube_angle = 71; 
+seat_tube_angle = 71;
+head_tube_length = 100;
+seat_tube_length = 250;
+top_tube_length = 430;
+
+/* [Frame Details] */
+tube_diameter = 32;
+chainstay_diameter = 20;
+fork_diameter = 25;
+
+/* [Components] */
+crank_length = 140;
+chainring_radius = 65;
+pedal_width = 80;
+pedal_length = 90;
+
+/* [Colors] */
+frame_color = "RoyalBlue";
+accent_color = "White"; // Using white for the decal stripes instead of text
+tire_color = "#222222";
+rim_color = "#111111";
+component_color = "#1A1A1A";
+chain_guard_color = [0.2, 0.2, 0.2, 0.6]; // Transparent smoke grey
+$fn = 48;
+
+// Derived Coordinates (Origin is at Bottom Bracket)
+bb = [0, 0, 0];
+rear_axle = [-chainstay_length, bb_drop, 0];
+front_axle = [wheelbase - chainstay_length, bb_drop, 0];
+
+seat_tube_top = [seat_tube_length * cos(seat_tube_angle), seat_tube_length * sin(seat_tube_angle), 0];
+head_tube_bottom = [front_axle.x - (wheel_diameter/2 + 20) * cos(head_tube_angle), front_axle.y + (wheel_diameter/2 + 20) * sin(head_tube_angle), 0];
+head_tube_top = [head_tube_bottom.x - head_tube_length * cos(head_tube_angle), head_tube_bottom.y + head_tube_length * sin(head_tube_angle), 0];
+
+// --- Main Assembly ---
+frame();
+fork();
+translate(rear_axle) wheel();
+translate(front_axle) wheel();
+drivetrain();
+seat();
+handlebars();
+
+
+// --- Modules ---
+
+module frame() {
+    color(frame_color) {
+        // Seat Tube
+        hull() {
+            translate(bb) sphere(d=tube_diameter+5);
+            translate(seat_tube_top) sphere(d=tube_diameter);
+        }
+        
+        // Down Tube
+        hull() {
+            translate(bb) sphere(d=tube_diameter+5);
+            translate(head_tube_bottom) sphere(d=tube_diameter);
+        }
+        
+        // Top Tube
+        hull() {
+            translate(seat_tube_top - [0, 30, 0]) sphere(d=tube_diameter);
+            translate(head_tube_top - [0, 20, 0]) sphere(d=tube_diameter);
+        }
+        
+        // Head Tube
+        hull() {
+            translate(head_tube_bottom) sphere(d=tube_diameter+4);
+            translate(head_tube_top) sphere(d=tube_diameter+4);
+        }
+        
+        // Chainstays
+        hull() {
+            translate(bb) sphere(d=tube_diameter+5);
+            translate(rear_axle + [0,0, hub_width/2]) sphere(d=chainstay_diameter);
+        }
+        hull() {
+            translate(bb) sphere(d=tube_diameter+5);
+            translate(rear_axle + [0,0, -hub_width/2]) sphere(d=chainstay_diameter);
+        }
+        
+        // Seatstays
+        hull() {
+            translate(seat_tube_top - [10, 40, 0]) sphere(d=tube_diameter);
+            translate(rear_axle + [0,0, hub_width/2]) sphere(d=chainstay_diameter);
+        }
+        hull() {
+            translate(seat_tube_top - [10, 40, 0]) sphere(d=tube_diameter);
+            translate(rear_axle + [0,0, -hub_width/2]) sphere(d=chainstay_diameter);
+        }
+        
+        // Rear Dropouts
+        translate(rear_axle + [0,0, hub_width/2]) rotate([0,0,30]) cube([40, 30, 6], center=true);
+        translate(rear_axle + [0,0, -hub_width/2]) rotate([0,0,30]) cube([40, 30, 6], center=true);
+    }
+    
+    // Abstract Decals (Replacing branding)
+    color(accent_color) {
+        // Down tube stripe
+        hull() {
+            translate(bb + [50, 40, tube_diameter/2]) sphere(r=2);
+            translate(head_tube_bottom - [50, 40, -tube_diameter/2]) sphere(r=2);
+        }
+        hull() {
+            translate(bb + [50, 40, -tube_diameter/2]) sphere(r=2);
+            translate(head_tube_bottom - [50, 40, tube_diameter/2]) sphere(r=2);
+        }
+        // Top tube stripe
+        hull() {
+            translate(seat_tube_top - [-20, 30, -tube_diameter/2]) sphere(r=2);
+            translate(head_tube_top - [20, 20, tube_diameter/2]) sphere(r=2);
+        }
+        hull() {
+            translate(seat_tube_top - [-20, 30, tube_diameter/2]) sphere(r=2);
+            translate(head_tube_top - [20, 20, -tube_diameter/2]) sphere(r=2);
+        }
+    }
+}
+
+module fork() {
+    color(frame_color) {
+        // Fork Legs
+        hull() {
+            translate(head_tube_bottom) sphere(d=tube_diameter);
+            translate(front_axle + [0,0, hub_width/2]) sphere(d=fork_diameter);
+        }
+        hull() {
+            translate(head_tube_bottom) sphere(d=tube_diameter);
+            translate(front_axle + [0,0, -hub_width/2]) sphere(d=fork_diameter);
+        }
+        // Dropouts
+        translate(front_axle + [0,0, hub_width/2]) cube([30, 30, 6], center=true);
+        translate(front_axle + [0,0, -hub_width/2]) cube([30, 30, 6], center=true);
+    }
+    
+    color(component_color) {
+        // Steerer tube protruding up
+        hull() {
+            translate(head_tube_top) sphere(d=22);
+            translate(head_tube_top + [-10, 30, 0]) sphere(d=22);
+        }
+    }
+}
+
+module wheel() {
+    // Tire
+    color(tire_color)
+    rotate([90,0,0])
+    rotate_extrude()
+    translate([wheel_diameter/2 - wheel_thickness/2, 0, 0])
+    circle(d=wheel_thickness);
+    
+    // Rim
+    color(rim_color)
+    rotate([90,0,0])
+    rotate_extrude()
+    translate([wheel_diameter/2 - wheel_thickness - 10, 0, 0])
+    square([20, wheel_thickness-10], center=true);
+    
+    // Hub
+    color(component_color)
+    rotate([90,0,0]) cylinder(h=hub_width-10, d=35, center=true);
+    
+    // Spokes (Simplified)
+    color("Silver")
+    for(i=[0:15]) {
+        rotate([0, i*360/16, 0])
+        rotate([90,0,0])
+        cylinder(h=wheel_diameter - wheel_thickness*2 - 10, d=1.5, center=true);
+    }
+}
+
+module drivetrain() {
+    // Bottom Bracket / Spindle
+    color(component_color)
+    rotate([90,0,0]) cylinder(h=120, d=20, center=true);
+    
+    // Chainring (BMX Style)
+    color(component_color)
+    translate([0, 0, 35]) {
+        difference() {
+            cylinder(h=4, r=chainring_radius, center=true);
+            for(i=[0:4]) {
+                rotate([0,0,i*72]) translate([35,0,0]) cylinder(h=6, d=25, center=true);
+            }
+        }
+    }
+    
+    // Cranks
+    color(component_color) {
+        translate([0,0,40])
+        hull() {
+            cylinder(h=10, d=25, center=true);
+            translate([crank_length, 0, 0]) cylinder(h=10, d=20, center=true);
+        }
+        translate([0,0,-40])
+        hull() {
+            cylinder(h=10, d=25, center=true);
+            translate([-crank_length, 0, 0]) cylinder(h=10, d=20, center=true);
+        }
+    }
+    
+    // Pedals
+    color(component_color) {
+        translate([crank_length, 0, 45 + pedal_width/2]) cube([pedal_length, 30, pedal_width], center=true);
+        translate([-crank_length, 0, -45 - pedal_width/2]) cube([pedal_length, 30, pedal_width], center=true);
+    }
+    
+    // Chain
+    color("DimGray")
+    translate([0, 0, 35])
+    linear_extrude(height=6, center=true)
+    difference() {
+        hull() {
+            circle(r=chainring_radius + 2);
+            translate(rear_axle) circle(r=30);
+        }
+        hull() {
+            circle(r=chainring_radius - 2);
+            translate(rear_axle) circle(r=26);
+        }
+    }
+    
+    // Rear Cog
+    color(component_color)
+    translate(rear_axle + [0,0, 20])
+    cylinder(h=4, r=28, center=true);
+    
+    // Chain Guard (Smoke transparent)
+    color(chain_guard_color)
+    translate([0, 0, 48])
+    linear_extrude(height=4)
+    difference() {
+        hull() {
+            circle(r=chainring_radius + 15);
+            translate(rear_axle + [100, 10, 0]) circle(r=15);
+        }
+        hull() {
+            circle(r=chainring_radius - 15);
+            translate(rear_axle + [100, 10, 0]) circle(r=5);
+        }
+    }
+}
+
+module seat() {
+    color(component_color) {
+        // Seatpost
+        translate(seat_tube_top)
+        rotate([0, 0, seat_tube_angle]) // Rough angle alignment
+        translate([-10, 50, 0])
+        cylinder(h=120, d=22, center=true);
+        
+        // Saddle
+        translate(seat_tube_top + [-20, 100, 0])
+        hull() {
+            translate([-60, 0, 0]) sphere(d=40);
+            translate([40, 0, 0]) sphere(d=60);
+            translate([0, 10, 0]) sphere(d=30);
+        }
+    }
+}
+
+module handlebars() {
+    stem_top = head_tube_top + [-10, 30, 0];
+    
+    color(component_color) {
+        // Stem
+        hull() {
+            translate(stem_top) sphere(d=30);
+            translate(stem_top + [30, 10, 0]) sphere(d=25);
+        }
+        
+        // BMX Bars
+        translate(stem_top + [30, 10, 0]) {
+            // Lower bar section
+            rotate([90,0,0]) cylinder(h=150, d=22, center=true);
+            
+            // Uprights
+            hull() {
+                translate([0, 0, 75]) sphere(d=22);
+                translate([-20, 150, 200]) sphere(d=22);
+            }
+            hull() {
+                translate([0, 0, -75]) sphere(d=22);
+                translate([-20, 150, -200]) sphere(d=22);
+            }
+            
+            // Crossbar
+            translate([-10, 80, 0]) rotate([90,0,0]) cylinder(h=300, d=16, center=true);
+            
+            // Grips
+            hull() {
+                translate([-20, 150, 200]) sphere(d=30);
+                translate([-30, 150, 300]) sphere(d=30);
+            }
+            hull() {
+                translate([-20, 150, -200]) sphere(d=30);
+                translate([-30, 150, -300]) sphere(d=30);
+            }
+        }
+    }
+}
