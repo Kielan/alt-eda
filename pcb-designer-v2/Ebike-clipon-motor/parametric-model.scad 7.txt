@@ -1,0 +1,311 @@
+// E-Bike Mid-Drive Motor parameters
+
+/* [Display Settings] */
+// Toggle exploded view
+view_mode = "exploded"; // [exploded, assembled]
+// Distance between components (if exploded)
+explosion_scale = 45; // [0:1:100]
+
+/* [Styling] */
+left_casing_color = "DarkSlateGray"; // [DarkSlateGray, Silver, Black, DimGray, SlateGray]
+right_casing_color = "Silver"; // [Silver, LightGray, WhiteSmoke, DarkGray]
+pcb_color = "MediumTurquoise"; // [MediumTurquoise, Teal, ForestGreen, MidnightBlue, RoyalBlue]
+
+// Calculate actual explosion distance
+exp = (view_mode == "exploded") ? explosion_scale : 0;
+
+// Rotate the whole assembly so it sits nicely in the preview
+rotate([-20, 30, -30])
+ebike_motor_assembly(exp);
+
+
+module ebike_motor_assembly(explode = 0) {
+    // Left Cover
+    translate([0, -explode * 2.5, 0]) cover_left();
+    
+    // Motor Stator (Moves left)
+    translate([60, -explode * 1.0, 52]) motor_stator();
+    
+    // Motor Rotor (Moves slightly left)
+    translate([60, -explode * 0.5, 52]) motor_rotor();
+    
+    // Intermediate Gears (Center - stays put)
+    translate([30, 0, 40]) intermediate_assy();
+    
+    // Main Axle and Gear (Moves slightly right)
+    translate([0, explode * 0.5, 0]) main_axle_assy();
+    
+    // PCB (Moves right)
+    translate([0, explode * 1.5, 0]) pcb_assy();
+    
+    // Right Cover (Moves far right)
+    translate([0, explode * 2.5, 0]) cover_right();
+    
+    // Floating screws
+    if (explode > 0) {
+        floating_screws(explode);
+    }
+}
+
+// Helper module for stylized gears
+module pseudo_gear(r, h, teeth, twist=0) {
+    linear_extrude(height=h, twist=twist, center=true, convexity=5)
+    union() {
+        circle(r=r-1.5, $fn=64);
+        for(i=[0:teeth-1]) {
+            rotate([0, 0, i*360/teeth])
+            translate([r-1.5, 0])
+            square([3, r*3*PI/teeth*0.5], center=true);
+        }
+    }
+}
+
+module splined_end(r, h) {
+    difference() {
+        cylinder(r=r, h=h, center=true, $fn=36);
+        for(i=[0:9]) {
+            rotate([0, 0, i*36])
+            translate([r, 0, 0])
+            cylinder(r=1.5, h=h+2, center=true, $fn=12);
+        }
+    }
+}
+
+module main_axle_assy() {
+    rotate([90, 0, 0]) {
+        // Main shaft
+        color("Silver")
+        cylinder(r=12, h=130, center=true, $fn=36);
+        
+        // ISIS/splined crank interfaces
+        color("LightGray") {
+            translate([0, 0, 60]) splined_end(r=12, h=15);
+            translate([0, 0, -60]) splined_end(r=12, h=15);
+        }
+        
+        // Large main reduction gear
+        color("DimGray")
+        translate([0, 0, 10]) 
+        pseudo_gear(r=38, h=12, teeth=42, twist=15);
+        
+        // Torque sensor body / clutch
+        color("Silver")
+        translate([0, 0, -5])
+        cylinder(r=25, h=18, center=true, $fn=48);
+        
+        color("DarkSlateGray")
+        translate([0, 0, -20])
+        cylinder(r=20, h=12, center=true, $fn=48);
+    }
+}
+
+module motor_stator() {
+    rotate([90, 0, 0]) {
+        // Outer iron core
+        color("DimGray")
+        difference() {
+            cylinder(r=32, h=30, center=true, $fn=64);
+            cylinder(r=28, h=32, center=true, $fn=64);
+        }
+        
+        // Copper windings
+        color("Chocolate")
+        for(i=[0:11]) {
+            rotate([0, 0, i*30])
+            translate([22, 0, 0])
+            hull() {
+                cylinder(r=4, h=36, center=true, $fn=16);
+                translate([4, 0, 0]) cylinder(r=5, h=36, center=true, $fn=16);
+            }
+        }
+        
+        // Inner support frame
+        color("DarkSlateGray")
+        difference() {
+            cylinder(r=20, h=30, center=true, $fn=48);
+            cylinder(r=16, h=32, center=true, $fn=48);
+        }
+    }
+}
+
+module motor_rotor() {
+    rotate([90, 0, 0]) {
+        // Rotor magnet core
+        color("Silver")
+        cylinder(r=15.5, h=32, center=true, $fn=48);
+        
+        // Rotor ribbing
+        color("DarkGray")
+        for(i=[0:7]) {
+            rotate([0, 0, i*45])
+            translate([12, 0, 0])
+            cylinder(r=2, h=32.5, center=true, $fn=12);
+        }
+        
+        // Motor shaft
+        color("Silver")
+        cylinder(r=6, h=80, center=true, $fn=24);
+        
+        // Bearings
+        color("DimGray") {
+            translate([0, 0, 18]) cylinder(r=10, h=4, center=true, $fn=24);
+            translate([0, 0, -18]) cylinder(r=10, h=4, center=true, $fn=24);
+        }
+        
+        // Helical Pinion gear
+        color("DimGray")
+        translate([0, 0, 25])
+        pseudo_gear(r=10, h=14, teeth=14, twist=20);
+    }
+}
+
+module intermediate_assy() {
+    rotate([90, 0, 0]) {
+        // Secondary shaft
+        color("Silver")
+        cylinder(r=6, h=40, center=true, $fn=24);
+        
+        // Large gear meshing with motor pinion
+        color("Gray")
+        translate([0, 0, 25])
+        pseudo_gear(r=22, h=12, teeth=26, twist=-20); 
+        
+        // Small gear meshing with main gear
+        color("DimGray")
+        translate([0, 0, 10])
+        pseudo_gear(r=12, h=14, teeth=14, twist=15);
+    }
+}
+
+module pcb_assy() {
+    rotate([90, 0, 0]) {
+        translate([0, 0, -26]) 
+        union() {
+            // Main circuit board
+            color(pcb_color)
+            difference() {
+                hull() {
+                    translate([0, 0, 0]) cylinder(r=28, h=2, center=true, $fn=48);
+                    translate([60, 52, 0]) cylinder(r=32, h=2, center=true, $fn=48);
+                    translate([30, 40, 0]) cylinder(r=20, h=2, center=true, $fn=36);
+                    translate([20, -15, 0]) cylinder(r=15, h=2, center=true, $fn=36);
+                }
+                cylinder(r=16, h=5, center=true, $fn=36);
+                translate([60, 52, 0]) cylinder(r=10, h=5, center=true, $fn=24);
+            }
+            
+            // Integrated circuits / chips
+            color("Black") {
+                translate([30, 15, 2]) cube([15, 15, 3], center=true);
+                translate([45, 35, 2]) cube([10, 10, 2], center=true);
+                translate([10, -5, 2]) cube([8, 12, 3], center=true);
+                translate([15, 45, 2]) cylinder(r=4, h=4, center=true, $fn=16);
+            }
+            
+            // Capacitors
+            color("MidnightBlue") {
+                translate([50, 10, 3]) cylinder(r=6, h=10, center=true, $fn=24);
+                translate([60, 15, 3]) cylinder(r=6, h=10, center=true, $fn=24);
+            }
+            
+            // High-power copper traces / wiring
+            color("HotPink")
+            translate([20, 20, 1.5]) {
+                for(i=[0:6]) {
+                    translate([i*2.5, 0, 0])
+                    cube([1.5, 12, 3], center=true);
+                }
+            }
+        }
+    }
+}
+
+module cover_left() {
+    rotate([90, 0, 0]) {
+        translate([0, 0, 40]) 
+        union() {
+            // Main outer shell
+            color(left_casing_color)
+            difference() {
+                hull() {
+                    translate([0, 0, 0]) cylinder(r=30, h=10, center=true, $fn=48);
+                    translate([60, 52, 0]) cylinder(r=35, h=10, center=true, $fn=48);
+                    translate([30, 40, 0]) cylinder(r=25, h=10, center=true, $fn=48);
+                    translate([20, -20, 0]) cylinder(r=15, h=10, center=true, $fn=36);
+                }
+                // Hollow interior
+                hull() {
+                    translate([0, 0, -2]) cylinder(r=28, h=10, center=true, $fn=48);
+                    translate([60, 52, -2]) cylinder(r=33, h=10, center=true, $fn=48);
+                    translate([30, 40, -2]) cylinder(r=23, h=10, center=true, $fn=48);
+                    translate([20, -20, -2]) cylinder(r=13, h=10, center=true, $fn=36);
+                }
+                // Axle opening
+                cylinder(r=14, h=20, center=true, $fn=36); 
+            }
+            
+            // Cosmetic ring inserts
+            color("DimGray") translate([60, 52, 6]) cylinder(r=25, h=2, center=true, $fn=48);
+            color("Crimson") translate([60, 52, 7]) cylinder(r=20, h=2, center=true, $fn=48);
+            color("Black") translate([60, 52, 7.5]) cylinder(r=18, h=2, center=true, $fn=48);
+        }
+    }
+}
+
+module cover_right() {
+    rotate([90, 0, 0]) {
+        translate([0, 0, -40])
+        color(right_casing_color)
+        difference() {
+            // Structural mounting plate
+            hull() {
+                translate([0, 0, 0]) cylinder(r=32, h=15, center=true, $fn=48);
+                translate([60, 52, 0]) cylinder(r=36, h=15, center=true, $fn=48);
+                translate([20, -20, 0]) cylinder(r=18, h=15, center=true, $fn=36);
+                translate([80, 20, 0]) cylinder(r=15, h=15, center=true, $fn=24);
+                translate([50, 80, 0]) cylinder(r=15, h=15, center=true, $fn=24);
+                translate([-15, 30, 0]) cylinder(r=15, h=15, center=true, $fn=24);
+            }
+            // Hollowed area for gears
+            hull() {
+                translate([0, 0, 3]) cylinder(r=30, h=15, center=true, $fn=48);
+                translate([60, 52, 3]) cylinder(r=34, h=15, center=true, $fn=48);
+                translate([20, -20, 3]) cylinder(r=16, h=15, center=true, $fn=36);
+                translate([80, 20, 3]) cylinder(r=11, h=15, center=true, $fn=24);
+                translate([50, 80, 3]) cylinder(r=11, h=15, center=true, $fn=24);
+                translate([-15, 30, 3]) cylinder(r=11, h=15, center=true, $fn=24);
+            }
+            // Axle pass-through
+            cylinder(r=14, h=30, center=true, $fn=36);
+            
+            // Frame mounting holes
+            translate([80, 20, 0]) cylinder(r=4, h=30, center=true, $fn=16);
+            translate([50, 80, 0]) cylinder(r=4, h=30, center=true, $fn=16);
+            translate([-15, 30, 0]) cylinder(r=4, h=30, center=true, $fn=16);
+            
+            // Bearing recess
+            translate([60, 52, 0]) cylinder(r=8, h=30, center=true, $fn=24);
+        }
+    }
+}
+
+module floating_screws(explode) {
+    rotate([90, 0, 0]) {
+        translate([0, 0, -40 - explode*1.5])
+        color("Black") {
+            // Corresponding to frame mounting holes
+            translate([80, 20, 0]) screw();
+            translate([50, 80, 0]) screw();
+            translate([-15, 30, 0]) screw();
+        }
+    }
+}
+
+module screw() {
+    union() {
+        // Hex head
+        cylinder(r=3.5, h=4, center=true, $fn=6);
+        // Threaded rod
+        translate([0, 0, 8]) cylinder(r=1.5, h=16, center=true, $fn=12);
+    }
+}

@@ -1,0 +1,260 @@
+include <BOSL2/std.scad>
+
+// [Visibility (Bill of Materials)]
+// Toggle components to isolate them for individual STL export
+show_motor = true;
+show_large_pulley = true;
+show_small_pulley = true;
+show_rotor = true;
+show_bracket = true;
+show_belt = true;
+
+// [Dimensions]
+large_pulley_radius = 65;  // [40:1:100]
+small_pulley_radius = 25;  // [15:1:40]
+rotor_radius = 85;         // [60:1:120]
+pulley_thickness = 14;     // [10:1:30]
+motor_radius = 38;         // [20:1:60]
+motor_length = 50;         // [30:1:100]
+
+// [Colors]
+body_color = "#1a1a1a";
+gear_color = "#242424";
+belt_color = "#0a0a0a";
+metal_color = "#c0c4c9";
+rotor_color = "#daddxe2"; // Slightly brighter metallic for the disc
+
+/* [Hidden] */
+$fn = 64;
+large_gear_pos = [0, 0, 15];
+small_gear_pos = [-35, 75, 15];
+motor_pos = [0, 130, -5];
+
+if (show_motor) {
+    motor();
+}
+if (show_large_pulley) {
+    translate(large_gear_pos) large_pulley();
+}
+if (show_small_pulley) {
+    translate(small_gear_pos) small_pulley();
+}
+if (show_rotor) {
+    translate([0, 0, 2]) rotor();
+}
+if (show_bracket) {
+    bracket();
+}
+if (show_belt) {
+    belt();
+}
+
+
+module motor() {
+    translate(motor_pos) {
+        // Main cylindrical body
+        color(body_color) {
+            cyl(r=motor_radius, h=motor_length, anchor=BOTTOM);
+            
+            // Rear heat sink fins
+            translate([0, 0, -20]) {
+                cyl(r=motor_radius, h=20, anchor=BOTTOM);
+                for(i = [0 : 4]) {
+                    translate([0, 0, i * 4]) 
+                    cyl(r=motor_radius + 2, h=2, anchor=BOTTOM);
+                }
+            }
+        }
+        
+        // Front bearing/cap
+        color(metal_color) 
+        translate([0, 0, motor_length]) 
+        cyl(r=12, h=3, anchor=BOTTOM);
+
+        // Tensioner/clutch lever
+        color(metal_color)
+        translate([motor_radius - 2, -15, motor_length - 15]) {
+            rotate([10, -20, 30]) {
+                hull() {
+                    sphere(r=5);
+                    translate([25, -40, 15]) sphere(r=3.5);
+                }
+                // Lever mount joint
+                cyl(r=7, h=10, anchor=CENTER);
+            }
+        }
+    }
+}
+
+module large_pulley() {
+    color(gear_color) difference() {
+        union() {
+            // Outer rim
+            difference() {
+                cyl(r=large_pulley_radius, h=pulley_thickness, anchor=CENTER);
+                cyl(r=large_pulley_radius - 8, h=pulley_thickness + 2, anchor=CENTER);
+            }
+            
+            // Internal 5-spoke star structure
+            difference() {
+                union() {
+                    cyl(r=20, h=pulley_thickness, anchor=CENTER);
+                    for(i = [0 : 4]) {
+                        zrot(i * 360 / 5) 
+                        cuboid([large_pulley_radius * 2, 14, pulley_thickness], anchor=CENTER);
+                    }
+                }
+                // Hollow center axle
+                cyl(r=10, h=pulley_thickness + 2, anchor=CENTER);
+                
+                // Deep inner web cutouts
+                for(i = [0 : 4]) {
+                    zrot(i * 360 / 5 + 36) 
+                    translate([32, 0, 0]) 
+                    cyl(r=18, h=pulley_thickness + 2, anchor=CENTER);
+                }
+                
+                // Outer spoke holes
+                for(i = [0 : 4]) {
+                    zrot(i * 360 / 5) 
+                    translate([48, 0, 0]) 
+                    cyl(r=4.5, h=pulley_thickness + 2, anchor=CENTER);
+                }
+            }
+        }
+        
+        // Outer teeth for timing belt
+        for(i = [0 : 59]) {
+            zrot(i * 360 / 60)
+            translate([large_pulley_radius, 0, 0])
+            cyl(r=1.5, h=pulley_thickness + 2, anchor=CENTER);
+        }
+    }
+}
+
+module small_pulley() {
+    // Outer toothed gear
+    color(gear_color) difference() {
+        cyl(r=small_pulley_radius, h=pulley_thickness, anchor=CENTER);
+        cyl(r=small_pulley_radius - 6, h=pulley_thickness + 2, anchor=CENTER);
+        
+        for(i = [0 : 23]) {
+            zrot(i * 360 / 24)
+            translate([small_pulley_radius, 0, 0])
+            cyl(r=1.5, h=pulley_thickness + 2, anchor=CENTER);
+        }
+    }
+    
+    // Inner hub & bolts
+    color(metal_color) difference() {
+        cyl(r=small_pulley_radius - 6.2, h=pulley_thickness - 1, anchor=CENTER);
+        cyl(r=6, h=pulley_thickness + 2, anchor=CENTER); // center axle
+        
+        // Retaining bolts
+        for(i = [0 : 2]) {
+            zrot(i * 360 / 3) 
+            translate([12, 0, 0]) 
+            cyl(r=2, h=pulley_thickness + 2, anchor=CENTER);
+        }
+    }
+}
+
+module rotor() {
+    rotor_thickness = 2;
+    color(metal_color) difference() {
+        union() {
+            // Main brake disc
+            cyl(r=rotor_radius, h=rotor_thickness, anchor=CENTER);
+            
+            // Mounting hub integration
+            cyl(r=30, h=rotor_thickness + 1, anchor=CENTER);
+        }
+        
+        // Large center cutout
+        cyl(r=22, h=rotor_thickness + 3, anchor=CENTER);
+        
+        // Inner web relief cuts
+        for(i = [0 : 5]) {
+            zrot(i * 360 / 6 + 30)
+            translate([22, 0, 0])
+            cyl(r=7, h=rotor_thickness + 3, anchor=CENTER);
+        }
+        
+        // 6-bolt mounting pattern
+        for(i = [0 : 5]) {
+            zrot(i * 360 / 6)
+            translate([16, 0, 0])
+            cyl(r=2.5, h=rotor_thickness + 3, anchor=CENTER);
+        }
+        
+        // Brake pad track ventilation holes
+        for(ring = [38, 50, 62, 74]) {
+            holes_count = floor(ring / 2);
+            for(i = [0 : holes_count - 1]) {
+                zrot((i * 360 / holes_count) + (ring * 2.5))
+                translate([ring, 0, 0])
+                cyl(r=2.5, h=rotor_thickness + 3, anchor=CENTER);
+            }
+        }
+        
+        // Outer scalloped edge
+        for(i = [0 : 23]) {
+            zrot(i * 360 / 24)
+            translate([rotor_radius + 1, 0, 0])
+            cyl(r=3.5, h=rotor_thickness + 3, anchor=CENTER);
+        }
+    }
+}
+
+module bracket() {
+    color(body_color) difference() {
+        union() {
+            // Upper housing and spine
+            hull() {
+                translate(motor_pos + [0, 0, -5]) cuboid([50, 40, 15], rounding=5, anchor=CENTER);
+                translate([35, 75, -10]) cuboid([30, 40, 15], rounding=5, anchor=CENTER);
+            }
+            // Descending leg structure
+            hull() {
+                translate([35, 75, -10]) cuboid([30, 40, 15], rounding=5, anchor=CENTER);
+                translate([55, -20, -10]) cuboid([20, 60, 15], rounding=5, anchor=CENTER);
+            }
+            // Bottom caliper/frame hook
+            hull() {
+                translate([55, -20, -10]) cuboid([20, 60, 15], rounding=5, anchor=CENTER);
+                translate([45, -50, -10]) cuboid([30, 20, 15], rounding=5, anchor=CENTER);
+            }
+            // Small gear axle mount extension
+            hull() {
+                translate([-35, 75, -5]) cyl(r=15, h=15, anchor=CENTER);
+                translate([0, 95, -10]) cuboid([40, 20, 15], rounding=5, anchor=CENTER);
+            }
+            // Large gear primary axle casing
+            hull() {
+                translate([0, 0, -5]) cyl(r=20, h=15, anchor=CENTER);
+                translate([30, 0, -10]) cuboid([30, 30, 15], rounding=5, anchor=CENTER);
+            }
+        }
+        
+        // Axle pathways & weight relief
+        translate([0, 0, 0]) cyl(r=10, h=100, anchor=CENTER);
+        translate([-35, 75, 0]) cyl(r=6, h=100, anchor=CENTER);
+        translate(motor_pos) cyl(r=10, h=100, anchor=CENTER);
+        
+        // Chamfered inner relief on bracket
+        translate([25, 40, -10]) cyl(r=15, h=25, anchor=CENTER);
+    }
+}
+
+module belt() {
+    color(belt_color) difference() {
+        hull() {
+            translate(large_gear_pos) cyl(r=large_pulley_radius + 2, h=pulley_thickness - 3, anchor=CENTER);
+            translate(small_gear_pos) cyl(r=small_pulley_radius + 2, h=pulley_thickness - 3, anchor=CENTER);
+        }
+        hull() {
+            translate(large_gear_pos) cyl(r=large_pulley_radius - 1, h=pulley_thickness + 1, anchor=CENTER);
+            translate(small_gear_pos) cyl(r=small_pulley_radius - 1, h=pulley_thickness + 1, anchor=CENTER);
+        }
+    }
+}
