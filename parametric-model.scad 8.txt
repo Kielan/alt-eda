@@ -1,0 +1,266 @@
+include <BOSL2/std.scad>
+
+/* [Display Options] */
+// Distance to explode parts apart
+explode_distance = 15; // [0:1:100]
+// Slice the outer bodies in half to see internal mechanisms
+show_cutaway = true; 
+// Show the central thru-axle
+show_axle = true;
+
+/* [Dimensions] */
+axle_length = 142; // [130:1:150]
+hub_flange_diameter = 56; // [40:1:80]
+
+/* [Colors] */
+hub_color = "Black";
+freehub_color = "LightGray";
+ratchet_color = "Goldenrod";
+spring_color = "Silver";
+bearing_color = "LightSteelBlue";
+axle_color = "DimGray";
+end_cap_color = "Black";
+
+$fn = 64;
+
+// Assembly Layout
+explode = explode_distance;
+
+if (show_axle) {
+    color(axle_color) axle();
+}
+
+// NDS End Cap
+translate([-65 - explode*4, 0, 0]) 
+    color(end_cap_color) end_cap();
+
+// NDS Bearing
+translate([-26 - explode*2, 0, 0]) 
+    color(bearing_color) bearing();
+
+// Hub Shell
+translate([0, 0, 0]) 
+    color(hub_color) hub_shell();
+
+// Inboard Spring
+translate([15 + explode*1, 0, 0]) 
+    color(spring_color) 
+    rotate([0, 90, 0]) 
+    spring(h=8, r1=14, r2=10, wire=0.8);
+
+// Inboard Ratchet
+translate([23 + explode*2, 0, 0]) 
+    color(ratchet_color) 
+    ratchet(face_dir=1);
+
+// Outboard Ratchet
+translate([29 + explode*3, 0, 0]) 
+    color(ratchet_color) 
+    ratchet(face_dir=-1);
+
+// Outboard Spring
+translate([37 + explode*4, 0, 0]) 
+    color(spring_color) 
+    rotate([0, -90, 0]) 
+    spring(h=8, r1=14, r2=10, wire=0.8);
+
+// Freehub
+translate([48 + explode*5, 0, 0]) 
+    color(freehub_color) 
+    freehub();
+
+// DS Bearing
+translate([60 + explode*6, 0, 0]) 
+    color(bearing_color) 
+    bearing();
+
+// DS End Cap
+translate([68 + explode*7, 0, 0]) 
+    color(end_cap_color) 
+    rotate([0, 180, 0]) 
+    end_cap();
+
+
+// --- MODULES ---
+
+module cutaway_mask() {
+    if (show_cutaway) {
+        translate([0, -100, 0]) cube([300, 200, 200], center=true);
+    }
+}
+
+module axle() {
+    rotate([0, 90, 0])
+    difference() {
+        cylinder(h=axle_length, r=7, center=true);
+        cylinder(h=axle_length + 2, r=5, center=true);
+        
+        // Small step in the middle
+        translate([0, 0, 20]) cylinder(h=axle_length, r=6.5, center=true);
+    }
+}
+
+module end_cap() {
+    rotate([0, 90, 0])
+    difference() {
+        union() {
+            cylinder(h=12, r=10, center=true);
+            translate([0, 0, -4]) cylinder(h=4, r=14, center=true);
+            translate([0, 0, 4]) cylinder(h=4, r=7, center=true);
+        }
+        cylinder(h=20, r=5.2, center=true);
+        
+        if (show_cutaway) {
+            translate([0, -50, 0]) cube([100, 100, 100], center=true);
+        }
+    }
+}
+
+module bearing() {
+    rotate([0, 90, 0])
+    difference() {
+        cylinder(h=7, r=14, center=true);
+        cylinder(h=8, r=7, center=true);
+        
+        // Visual seal detail
+        difference() {
+            cylinder(h=8, r=13.5, center=true);
+            cylinder(h=9, r=8.5, center=true);
+        }
+    }
+    // Bearing inner/outer race visual
+    color("Black")
+    rotate([0, 90, 0])
+    difference() {
+        cylinder(h=6.8, r=13.5, center=true);
+        cylinder(h=7, r=8.5, center=true);
+        
+        if (show_cutaway) {
+            translate([0, -50, 0]) cube([100, 100, 100], center=true);
+        }
+    }
+}
+
+module hub_shell() {
+    rotate([0, 90, 0])
+    difference() {
+        union() {
+            // Main body
+            cylinder(h=60, r=20, center=true);
+            // Spoke flanges
+            translate([0, 0, -20]) cylinder(h=3, r=hub_flange_diameter/2, center=true);
+            translate([0, 0, 12]) cylinder(h=3, r=hub_flange_diameter/2 + 2, center=true);
+        }
+        // Inner void
+        cylinder(h=62, r=15, center=true);
+        
+        // Bearing seat NDS
+        translate([0, 0, -26]) cylinder(h=10, r=14.1, center=true);
+        
+        // Ratchet/Spring seat DS
+        translate([0, 0, 20]) cylinder(h=22, r=17, center=true);
+        
+        // Internal splines for inboard ratchet
+        translate([0, 0, 20])
+        for(i=[0:23]) {
+            rotate([0, 0, i * 360 / 24])
+            translate([16, 0, 0])
+            cube([2, 1.5, 25], center=true);
+        }
+        
+        cutaway_mask();
+    }
+}
+
+module freehub() {
+    rotate([0, 90, 0])
+    difference() {
+        union() {
+            // Main cylinder
+            cylinder(h=34, r=17.5, center=true);
+            // Splines for cassette
+            for(i=[0:11]) {
+                rotate([0, 0, i * 360 / 12])
+                translate([17.5, 0, 0])
+                cube([2, 3, 34], center=true);
+            }
+        }
+        // Hollow center
+        cylinder(h=36, r=12, center=true);
+        
+        // Outboard ratchet seat (splined inside)
+        translate([0, 0, -12]) cylinder(h=15, r=16.5, center=true);
+        
+        // Internal splines for outboard ratchet
+        translate([0, 0, -12])
+        for(i=[0:23]) {
+            rotate([0, 0, i * 360 / 24])
+            translate([15.5, 0, 0])
+            cube([2, 1.5, 16], center=true);
+        }
+        
+        // Bearing seat DS
+        translate([0, 0, 12]) cylinder(h=12, r=14.1, center=true);
+        
+        cutaway_mask();
+    }
+}
+
+module ratchet(face_dir=1) {
+    // face_dir=1 points right (+X), face_dir=-1 points left (-X)
+    rotate([0, face_dir==1 ? 90 : -90, 0])
+    difference() {
+        union() {
+            difference() {
+                cylinder(h=6, r=16, center=true);
+                cylinder(h=7, r=10, center=true);
+            }
+            
+            // Star ratchet angled face teeth
+            translate([0, 0, 3]) {
+                for(i=[0:35]) {
+                    rotate([0, 0, i * 360 / 36])
+                    hull() {
+                        translate([10, -0.4, 0]) cube([6, 0.8, 0.1]);
+                        translate([10, 0.8, 1.5]) cube([6, 0.1, 0.1]);
+                    }
+                }
+            }
+            
+            // Outer splines
+            for(i=[0:23]) {
+                rotate([0, 0, i * 360 / 24])
+                translate([16, 0, 0])
+                cube([1.2, 1.2, 6], center=true);
+            }
+        }
+        
+        // Inner hole cleanup
+        cylinder(h=10, r=10, center=true);
+        
+        if (show_cutaway) {
+            translate([0, -50, 0]) cube([100, 100, 100], center=true);
+        }
+    }
+}
+
+module spring(h, r1, r2, wire, turns=4) {
+    steps = 40;
+    
+    // Create the continuous spiral wireframe
+    for(i=[0:steps-1]) {
+        a1 = i * 360 * turns / steps;
+        a2 = (i+1) * 360 * turns / steps;
+        z1 = h * i / steps;
+        z2 = h * (i+1) / steps;
+        
+        // Taper the spring (conical)
+        rad1 = r1 + (r2-r1) * i / steps;
+        rad2 = r1 + (r2-r1) * (i+1) / steps;
+        
+        hull() {
+            rotate([0, 0, a1]) translate([rad1, 0, z1 - h/2]) sphere(r=wire, $fn=12);
+            rotate([0, 0, a2]) translate([rad2, 0, z2 - h/2]) sphere(r=wire, $fn=12);
+        }
+    }
+}

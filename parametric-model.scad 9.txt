@@ -1,0 +1,199 @@
+// Fuji Thrill 26" Style Mountain Bike
+// A stylized parametric CAD model of a classic 90s MTB
+
+/* [Colors] */
+frame_color = "#00B7C6";    // [DarkTurquoise, SteelBlue, Crimson, ForestGreen, Black, White]
+decal_color = "#FFD700";    // [Yellow, Gold, White, Black]
+tire_color = "#222222";     
+accent_color = "#C0C0C0";   
+handlebar_color = "#111111";
+seat_color = "#111111";
+
+/* [Geometry] */
+wheel_radius = 330; // [300:10:360]
+
+/* [Hidden] */
+// Base nodes for a 26" frame geometry
+n_bb = [0, 0, 290];
+n_rear_axle = [-440, 0, 330];
+n_seat = [-140, 0, 750];
+n_head_top = [440, 0, 800];
+n_head_bot = [480, 0, 690];
+n_front_axle = [644, 0, 330];
+
+// Extended head tube nodes
+ht_vec = n_head_bot - n_head_top;
+ht_dir = ht_vec / norm(ht_vec);
+n_head_upper_ext = n_head_top - ht_dir * 25;
+n_head_lower_ext = n_head_bot + ht_dir * 20;
+
+module tube(p1, p2, r) {
+    hull() {
+        translate(p1) sphere(r=r, $fn=24);
+        translate(p2) sphere(r=r, $fn=24);
+    }
+}
+
+module decal(p1, p2, offset_start, length, r) {
+    dir = p2 - p1;
+    dist = norm(dir);
+    u = dir / dist;
+    start_pos = p1 + u * offset_start;
+    end_pos = start_pos + u * length;
+    color(decal_color) tube(start_pos, end_pos, r+0.5);
+}
+
+module frame() {
+    // Bottom Bracket Shell
+    color(frame_color) translate(n_bb) rotate([90,0,0]) cylinder(h=73, r=22, center=true, $fn=32);
+    
+    color(frame_color) {
+        // Main Triangle
+        tube(n_seat, n_head_top, 16);                 // Top tube
+        tube(n_bb, n_head_bot, 19);                   // Down tube
+        tube(n_bb, n_seat + [-10, 0, 40], 16.5);      // Seat tube (extended slightly up)
+        tube(n_head_upper_ext, n_head_lower_ext, 20); // Head tube
+        
+        // Rear Triangle - Chainstays
+        tube(n_bb + [0, 25, 0], n_rear_axle + [0, 60, 0], 10);
+        tube(n_bb + [0, -25, 0], n_rear_axle + [0, -60, 0], 10);
+        
+        // Rear Triangle - Seatstays
+        tube(n_seat + [-15, 0, -50], n_rear_axle + [0, 60, 0], 9);
+        tube(n_seat + [-15, 0, -50], n_rear_axle + [0, -60, 0], 9);
+    }
+    
+    // Decals to mimic "FUJI" and "THRILL" text blocks
+    decal(n_bb, n_head_bot, 200, 160, 19); // Downtube branding
+    decal(n_seat, n_head_top, 100, 120, 16); // Toptube branding
+    decal(n_bb, n_seat, 180, 80, 16.5);      // Seattube branding
+}
+
+module fork() {
+    color(frame_color) {
+        // Fork Crown
+        tube(n_head_lower_ext + [0, 25, -10], n_head_lower_ext + [0, -25, -10], 14);
+        
+        // Fork Blades
+        tube(n_head_lower_ext + [0, 25, -10], n_front_axle + [0, 50, 0], 12);
+        tube(n_head_lower_ext + [0, -25, -10], n_front_axle + [0, -50, 0], 12);
+    }
+}
+
+module wheel() {
+    rotate([90, 0, 0]) {
+        // Tire body
+        color(tire_color) rotate_extrude($fn=64) translate([315, 0, 0]) circle(r=22, $fn=24);
+        
+        // Tire Knobs (Offroad Tread)
+        color(tire_color)
+        for(a=[0:6:359]) {
+            rotate([0, 0, a]) translate([333, 0, 0]) cube([10, 8, 32], center=true);
+        }
+        
+        // Rim
+        color(accent_color) rotate_extrude($fn=64) translate([285, 0, 0]) square([25, 20], center=true);
+        
+        // Hub
+        color(handlebar_color) cylinder(h=60, r=16, center=true, $fn=24);
+        
+        // Spokes (Simplified to 36 for performance)
+        color(accent_color)
+        for(a=[0:10:359]) {
+            rotate([0, 0, a])
+            hull() {
+                translate([0, 0, (a%20==0 ? 25 : -25)]) sphere(1.2, $fn=8);
+                translate([285, 0, 0]) sphere(1.2, $fn=8);
+            }
+        }
+    }
+}
+
+module handlebars() {
+    // Steerer & Stem
+    color(accent_color) {
+        tube(n_head_upper_ext, n_head_top + [-5, 0, 40], 14); // Steerer
+        tube(n_head_top + [-5, 0, 40], n_head_top + [60, 0, 50], 12); // Stem forward
+    }
+    
+    // Riser Bars
+    color(handlebar_color) {
+        tube(n_head_top + [60, 0, 50], n_head_top + [50, 280, 70], 11);
+        tube(n_head_top + [60, 0, 50], n_head_top + [50, -280, 70], 11);
+    }
+    
+    // Grips
+    color(seat_color) {
+        tube(n_head_top + [53, 180, 64], n_head_top + [50, 280, 70], 14);
+        tube(n_head_top + [53, -180, 64], n_head_top + [50, -280, 70], 14);
+    }
+}
+
+module seat() {
+    // Seatpost
+    color(accent_color) tube(n_seat, n_seat + [-35, 0, 160], 13.5);
+    
+    // Collar
+    color(handlebar_color) translate(n_seat + [-6, 0, 30]) rotate([0, -18, 0]) cylinder(h=15, r=18, center=true, $fn=24);
+    
+    // Saddle
+    color(seat_color)
+    translate(n_seat + [-35, 0, 175])
+    rotate([0, -5, 0])
+    hull() {
+        translate([-40, 0, 0]) scale([1, 1.2, 0.5]) sphere(r=24, $fn=32); // Rear cushion
+        translate([50, 0, 0]) scale([1, 0.6, 0.4]) sphere(r=16, $fn=32); // Nose
+    }
+}
+
+module drivetrain() {
+    // Front Chainrings
+    color(accent_color) {
+        translate(n_bb + [0, 25, 0]) rotate([90,0,0]) cylinder(h=2, r=85, center=true, $fn=48);
+        translate(n_bb + [0, 30, 0]) rotate([90,0,0]) cylinder(h=2, r=65, center=true, $fn=48);
+        translate(n_bb + [0, 35, 0]) rotate([90,0,0]) cylinder(h=2, r=45, center=true, $fn=48);
+    }
+    
+    // Cranks
+    color(accent_color) {
+        translate(n_bb + [0, 38, 0]) rotate([0, 75, 0]) tube([0,0,0], [0, 0, 175], 8);
+        translate(n_bb + [0, -38, 0]) rotate([0, 75+180, 0]) tube([0,0,0], [0, 0, 175], 8);
+    }
+    
+    // Pedals
+    // Right
+    translate(n_bb + [0, 42, 0]) rotate([0, 75, 0]) translate([0, 0, 175]) rotate([0, -75, 0]) {
+        color(accent_color) rotate([90,0,0]) cylinder(h=30, r=6, center=true, $fn=16);
+        color(handlebar_color) translate([0, 20, 0]) cube([60, 35, 20], center=true);
+    }
+    // Left
+    translate(n_bb + [0, -42, 0]) rotate([0, 75+180, 0]) translate([0, 0, 175]) rotate([0, -(75+180), 0]) {
+        color(accent_color) rotate([90,0,0]) cylinder(h=30, r=6, center=true, $fn=16);
+        color(handlebar_color) translate([0, -20, 0]) cube([60, 35, 20], center=true);
+    }
+    
+    // Rear Cassette
+    color(accent_color) translate(n_rear_axle + [0, 25, 0]) rotate([90,0,0]) cylinder(h=35, r=40, center=true, $fn=32);
+    
+    // Chain (Simplified block linking chainring to cassette)
+    color("#444444")
+    hull() {
+        translate(n_bb + [0, 25, 0]) rotate([90,0,0]) cylinder(h=4, r=80, center=true, $fn=32);
+        translate(n_rear_axle + [0, 25, 0]) rotate([90,0,0]) cylinder(h=4, r=35, center=true, $fn=32);
+    }
+}
+
+// Assemble the full bicycle
+module main() {
+    frame();
+    fork();
+    
+    translate(n_rear_axle) wheel();
+    translate(n_front_axle) wheel();
+    
+    handlebars();
+    seat();
+    drivetrain();
+}
+
+main();
