@@ -537,27 +537,38 @@
 class TraceRenderer {
   constructor(layerGroups) {
     this.layerGroups = layerGroups;
-    this.material =
-        new THREE.MeshStandardMaterial({
+    this.material = new THREE.MeshStandardMaterial({
             color: 0xc87533,
             metalness: 0.75,
             roughness: 0.25
         });
+    this.copperMaterial = new THREE.MeshStandardMaterial({
+        color: 0xc87533,
+        metalness: 0.75,
+        roughness: 0.25
+    });
+    this.previewMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffaa22,
+        metalness: 0.6,
+        roughness: 0.25,
+        transparent: true,
+        opacity: 0.75,
+        emissive: 0xff6600,
+        emissiveIntensity: 0.25
+    });
   }
-  renderPoints(points,width,group) {
+  renderPoints(points,width,group,preview = false) {
     if (points.length < 2)
         return;
     for (let i = 0;i < points.length - 1;i++) {
-        const a = points[i];
-        const b = points[i + 1];
-        group.add(
-            this.createSegment(a,b,width)
-        );
+      const a = points[i];
+      const b = points[i + 1];
+      const segment = this.createSegment(a,b,width,preview);
+      group.add(segment);
     }
     for (let i = 0;i < points.length;i++) {
-        group.add(
-            this.createJunction(
-                points[i],width));
+      const junction = this.createJunction(points[i],width,preview);
+        group.add(junction);
     }
   }
   render(trace) {
@@ -586,7 +597,7 @@ class TraceRenderer {
       group.add(junction);
     }
   }
-  createSegment(a, b, width) {
+  createSegment(a, b, width, preview = false) {
     const dx = b.x - a.x;
     const dz = b.z - a.z;
     const length = Math.sqrt(dx * dx +dz * dz);
@@ -613,7 +624,7 @@ class TraceRenderer {
             }
         );
     geometry.rotateX(-Math.PI / 2);
-    const mesh = new THREE.Mesh(geometry,this.material);
+    const mesh = new THREE.Mesh(geometry, preview ? this.previewMaterial : this.copperMaterial);
     /* Center the segment*/
     mesh.position.set(a.x,0,a.z);
     /* Rotate around Y so
@@ -628,11 +639,20 @@ class TraceRenderer {
     mesh.position.set(point.x,PCB_CONFIG.traceHeight / 2,point.z);
     return mesh;
   }
-  createJunction(point, width) {
+  createJunction(point, width, preview = false) {
     const geometry = new THREE.CylinderGeometry(width / 2,width / 2,PCB_CONFIG.traceHeight,24);
-    const mesh = new THREE.Mesh(geometry,this.material);
+    const mesh = new THREE.Mesh(geometry,preview ? this.previewMaterial : this.copperMaterial);
     mesh.position.set(point.x,PCB_CONFIG.traceHeight / 2,point.z);
     return mesh;
+  }
+}
+class PCBPad {
+  constructor({position,size,shape,layer,net}) {
+      this.position = position;
+      this.size = size;
+      this.shape = shape;
+      this.layer = layer;
+      this.net = net;
   }
 }
 //updated RoutingEngine Usage:
@@ -753,17 +773,18 @@ class RoutingEngine {
           this.group.clear();
           if (points.length < 2) return;
             this.traceRenderer.renderPoints(
-                points,
-                this.width,
-                this.group
+              points,
+              this.width,
+              this.group,
+              true
             );
         }
-        createSegment(a, b) {
+        createSegment(a, b, width, preview = false) {
           const length = a.distanceTo(b);
           if (length < 0.001)
             return new THREE.Object3D();
           const geo = new THREE.BoxGeometry(this.width, PCB_CONFIG.traceHeight, length);
-          const mesh = new THREE.Mesh(geo, this.material);
+          const mesh = new THREE.Mesh(geo, preview ? this.previewMaterial : this.copperMaterial);
           const mid = new THREE.Vector3()
             .addVectors(a, b)
             .multiplyScalar(0.5);
