@@ -425,7 +425,8 @@
         },
         grid: 1,
         traceWidth: 0.6,
-        traceHeight: 0.08
+        traceHeight: 0.08,
+        padSnapDistance: 2.5
       };
       /* === Routing Engine === */
       // class RoutingEngine {
@@ -647,12 +648,201 @@ class TraceRenderer {
   }
 }
 class PCBPad {
-  constructor({position,size,shape,layer,net}) {
-      this.position = position;
-      this.size = size;
+  constructor({position,size,shape="rect",layer="top",net=null}) {
+      this.id = id;
+      this.position = position.clone();
+      this.size = {
+        x: size.x,
+        z: size.z
+      };
       this.shape = shape;
       this.layer = layer;
       this.net = net;
+  }
+}
+class PadManager {
+  constructor(scene, layerGroups) {
+    this.scene = scene;
+    this.layerGroups = layerGroups;
+    this.pads = [];
+    this.meshes = new Map();
+    this.hoveredPad = null;
+    this.hoverMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffff66,
+            emissive: 0xffff00,
+            emissiveIntensity: 0.35,
+            metalness: 0.7,
+            roughness: 0.25
+        });
+    this.normalMaterial = new THREE.MeshStandardMaterial({
+            color: 0xc87533,
+            metalness: 0.8,
+            roughness: 0.25
+        });
+    this.createSnapIndicator();
+  }
+    createSnapIndicator() {
+      const geometry = new THREE.RingGeometry(0.9,1.1,32);
+      const material =
+          new THREE.MeshBasicMaterial({
+              color: 0xffff00,  
+              transparent: true,
+              opacity: 0.9,  
+              side: THREE.DoubleSide
+          });
+    
+      this.snapIndicator = new THREE.Mesh(geometry,material);
+      this.snapIndicator.rotation.x = -Math.PI / 2;
+      this.snapIndicator.visible = false;
+      this.scene.add(
+          this.snapIndicator
+      );
+    }
+    updateSnapIndicator(pad) {
+      if (!pad) {
+          this.snapIndicator.visible = false;
+          return;
+      }
+      this.snapIndicator.visible = true;
+      this.snapIndicator.position.set(
+          pad.position.x,
+          PCB_CONFIG.copper.top +
+              0.08,
+          pad.position.z
+      );
+    }
+    addPad(pad) {
+      this.pads.push(pad);
+      const mesh =this.createPadMesh(pad);
+      this.meshes.set(pad.id,mesh);
+      const group =
+          this.layerGroups[
+              pad.layer
+          ];
+      if (group) {
+          group.add(mesh);
+      }
+      return pad;
+    }
+    createPadMesh(pad) {
+      const geometry = new THREE.BoxGeometry(
+              pad.size.x,
+              PCB_CONFIG.traceHeight,
+              pad.size.z
+          );
+      const mesh = new THREE.Mesh(geometry,this.normalMaterial);
+      mesh.position.set(
+        pad.position.x,
+        PCB_CONFIG.traceHeight / 2,
+        pad.position.z
+      );
+      mesh.userData.padId = pad.id;
+      return mesh;
+    }
+    getPadAtPoint(point) {
+        for (const pad of this.pads) {
+            if (pad.layer !== "top") {
+                continue;
+            }
+            const halfX =
+                pad.size.x / 2;
+
+            const halfZ =
+                pad.size.z / 2;
+
+            const minX =
+                pad.position.x - halfX;
+
+            const maxX =
+                pad.position.x + halfX;
+
+            const minZ =
+                pad.position.z - halfZ;
+
+            const maxZ =
+                pad.position.z + halfZ;
+
+            if (point.x >= minX &&
+                point.x <= maxX &&
+                point.z >= minZ &&
+                point.z <= maxZ) {
+                return pad;
+            }
+        }
+        return null;
+    }
+    getNearestPad(point) {
+      let closest = null;
+      let closestDistance = Infinity;
+      for (const pad of this.pads) {
+          if (pad.layer !== "top") {
+              continue;
+          }
+          const dx =point.x -pad.position.x;
+          const dz =point.z - pad.position.z;
+          const distance =
+              Math.sqrt(dx * dx + dz * dz);
+          if (
+              distance <
+              PCB_CONFIG.padSnapDistance &&
+              distance <
+              closestDistance
+          ) {
+              closest = pad;
+              closestDistance = distance;
+          }
+      }
+    return closest;
+  }
+  /** the router can ask: const result = padManager.getSnapResult(point);
+      and recieve:
+      {
+        pad: PCBPad,
+        point: Vector3
+      }
+      or:
+      {
+        pad: null,
+        point: originalMousePoint
+      } **/
+  getSnapResult(point) {
+    const pad = this.getNearestPad(point);
+    if (!pad) {
+        return {
+            pad: null, point: point.clone()
+        };
+    }
+    return {
+        pad: pad,
+        point: pad.position.clone()
+    };
+  }
+  setHoveredPad(pad) {
+    if (this.hoveredPad === pad) {
+        return;
+    }
+    // Restore old pad
+    if (this.hoveredPad) {
+        const oldMesh = this.meshes.get(this.hoveredPad.id);
+        if (oldMesh) {
+            oldMesh.material = this.normalMaterial;
+        }
+    }
+    this.hoveredPad = pad;
+    // Highlight new pad
+    if (this.hoveredPad) {
+        const mesh = this.meshes.get(this.hoveredPad.id);
+        if (mesh) {
+            mesh.material = this.hoverMaterial;
+        }
+    }
+  }
+  clearHoveredPad() {
+    if (!this.hoveredPad)
+        return;
+    const mesh =this.meshes.get(this.hoveredPad.id);
+    if (mesh) {mesh.material = this.normalMaterial;}
+    this.hoveredPad = null;
   }
 }
 //updated RoutingEngine Usage:
@@ -667,6 +857,9 @@ class RoutingEngine {
           this.traceRenderer = traceRenderer;
           this.points = [];
           this.isRouting = false;
+          this.startPad = null;
+          this.endPad = null;
+          this.currentPad = null;
           this.mode = "manhattan";
           this.width = PCB_CONFIG.traceWidth;
           this.lockedAxis = null;
@@ -706,6 +899,9 @@ class RoutingEngine {
         // === CORE ===
         start(point) {
           this.points = [point.clone()];
+          this.startPad = pad;
+          this.endPad = null;
+          this.currentPad = null;
           this.isRouting = true;
           // this.lockedAxis = null;
           this.redraw([]);
@@ -716,9 +912,10 @@ class RoutingEngine {
             return;
           this.points.push(point.clone());
         }
-        updateCursor(cursor) {
+        updateCursor(cursor, pad = null) {
           if (!this.isRouting)
             return;
+          this.currentPad = pad;
           const last = this.points[this.points.length - 1];
           const route = this.solveRoute(last, cursor);
           // const preview = [
@@ -805,6 +1002,60 @@ class RoutingEngine {
           this.group.clear();
           this.points = [];
           this.isRouting = false;
+          this.startPad = null;
+          this.endPad = null;
+          this.currentPad = null;
+        }
+        canFinishAtPad(pad) {
+          if (!pad)
+              return false;
+          if (!this.isRouting)
+              return false;
+          if (pad === this.startPad) {
+              return false;
+          }
+          /**
+          return (
+            pad.net === this.startPad.net
+          );
+          */
+          return true;
+        }
+        finishAtPad(pad) {
+          if (!this.isRouting)
+          return;
+          if (!pad)
+            return;
+          // Don't connect a pad to itself
+          if (pad === this.startPad) {
+              return;
+          }
+          if (!this.canFinishAtPad(pad)) {
+            return;
+          }
+          this.endPad = pad;
+          /* Force final route point
+           * to the exact pad center. */
+          const finalPoint = pad.position.clone();
+          const last = this.points[this.points.length - 1];
+          const route = this.solveRoute(last,finalPoint);
+          this.redraw(route);
+      
+      
+          /* Commit the route */
+          const trace = new Trace(route,pad.layer this.width);
+          trace.startPad =
+              this.startPad;
+          trace.endPad =
+              this.endPad;
+          pcbState.addTrace(
+              trace
+          );
+          traceRenderer.render(
+              trace
+          );
+      
+          this.cancel();
         }
       }
       /* === DATA STRUCTURES === */
@@ -944,6 +1195,8 @@ class RoutingEngine {
           this.points = points.map(p => p.clone());
           this.layer = layer;
           this.width = width;
+          this.startPad = null;
+          this.endPad = null;
         }
       }//end Trace
       class Via {
@@ -963,6 +1216,58 @@ class RoutingEngine {
         new PadShape(new THREE.Vector3(5, 0, 0), 2)
       ]);
 
+      const padManager = new PadManager(scene,layerGroups);
+      padManager.addPad(new PCBPad({
+          id: "U1-P1",
+          position:
+              new THREE.Vector3(10,0,5),
+          size: {
+              x: 2.0,
+              z: 1.5
+          },
+          layer: "top"
+        })
+      );
+      padManager.addPad(new PCBPad({
+          id: "U1-P2",
+          position:
+              new THREE.Vector3(20,0,5),
+          size: {
+              x: 2.0,
+              z: 1.5
+          },
+          layer: "top"
+      }));
+      /**
+      padManager.addPad(
+          new PCBPad({
+              id: "PAD-A",
+              position:
+                  new THREE.Vector3(-15,0,0),
+              size: {
+                  x: 3,
+                  z: 3
+              },
+              layer: "top"
+          })
+      );
+      padManager.addPad(
+          new PCBPad({
+              id: "PAD-B",
+              position:
+                  new THREE.Vector3(
+                      15,
+                      0,
+                      10
+                  ),
+              size: {
+                  x: 3,
+                  z: 3
+              },
+              layer: "top"
+          })
+      );
+      **/
       const component1 = new Component(footprint, new THREE.Vector3(0, 0, 0));
       component1.ref = "R1"
       const component2 = new Component(footprint, new THREE.Vector3(10,0,0))
@@ -1032,24 +1337,65 @@ class RoutingEngine {
         // Only left mouse button
         if (e.button !== 0)
             return;
-        const point = snapToGrid(getMousePoint(e,camera));
-        if (!router.isRouting) {
-            router.start(point);
+        const rawPoint = getMousePoint(e,camera);
+        const snapResult = padManager.getSnapResult(rawPoint);
+        let point;
+        if (snapResult.pad) {
+          point = snapResult.point.clone();
         } else {
-            router.addPoint(point);
+          point = snapToGrid(rawPoint);
         }
+        if (!router.isRouting) {
+          router.start(point,pad);
+          return;
+        }
+        if (snapResult.pad) {
+            router.finishAtPad(snapResult.pad);
+            return;
+        }
+        // Normal routing corner
+        router.addPoint(
+            point
+        );
       });
       window.addEventListener("mousemove",e => {
-        if (!router.isRouting)
-          return;
-        const point =
-          snapToGrid(
-            getMousePoint(
-              e,
-              camera
-            )
-          );
-        router.updateCursor(point);
+        // if (!router.isRouting)
+        //   return;
+        // const point =
+        //   snapToGrid(
+        //     getMousePoint(
+        //       e,
+        //       camera
+        //     )
+        //   );
+        // router.updateCursor(point);
+        const rawPoint = getMousePoint(e,camera);
+        const snapResult =padManager.getSnapResult(rawPoint);
+        padManager.setHoveredPad(snapResult.pad);
+        padManager.updateSnapIndicator(snapResult.pad);
+        let point;
+        if (snapResult.pad) {
+            point = snapResult.point.clone();
+        } else {
+            point = snapToGrid(rawPoint);
+        }
+        if (router.isRouting) {
+            router.updateCursor(point,snapResult.pad);
+        }
+        //start pad
+        if (!router.isRouting) {
+            router.start(point,snapResult.pad);
+            return;
+        }
+        //end pad
+        if (snapResult.pad &&
+            router.canFinishAtPad(snapResult.pad)
+        ) {
+            router.finishAtPad(snapResult.pad);
+            return;
+        }
+        //corner
+        router.addPoint(point);
       });
       window.addEventListener("dblclick",e => {
         if (!router.isRouting)
