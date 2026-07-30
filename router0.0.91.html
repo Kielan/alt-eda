@@ -75,16 +75,24 @@
       class TracePreview {
         constructor(scene) {
           this.scene = scene;
-          this.group = new THREE.Group();
+          this.layerGroup = layerGroup;
           this.points = [];
-          this.width = 0.6;
+          this.width = PCB_CONFIG.traceWidth;
+          this.group = new THREE.Group();
+          this.layerGroup.add(
+            this.group
+          );
+          this.isRouting = false;
           this.mode = "manhattan";
           this.material = new THREE.MeshStandardMaterial({
             color: 0xffaa00,
             emissive: 0xff6600,
-            emissiveIntensity: 0.3
+            emissiveIntensity: 0.3,
+            metalness: 0.7,
+            roughness: 0.3
           });
           this.scene.add(this.group);
+          const router = new RoutingEngine(scene,layerGroups.top);
         }
         // === PUBLIC API ===
         handleClick(point) {
