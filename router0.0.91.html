@@ -92,7 +92,8 @@
             roughness: 0.3
           });
           this.scene.add(this.group);
-          const router = new RoutingEngine(scene,layerGroups.top);
+          const traceRenderer = new TraceRenderer(layerGroups);
+          const router = new RoutingEngine(scene,layerGroups.top,traceRenderer);
         }
         // === PUBLIC API ===
         handleClick(point) {
@@ -300,19 +301,10 @@
       //   v.y = PCB_CONFIG.copper.top;
       //   return v;
       // }
-      function snapToGrid(
-        v,
-        grid = PCB_CONFIG.grid
-    ) {
-
-        v.x =
-            Math.round(v.x / grid) * grid;
-
-        v.z =
-            Math.round(v.z / grid) * grid;
-
+      function snapToGrid(v,grid = PCB_CONFIG.grid) {
+        v.x =Math.round(v.x / grid) * grid;
+        v.z = Math.round(v.z / grid) * grid;
         v.y = 0;
-
         return v;
     }
       /**
@@ -542,11 +534,117 @@
       //     return mesh;
       //   }
       // }
-      //updated RoutingEngine
-      class RoutingEngine {
-        constructor(scene) {
+class TraceRenderer {
+  constructor(layerGroups) {
+    this.layerGroups = layerGroups;
+    this.material =
+        new THREE.MeshStandardMaterial({
+            color: 0xc87533,
+            metalness: 0.75,
+            roughness: 0.25
+        });
+  }
+  renderPoints(points,width,group) {
+    if (points.length < 2)
+        return;
+    for (let i = 0;i < points.length - 1;i++) {
+        const a = points[i];
+        const b = points[i + 1];
+        group.add(
+            this.createSegment(a,b,width)
+        );
+    }
+    for (let i = 0;i < points.length;i++) {
+        group.add(
+            this.createJunction(
+                points[i],width));
+    }
+  }
+  render(trace) {
+    const group = this.layerGroups[trace.layer];
+    if (!group)
+        return;
+    // for (let i = 0;i < trace.points.length - 1;i++) {
+    //     const a = trace.points[i];
+    //     const b = trace.points[i + 1];
+    //     const segment = this.createSegment(a,b,trace.width);
+    //     group.add(segment);
+    // }
+    this.renderPoints(
+      trace.points,
+      trace.width,
+      group
+    );
+    /* Rounded endpoint geometry */
+    const startCap = this.createEndCap(trace.points[0],trace.width);
+    const endCap = this.createEndCap(trace.points[trace.points.length - 1],trace.width);
+    group.add(startCap);
+    group.add(endCap);
+    for (let i = 0;i < trace.points.length;i++) {
+      const point = trace.points[i];
+      const junction = this.createJunction(point,trace.width);
+      group.add(junction);
+    }
+  }
+  createSegment(a, b, width) {
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const length = Math.sqrt(dx * dx +dz * dz);
+    if (length < 0.001)
+        return new THREE.Object3D();
+    /* Shape is created in XY space.
+     *
+     * Later we rotate the result so
+     * it lies on the PCB XZ plane. */
+    const shape = new THREE.Shape();
+    const half = width / 2;
+    shape.moveTo(0,-half);
+    shape.lineTo(length,-half);
+    shape.lineTo(length,half);
+    shape.lineTo(0,half);
+    shape.closePath();
+    const geometry =
+        new THREE.ExtrudeGeometry(
+            shape,
+            {
+                depth: PCB_CONFIG.traceHeight,
+                bevelEnabled: false,
+                steps: 1
+            }
+        );
+    geometry.rotateX(-Math.PI / 2);
+    const mesh = new THREE.Mesh(geometry,this.material);
+    /* Center the segment*/
+    mesh.position.set(a.x,0,a.z);
+    /* Rotate around Y so
+     * local X points toward B.*/
+    mesh.rotation.y = -Math.atan2(dz,dx);
+    return mesh;
+  }
+  createEndCap(point, width) {
+    const geometry = new THREE.CylinderGeometry(width / 2,width / 2,PCB_CONFIG.traceHeight,24);
+    const mesh = new THREE.Mesh(geometry,this.material);
+    mesh.rotation.x = Math.PI / 2;
+    mesh.position.set(point.x,PCB_CONFIG.traceHeight / 2,point.z);
+    return mesh;
+  }
+  createJunction(point, width) {
+    const geometry = new THREE.CylinderGeometry(width / 2,width / 2,PCB_CONFIG.traceHeight,24);
+    const mesh = new THREE.Mesh(geometry,this.material);
+    mesh.position.set(point.x,PCB_CONFIG.traceHeight / 2,point.z);
+    return mesh;
+  }
+}
+//updated RoutingEngine Usage:
+/*const trace = new Trace(points,"top",PCB_CONFIG.traceWidth);
+  pcbState.addTrace(trace);
+traceRenderer.render(trace);*/
+class RoutingEngine {
+    constructor(scene,layerGroup,traceRenderer) {
           this.scene = scene;
           // routing state
+          this.layerGroup = layerGroup;
+          this.traceRenderer = traceRenderer;
           this.points = [];
           this.isRouting = false;
           this.mode = "manhattan";
@@ -654,12 +752,11 @@
         redraw(points) {
           this.group.clear();
           if (points.length < 2) return;
-          for (let i=0;i<points.length - 1;i++) {
-            const a = points[i];
-            const b = points[i + 1];
-            const seg = this.createSegment(a, b);
-            this.group.add(seg);
-          }
+            this.traceRenderer.renderPoints(
+                points,
+                this.width,
+                this.group
+            );
         }
         createSegment(a, b) {
           const length = a.distanceTo(b);
