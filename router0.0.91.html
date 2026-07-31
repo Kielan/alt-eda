@@ -65,7 +65,6 @@ export const Tool = {
 
 };
 export class Toolbar{
-
     constructor(editor){
 
         this.editor = editor;
@@ -116,12 +115,56 @@ export class Toolbar{
 
 }
   registerShortcut(key, tool){
-
     this.shortcuts.set(key.toLowerCase(), tool);
+}
+updateCursor(){
+
+    switch(this.currentTool){
+
+        case Tool.LINE:
+
+            document.body.style.cursor = "crosshair";
+            break;
+
+        case Tool.SELECT:
+
+            document.body.style.cursor = "default";
+            break;
+
+        case Tool.MOVE:
+
+            document.body.style.cursor = "move";
+            break;
+
+        default:
+
+            document.body.style.cursor = "crosshair";
+
+    }
+
+}  
 
 }
 
-}
+toolbar.registerButton("toolSelect",Tool.SELECT);
+toolbar.registerButton("toolLine",Tool.LINE);
+toolbar.registerButton("toolCircle",Tool.CIRCLE);
+toolbar.registerButton("toolDimension",Tool.DIMENSION);
+toolbar.registerButton("toolExtrude",Tool.EXTRUDE);
+toolbar.registerButton("toolMate",Tool.MATE);
+
+toolbar.registerShortcut("v",Tool.SELECT);
+
+toolbar.registerShortcut("l",Tool.LINE);
+
+toolbar.registerShortcut("c",Tool.CIRCLE);
+
+toolbar.registerShortcut("d",Tool.DIMENSION);
+
+toolbar.registerShortcut("e",Tool.EXTRUDE);
+
+toolbar.registerShortcut("m",Tool.MATE);
+      
 class Sketch {
   constructor(){
     this.entities=[];
@@ -130,6 +173,66 @@ class Sketch {
     this.plane="XY";
   }
 }
+class SketchTool{
+
+    enter(){}
+
+    exit(){}
+
+    pointerDown(){}
+
+    pointerMove(){}
+
+    pointerUp(){}
+
+    keyDown(){}
+
+    cancel(){}
+
+    drawOverlay(){}
+
+}
+class CommandManager{
+
+    constructor(editor){
+
+        this.editor = editor;
+
+    }
+
+    onPointerDown(event){
+
+        switch(this.editor.toolbar.currentTool){
+
+            case Tool.SELECT:
+                this.editor.selection.pointerDown(event);
+                break;
+
+            case Tool.LINE:
+                this.editor.sketch.lineTool.pointerDown(event);
+                break;
+
+            case Tool.CIRCLE:
+                this.editor.sketch.circleTool.pointerDown(event);
+                break;
+
+            case Tool.DIMENSION:
+                this.editor.dimension.pointerDown(event);
+                break;
+
+            case Tool.EXTRUDE:
+                this.editor.features.beginExtrude(event);
+                break;
+
+            case Tool.MATE:
+                this.editor.assembly.mateTool.pointerDown(event);
+                break;
+
+        }
+
+    }
+
+}      
       /* === TRACE PREVIEW === */
       /* === RoutingMode: "manhattan" | "45deg" === */
       function solveCorner(a, b, mode) {
