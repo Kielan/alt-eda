@@ -173,6 +173,147 @@ class Sketch {
     this.plane="XY";
   }
 }
+export class Tool {
+
+    constructor(editor){
+
+        this.editor = editor;
+
+        this.name = "Tool";
+
+        this.icon = "";
+
+        this.cursor = "default";
+
+        this.enabled = true;
+
+        this.active = false;
+
+    }
+
+    ////////////////////////////////////////////////////////
+    // LIFECYCLE
+    ////////////////////////////////////////////////////////
+
+    enter(){
+
+        this.active = true;
+
+        this.setStatus(this.name + " Tool");
+
+        this.setCursor(this.cursor);
+
+    }
+
+    exit(){
+
+        this.active = false;
+
+    }
+
+    cancel(){
+
+    }
+
+    reset(){
+
+    }
+
+    ////////////////////////////////////////////////////////
+    // POINTER EVENTS
+    ////////////////////////////////////////////////////////
+
+    pointerDown(event){
+
+    }
+
+    pointerMove(event){
+
+    }
+
+    pointerUp(event){
+
+    }
+
+    pointerDoubleClick(event){
+
+    }
+
+    ////////////////////////////////////////////////////////
+    // KEYBOARD
+    ////////////////////////////////////////////////////////
+
+    keyDown(event){
+
+    }
+
+    keyUp(event){
+
+    }
+
+    ////////////////////////////////////////////////////////
+    // DRAWING
+    ////////////////////////////////////////////////////////
+
+    update(delta){
+
+    }
+
+    drawOverlay(ctx){
+
+    }
+
+    ////////////////////////////////////////////////////////
+    // SNAP
+    ////////////////////////////////////////////////////////
+
+    snap(position){
+
+        return position;
+
+    }
+
+    ////////////////////////////////////////////////////////
+    // SELECTION
+    ////////////////////////////////////////////////////////
+
+    beginSelection(){
+
+    }
+
+    endSelection(){
+
+    }
+
+    ////////////////////////////////////////////////////////
+    // STATUS
+    ////////////////////////////////////////////////////////
+
+    setStatus(text){
+
+        this.editor.statusBar.setText(text);
+
+    }
+
+    ////////////////////////////////////////////////////////
+    // CURSOR
+    ////////////////////////////////////////////////////////
+
+    setCursor(cursor){
+
+        document.body.style.cursor = cursor;
+
+    }
+
+    ////////////////////////////////////////////////////////
+    // SHORTCUT
+    ////////////////////////////////////////////////////////
+
+    shortcut(){
+
+    }
+
+}      
 class SketchTool{
 
     enter(){}
@@ -190,6 +331,298 @@ class SketchTool{
     cancel(){}
 
     drawOverlay(){}
+
+}
+export class SelectTool extends Tool{
+
+    constructor(editor){
+
+        super(editor);
+
+        this.name = "Select";
+
+        this.cursor = "default";
+
+    }
+
+    pointerDown(e){
+
+        this.editor.selection.pointerDown(e);
+
+    }
+
+    pointerMove(e){
+
+        this.editor.selection.pointerMove(e);
+
+    }
+
+    pointerUp(e){
+
+        this.editor.selection.pointerUp(e);
+
+    }
+
+}
+export class LineTool extends Tool{
+
+    constructor(editor){
+
+        super(editor);
+
+        this.name = "Line";
+
+        this.cursor = "crosshair";
+
+        this.startPoint = null;
+
+        this.previewLine = null;
+
+    }
+
+    enter(){
+
+        super.enter();
+
+        this.startPoint = null;
+
+    }
+
+    pointerDown(e){
+
+        const p = this.editor.viewport.pickSketchPoint(e);
+
+        if(!this.startPoint){
+
+            this.startPoint = p;
+
+            return;
+
+        }
+
+        this.editor.sketch.addLine(
+
+            this.startPoint,
+
+            p
+
+        );
+
+        this.startPoint = p;
+
+    }
+
+    pointerMove(e){
+
+        if(!this.startPoint)
+            return;
+
+        const p = this.editor.viewport.pickSketchPoint(e);
+
+        this.editor.preview.updateLine(
+
+            this.startPoint,
+
+            p
+
+        );
+
+    }
+
+    cancel(){
+
+        this.startPoint = null;
+
+        this.editor.preview.clear();
+
+    }
+
+}
+export class CircleTool extends Tool{
+
+    constructor(editor){
+
+        super(editor);
+
+        this.name = "Circle";
+
+        this.cursor = "crosshair";
+
+        this.center = null;
+
+    }
+
+    pointerDown(e){
+
+        const p = this.editor.viewport.pickSketchPoint(e);
+
+        if(!this.center){
+
+            this.center = p;
+
+            return;
+
+        }
+
+        const r = this.center.distanceTo(p);
+
+        this.editor.sketch.addCircle(
+
+            this.center,
+
+            r
+
+        );
+
+        this.center = null;
+
+    }
+
+    pointerMove(e){
+
+        if(!this.center)
+            return;
+
+        const p = this.editor.viewport.pickSketchPoint(e);
+
+        this.editor.preview.updateCircle(
+
+            this.center,
+
+            this.center.distanceTo(p)
+
+        );
+
+    }
+
+}
+export class DimensionTool extends Tool{
+
+    constructor(editor){
+
+        super(editor);
+
+        this.name = "Dimension";
+
+        this.cursor = "crosshair";
+
+        this.firstEntity = null;
+
+    }
+
+    pointerDown(e){
+
+        const entity = this.editor.selection.pickEntity(e);
+
+        if(!entity)
+            return;
+
+        if(!this.firstEntity){
+
+            this.firstEntity = entity;
+
+            return;
+
+        }
+
+        this.editor.dimension.create(
+
+            this.firstEntity,
+
+            entity
+
+        );
+
+        this.firstEntity = null;
+
+    }
+
+}
+export class ExtrudeTool extends Tool{
+
+    constructor(editor){
+
+        super(editor);
+
+        this.name = "Extrude";
+
+        this.cursor = "default";
+
+    }
+
+    pointerDown(){
+
+        const sketch = this.editor.sketch.activeSketch;
+
+        if(!sketch)
+            return;
+
+        this.editor.features.extrude(sketch);
+
+    }
+
+}
+export class RevolveTool extends Tool{
+
+    constructor(editor){
+
+        super(editor);
+
+        this.name = "Revolve";
+
+    }
+
+    pointerDown(){
+
+        this.editor.features.revolve(
+
+            this.editor.sketch.activeSketch
+
+        );
+
+    }
+
+}
+export class MateTool extends Tool{
+
+    constructor(editor){
+
+        super(editor);
+
+        this.name = "Mate";
+
+        this.partA = null;
+
+    }
+
+    pointerDown(e){
+
+        const obj = this.editor.selection.pickComponent(e);
+
+        if(!obj)
+            return;
+
+        if(!this.partA){
+
+            this.partA = obj;
+
+            this.setStatus("Select second component");
+
+            return;
+
+        }
+
+        this.editor.assembly.beginMate(
+
+            this.partA,
+
+            obj
+
+        );
+
+        this.partA = null;
+
+    }
 
 }
 class CommandManager{
