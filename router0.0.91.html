@@ -39,6 +39,39 @@
 
       const controls = new OrbitControls(camera, renderer.domElement);
 
+export const Tool = {
+
+    SELECT      : "select",
+    LINE        : "line",
+    RECTANGLE   : "rectangle",
+    CIRCLE      : "circle",
+    ARC         : "arc",
+    SPLINE      : "spline",
+
+    DIMENSION   : "dimension",
+
+    TRIM        : "trim",
+    FILLET      : "fillet",
+    CHAMFER     : "chamfer",
+
+    EXTRUDE     : "extrude",
+    REVOLVE     : "revolve",
+    SWEEP       : "sweep",
+
+    MOVE        : "move",
+    ROTATE      : "rotate",
+
+    MATE        : "mate"
+
+};
+class Sketch {
+  constructor(){
+    this.entities=[];
+    this.constraints=[];
+    this.dimensions=[];
+    this.plane="XY";
+  }
+}
       /* === TRACE PREVIEW === */
       /* === RoutingMode: "manhattan" | "45deg" === */
       function solveCorner(a, b, mode) {
@@ -163,6 +196,7 @@
           return mesh;
         }
       }//end TracePreview
+      
       /* === Alt smooth traces === */
       class TracePreviewTube {
         constructor(scene) {
