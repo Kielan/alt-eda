@@ -625,6 +625,271 @@ export class MateTool extends Tool{
     }
 
 }
+class WireHarnessTool extends Tool {
+
+    constructor(editor){
+
+        super(editor);
+
+        this.dragPoint = null;
+        this.selectedWire = null;
+        this.startConnector = null;
+        this.endConnector = null;
+        this.routing = false;
+    }
+
+    activate(){
+
+        this.editor.setStatus("Wire Harness Tool");
+
+        this.updateCursor();
+    }
+
+    deactivate(){
+
+        this.routing = false;
+        this.dragPoint = null;
+    }
+
+    updateCursor(){
+
+        this.editor.renderer.domElement.style.cursor = "crosshair";
+    }
+
+    onPointerDown(event){
+
+        const hit = this.editor.pick(event);
+
+        if(!hit) return;
+
+        if(hit.object.userData.connector){
+
+            if(!this.startConnector){
+
+                this.startConnector = hit.object;
+
+                this.editor.setStatus(
+                    "Select destination connector"
+                );
+
+                return;
+            }
+
+            this.endConnector = hit.object;
+
+            this.createHarness();
+
+            return;
+        }
+
+        if(hit.object.userData.wire){
+
+            this.selectedWire = hit.object;
+
+            this.routing = true;
+
+            this.dragPoint = hit.point.clone();
+        }
+    }
+
+    onPointerMove(event){
+
+        if(!this.routing) return;
+
+        const pos = this.editor.pickGround(event);
+
+        if(!pos) return;
+
+        this.dragPoint.copy(pos);
+
+        this.updateWireGeometry();
+    }
+
+    onPointerUp(){
+
+        this.routing = false;
+    }
+
+    createHarness(){
+
+        const harness = this.editor.harnessSystem.createHarness(
+            this.startConnector,
+            this.endConnector
+        );
+
+        this.selectedWire = harness;
+
+        this.startConnector = null;
+        this.endConnector = null;
+    }
+
+    updateWireGeometry(){
+
+        if(!this.selectedWire) return;
+
+        this.editor.harnessSystem.routeWire(
+            this.selectedWire,
+            this.dragPoint
+        );
+    }
+
+}
+class PcbRouteTool extends Tool {
+
+    constructor(editor){
+
+        super(editor);
+
+        this.route = [];
+        this.activeTrace = null;
+    }
+
+    activate(){
+
+        this.editor.setStatus("PCB Interactive Routing");
+
+        this.route.length = 0;
+    }
+
+    updateCursor(){
+
+        this.editor.renderer.domElement.style.cursor = "crosshair";
+    }
+
+    onPointerDown(event){
+
+        const hit = this.editor.pickPCB(event);
+
+        if(!hit) return;
+
+        const point = hit.point.clone();
+
+        this.route.push(point);
+
+        if(this.route.length == 1){
+
+            this.activeTrace =
+                this.editor.board.createTrace(
+                    this.route
+                );
+
+            return;
+        }
+
+        this.editor.board.updateTrace(
+            this.activeTrace,
+            this.route
+        );
+    }
+
+    onPointerMove(event){
+
+        if(this.route.length==0) return;
+
+        const hit = this.editor.pickPCB(event);
+
+        if(!hit) return;
+
+        const preview = this.route.slice();
+
+        preview.push(hit.point.clone());
+
+        this.editor.board.previewTrace(
+            this.activeTrace,
+            preview
+        );
+    }
+
+    onPointerUp(){}
+
+    finishRoute(){
+
+        this.editor.board.commitTrace(
+            this.activeTrace
+        );
+
+        this.route.length = 0;
+
+        this.activeTrace = null;
+    }
+
+}
+class CopperPourTool extends Tool {
+
+    constructor(editor){
+
+        super(editor);
+
+        this.vertices = [];
+        this.preview = null;
+    }
+
+    activate(){
+
+        this.editor.setStatus("Copper Pour");
+
+        this.vertices = [];
+    }
+
+    updateCursor(){
+
+        this.editor.renderer.domElement.style.cursor = "crosshair";
+    }
+
+    onPointerDown(event){
+
+        const hit = this.editor.pickPCB(event);
+
+        if(!hit) return;
+
+        this.vertices.push(
+            hit.point.clone()
+        );
+
+        this.updatePreview();
+    }
+
+    onPointerMove(event){
+
+        if(this.vertices.length==0) return;
+
+        const hit = this.editor.pickPCB(event);
+
+        if(!hit) return;
+
+        this.updatePreview(hit.point);
+    }
+
+    onPointerUp(){}
+
+    updatePreview(mousePoint){
+
+        const pts = this.vertices.slice();
+
+        if(mousePoint){
+
+            pts.push(mousePoint.clone());
+        }
+
+        this.preview =
+            this.editor.board.buildCopperPreview(
+                pts
+            );
+    }
+
+    finishPour(){
+
+        if(this.vertices.length < 3) return;
+
+        this.editor.board.commitCopperZone(
+            this.vertices
+        );
+
+        this.vertices = [];
+    }
+
+}
+
 class CommandManager{
 
     constructor(editor){
@@ -666,6 +931,120 @@ class CommandManager{
     }
 
 }      
+ class MeasureTool extends Tool {
+
+    constructor(editor){
+
+        super(editor);
+
+        this.pointA = null;
+        this.pointB = null;
+
+        this.line = null;
+
+        this.dimension = null;
+    }
+
+    activate(){
+
+        this.editor.setStatus(
+            "Measure Tool"
+        );
+
+        this.pointA = null;
+        this.pointB = null;
+    }
+
+    updateCursor(){
+
+        this.editor.renderer.domElement.style.cursor = "crosshair";
+    }
+
+    onPointerDown(event){
+
+        const hit = this.editor.pick(event);
+
+        if(!hit) return;
+
+        const snap =
+            this.editor.snapSystem.snap(hit);
+
+        if(!this.pointA){
+
+            this.pointA = snap.clone();
+
+            return;
+        }
+
+        this.pointB = snap.clone();
+
+        this.buildMeasurement();
+    }
+
+    onPointerMove(event){
+
+        if(!this.pointA) return;
+
+        const hit = this.editor.pick(event);
+
+        if(!hit) return;
+
+        const snap =
+            this.editor.snapSystem.snap(hit);
+
+        this.updatePreview(snap);
+    }
+
+    onPointerUp(){}
+
+    updatePreview(point){
+
+        this.editor.overlay.drawTemporaryDimension(
+            this.pointA,
+            point
+        );
+    }
+
+    buildMeasurement(){
+
+        const distance =
+            this.pointA.distanceTo(
+                this.pointB
+            );
+
+        this.dimension =
+            this.editor.dimensionSystem.create(
+                this.pointA,
+                this.pointB,
+                distance
+            );
+
+        this.editor.setStatus(
+            "Distance: " +
+            distance.toFixed(3)
+        );
+    }
+
+}
+    toolManager.register(
+    "wireHarness",
+    new WireHarnessTool(editor)
+);
+
+toolManager.register(
+    "pcbRoute",
+    new PcbRouteTool(editor)
+);
+
+toolManager.register(
+    "copperPour",
+    new CopperPourTool(editor)
+);
+
+toolManager.register(
+    "measure",
+    new MeasureTool(editor)
+);  
       /* === TRACE PREVIEW === */
       /* === RoutingMode: "manhattan" | "45deg" === */
       function solveCorner(a, b, mode) {
