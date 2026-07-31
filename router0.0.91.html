@@ -77,6 +77,49 @@ export class Toolbar{
         this.shortcuts = new Map();
 
     }
+  registerButton(id, tool){
+
+    const button = document.getElementById(id);
+
+    this.buttons.set(tool, button);
+
+    button.onclick = ()=>{
+
+        this.activate(tool);
+
+    };
+
+}
+  activate(tool){
+
+    if(this.currentTool === tool)
+        return;
+
+    this.deactivate(this.currentTool);
+
+    this.currentTool = tool;
+
+    const button = this.buttons.get(tool);
+
+    if(button)
+        button.classList.add("active");
+
+    this.editor.commandManager.onToolChanged(tool);
+
+}
+  deactivate(tool){
+
+    const button = this.buttons.get(tool);
+
+    if(button)
+        button.classList.remove("active");
+
+}
+  registerShortcut(key, tool){
+
+    this.shortcuts.set(key.toLowerCase(), tool);
+
+}
 
 }
 class Sketch {
@@ -1463,11 +1506,17 @@ class RoutingEngine {
         pcbState.addTrace(trace);
         renderTrace(trace);
     }
-    window.addEventListener("keydown",e => {
+    window.addEventListener("keydown",(e)=>{
         if (e.key === "Escape") {
             router.cancel();
-        }
-    });
+        }  
+    const tool = this.shortcuts.get(e.key.toLowerCase());
+    if(too){
+        e.preventDefault();
+        this.activate(tool);
+    }
+
+});  
 );
       // window.addEventListener("mousedown", e => {
       //   const p = snapToGrid(getMousePoint(e, camera));
