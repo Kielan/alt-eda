@@ -1,0 +1,1220 @@
+<script>
+///////////////////////////////////////////////////////////////
+// HarnessSystem.js
+///////////////////////////////////////////////////////////////
+
+export class HarnessSystem {
+
+    constructor(editor){
+
+        this.editor = editor;
+
+        this.group = new THREE.Group();
+        this.group.name = "HarnessSystem";
+
+        this.editor.scene.add(this.group);
+
+        this.harnesses = [];
+
+        this.defaultRadius = 0.35;
+        this.defaultTubularSegments = 24;
+        this.defaultRadialSegments = 8;
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Create New Harness
+    ///////////////////////////////////////////////////////////
+
+    createHarness(startConnector, endConnector){
+
+        const harness = {
+
+            id: crypto.randomUUID(),
+
+            startConnector,
+            endConnector,
+
+            controlPoints: [],
+
+            wires: [],
+
+            bundleMesh: null,
+
+            radius: this.defaultRadius
+        };
+
+        harness.controlPoints =
+            this.createDefaultRoute(
+                startConnector,
+                endConnector
+            );
+
+        harness.bundleMesh =
+            this.buildBundleMesh(
+                harness.controlPoints,
+                harness.radius
+            );
+
+        this.group.add(
+            harness.bundleMesh
+        );
+
+        this.harnesses.push(
+            harness
+        );
+
+        return harness;
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Default Route
+    ///////////////////////////////////////////////////////////
+
+    createDefaultRoute(start,end){
+
+        const a = start.position.clone();
+
+        const b = end.position.clone();
+
+        const middle =
+            a.clone()
+             .lerp(b,0.5);
+
+        middle.y += 8;
+
+        return [
+
+            a,
+
+            middle,
+
+            b
+
+        ];
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Build Tube Mesh
+    ///////////////////////////////////////////////////////////
+
+    buildBundleMesh(points,radius){
+
+        const curve =
+            new THREE.CatmullRomCurve3(
+                points
+            );
+
+        const geometry =
+            new THREE.TubeGeometry(
+
+                curve,
+
+                this.defaultTubularSegments,
+
+                radius,
+
+                this.defaultRadialSegments,
+
+                false
+
+            );
+
+        const material =
+            new THREE.MeshStandardMaterial({
+
+                color:0x1a1a1a,
+
+                roughness:0.65,
+
+                metalness:0.15
+
+            });
+
+        const mesh =
+            new THREE.Mesh(
+                geometry,
+                material
+            );
+
+        mesh.userData.harness = true;
+
+        return mesh;
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Route Existing Harness
+    ///////////////////////////////////////////////////////////
+
+    routeHarness(harness,newMiddle){
+
+        if(!harness) return;
+
+        harness.controlPoints[1] =
+            newMiddle.clone();
+
+        this.rebuildHarness(
+            harness
+        );
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Rebuild Mesh
+    ///////////////////////////////////////////////////////////
+
+    rebuildHarness(harness){
+
+        if(harness.bundleMesh){
+
+            this.group.remove(
+                harness.bundleMesh
+            );
+
+            harness.bundleMesh.geometry.dispose();
+        }
+
+        harness.bundleMesh =
+            this.buildBundleMesh(
+
+                harness.controlPoints,
+
+                harness.radius
+
+            );
+
+        this.group.add(
+            harness.bundleMesh
+        );
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Add Wire
+    ///////////////////////////////////////////////////////////
+
+    addWire(
+
+        harness,
+
+        color = 0xff0000,
+
+        radius = 0.12
+
+    ){
+
+        const wire = {
+
+            color,
+
+            radius,
+
+            mesh:null
+
+        };
+
+        wire.mesh =
+            this.buildWireMesh(
+
+                harness.controlPoints,
+
+                radius,
+
+                color
+
+            );
+
+        harness.wires.push(
+            wire
+        );
+
+        this.group.add(
+            wire.mesh
+        );
+
+        return wire;
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Wire Mesh
+    ///////////////////////////////////////////////////////////
+
+    buildWireMesh(
+
+        points,
+
+        radius,
+
+        color
+
+    ){
+
+        const curve =
+            new THREE.CatmullRomCurve3(
+                points
+            );
+
+        const geometry =
+            new THREE.TubeGeometry(
+
+                curve,
+
+                24,
+
+                radius,
+
+                8,
+
+                false
+
+            );
+
+        const material =
+            new THREE.MeshStandardMaterial({
+
+                color,
+
+                roughness:0.55,
+
+                metalness:0.05
+
+            });
+
+        const mesh =
+            new THREE.Mesh(
+
+                geometry,
+
+                material
+
+            );
+
+        mesh.userData.wire = true;
+
+        return mesh;
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Highlight Harness
+    ///////////////////////////////////////////////////////////
+
+    highlightHarness(harness){
+
+        if(!harness) return;
+
+        harness.bundleMesh.material.emissive
+            .setHex(0x333333);
+
+        for(const wire of harness.wires){
+
+            wire.mesh.material.emissive
+                .setHex(0x444444);
+        }
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Clear Highlight
+    ///////////////////////////////////////////////////////////
+
+    clearHighlight(harness){
+
+        if(!harness) return;
+
+        harness.bundleMesh.material.emissive
+            .setHex(0x000000);
+
+        for(const wire of harness.wires){
+
+            wire.mesh.material.emissive
+                .setHex(0x000000);
+        }
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Delete Harness
+    ///////////////////////////////////////////////////////////
+
+    removeHarness(harness){
+
+        if(!harness) return;
+
+        if(harness.bundleMesh){
+
+            this.group.remove(
+                harness.bundleMesh
+            );
+
+            harness.bundleMesh.geometry.dispose();
+        }
+
+        for(const wire of harness.wires){
+
+            this.group.remove(
+                wire.mesh
+            );
+
+            wire.mesh.geometry.dispose();
+        }
+
+        const index =
+            this.harnesses.indexOf(
+                harness
+            );
+
+        if(index >= 0){
+
+            this.harnesses.splice(
+                index,
+                1
+            );
+        }
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Update Loop
+    ///////////////////////////////////////////////////////////
+
+    update(){
+
+        for(const harness of this.harnesses){
+
+            this.rebuildHarness(
+                harness
+            );
+        }
+    }
+
+}
+
+///////////////////////////////////////////////////////////////
+// ConnectorSystem.js
+///////////////////////////////////////////////////////////////
+
+export class ConnectorSystem {
+
+    constructor(editor){
+
+        this.editor = editor;
+
+        this.group = new THREE.Group();
+        this.group.name = "ConnectorSystem";
+
+        this.editor.scene.add(this.group);
+
+        this.connectors = [];
+
+        this.defaultPitch = 1.25;
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Create Connector
+    ///////////////////////////////////////////////////////////
+
+    createConnector(spec={}){
+
+        const connector = {
+
+            id: crypto.randomUUID(),
+
+            name: spec.name || "Connector",
+
+            pins: [],
+
+            mesh: null,
+
+            housing: null,
+
+            position: new THREE.Vector3(),
+
+            rotation: new THREE.Euler(),
+
+            pitch: spec.pitch || this.defaultPitch,
+
+            pinCount: spec.pinCount || 2,
+
+            mountedTo: null,
+
+            mates: []
+
+        };
+
+        connector.mesh =
+            this.buildHousing(connector);
+
+        connector.mesh.userData.connector = connector;
+
+        this.generatePins(connector);
+
+        this.group.add(connector.mesh);
+
+        this.connectors.push(connector);
+
+        return connector;
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Housing
+    ///////////////////////////////////////////////////////////
+
+    buildHousing(connector){
+
+        const width =
+            connector.pinCount *
+            connector.pitch +
+            1;
+
+        const body =
+            new THREE.Mesh(
+
+                new THREE.BoxGeometry(
+
+                    width,
+                    3.6,
+                    4.5
+
+                ),
+
+                new THREE.MeshStandardMaterial({
+
+                    color:0xf0e8d8
+
+                })
+
+            );
+
+        body.userData.connector = connector;
+
+        return body;
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Generate Pins
+    ///////////////////////////////////////////////////////////
+
+    generatePins(connector){
+
+        connector.pins = [];
+
+        const width =
+            connector.pinCount *
+            connector.pitch;
+
+        for(let i=0;i<connector.pinCount;i++){
+
+            const x =
+                -width/2 +
+                connector.pitch/2 +
+                i*connector.pitch;
+
+            const pin = {
+
+                index:i+1,
+
+                name:"PIN_"+(i+1),
+
+                net:null,
+
+                position:new THREE.Vector3(
+                    x,
+                    -0.6,
+                    -1.6
+                ),
+
+                mesh:null
+
+            };
+
+            const mesh =
+                new THREE.Mesh(
+
+                    new THREE.BoxGeometry(
+                        0.3,
+                        1.2,
+                        2.5
+                    ),
+
+                    new THREE.MeshStandardMaterial({
+
+                        color:0xd6b34a,
+
+                        metalness:1,
+
+                        roughness:0.25
+
+                    })
+
+                );
+
+            mesh.position.copy(
+                pin.position
+            );
+
+            mesh.userData.pin = pin;
+
+            connector.mesh.add(mesh);
+
+            pin.mesh = mesh;
+
+            connector.pins.push(pin);
+
+        }
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Position
+    ///////////////////////////////////////////////////////////
+
+    setPosition(
+        connector,
+        position
+    ){
+
+        connector.position.copy(position);
+
+        connector.mesh.position.copy(position);
+
+        this.notifyHarnesses(
+            connector
+        );
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Rotation
+    ///////////////////////////////////////////////////////////
+
+    setRotation(
+        connector,
+        rotation
+    ){
+
+        connector.rotation.copy(rotation);
+
+        connector.mesh.rotation.copy(rotation);
+
+        this.notifyHarnesses(
+            connector
+        );
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Pin Lookup
+    ///////////////////////////////////////////////////////////
+
+    getPin(
+
+        connector,
+
+        index
+
+    ){
+
+        return connector.pins.find(
+
+            p=>p.index===index
+
+        );
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Connect Pin
+    ///////////////////////////////////////////////////////////
+
+    connectPin(
+
+        connector,
+
+        pinIndex,
+
+        netName
+
+    ){
+
+        const pin =
+            this.getPin(
+
+                connector,
+
+                pinIndex
+
+            );
+
+        if(!pin) return;
+
+        pin.net = netName;
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Mate Connectors
+    ///////////////////////////////////////////////////////////
+
+    mate(
+
+        connectorA,
+
+        connectorB
+
+    ){
+
+        connectorA.mesh.position.copy(
+
+            connectorB.mesh.position
+
+        );
+
+        connectorA.mesh.rotation.copy(
+
+            connectorB.mesh.rotation
+
+        );
+
+        connectorA.mountedTo =
+            connectorB;
+
+        connectorA.mates.push(
+            connectorB
+        );
+
+        this.notifyHarnesses(
+            connectorA
+        );
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Mount To Housing
+    ///////////////////////////////////////////////////////////
+
+    mountToFace(
+
+        connector,
+
+        mesh,
+
+        localPosition,
+
+        localRotation
+
+    ){
+
+        mesh.add(
+            connector.mesh
+        );
+
+        connector.mesh.position.copy(
+            localPosition
+        );
+
+        connector.mesh.rotation.copy(
+            localRotation
+        );
+
+        connector.mountedTo = mesh;
+
+        this.notifyHarnesses(
+            connector
+        );
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Pin World Position
+    ///////////////////////////////////////////////////////////
+
+    getPinWorldPosition(
+
+        connector,
+
+        pinIndex
+
+    ){
+
+        const pin =
+            this.getPin(
+
+                connector,
+
+                pinIndex
+
+            );
+
+        if(!pin) return null;
+
+        return pin.mesh.getWorldPosition(
+
+            new THREE.Vector3()
+
+        );
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Harness Notification
+    ///////////////////////////////////////////////////////////
+
+    notifyHarnesses(
+
+        connector
+
+    ){
+
+        if(
+
+            this.editor.harnessSystem
+
+        ){
+
+            this.editor.harnessSystem.update();
+
+        }
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Delete Connector
+    ///////////////////////////////////////////////////////////
+
+    removeConnector(
+
+        connector
+
+    ){
+
+        this.group.remove(
+            connector.mesh
+        );
+
+        const index =
+            this.connectors.indexOf(
+                connector
+            );
+
+        if(index>=0){
+
+            this.connectors.splice(
+                index,
+                1
+            );
+
+        }
+
+    }
+
+}
+
+///////////////////////////////////////////////////////////////
+// SnapSystem.js
+///////////////////////////////////////////////////////////////
+
+export class SnapSystem {
+
+    constructor(editor){
+
+        this.editor = editor;
+
+        this.enabled = true;
+
+        this.snapDistance = 0.45;
+
+        this.snapTypes = {
+
+            vertex:true,
+            edge:true,
+            midpoint:true,
+            face:true,
+            pin:true,
+            grid:true,
+            sketch:true
+
+        };
+
+        this.raycaster = new THREE.Raycaster();
+
+        this.mouse = new THREE.Vector2();
+
+        this.previewSphere = this.createPreviewSphere();
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Preview
+    ///////////////////////////////////////////////////////////
+
+    createPreviewSphere(){
+
+        const mesh = new THREE.Mesh(
+
+            new THREE.SphereGeometry(0.12,16,16),
+
+            new THREE.MeshBasicMaterial({
+
+                color:0xffcc00
+
+            })
+
+        );
+
+        mesh.visible = false;
+
+        this.editor.scene.add(mesh);
+
+        return mesh;
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Main Snap Entry
+    ///////////////////////////////////////////////////////////
+
+    snap(pointerEvent){
+
+        const hit = this.pick(pointerEvent);
+
+        if(!hit){
+
+            this.previewSphere.visible = false;
+
+            return null;
+        }
+
+        let snap = this.findBestSnap(hit);
+
+        if(snap){
+
+            this.previewSphere.visible = true;
+
+            this.previewSphere.position.copy(
+                snap.position
+            );
+
+        }
+        else{
+
+            this.previewSphere.visible = false;
+
+        }
+
+        return snap;
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Raycast
+    ///////////////////////////////////////////////////////////
+
+    pick(event){
+
+        const rect =
+            this.editor.renderer.domElement
+            .getBoundingClientRect();
+
+        this.mouse.x =
+            ((event.clientX-rect.left)/rect.width)*2-1;
+
+        this.mouse.y =
+            -((event.clientY-rect.top)/rect.height)*2+1;
+
+        this.raycaster.setFromCamera(
+
+            this.mouse,
+
+            this.editor.camera
+
+        );
+
+        const hits =
+            this.raycaster.intersectObjects(
+
+                this.editor.scene.children,
+
+                true
+
+            );
+
+        if(hits.length===0)
+            return null;
+
+        return hits[0];
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Best Snap
+    ///////////////////////////////////////////////////////////
+
+    findBestSnap(hit){
+
+        if(
+            this.snapTypes.pin &&
+            hit.object.userData.pin
+        ){
+
+            return{
+
+                type:"pin",
+
+                object:hit.object,
+
+                position:
+                    hit.object.getWorldPosition(
+                        new THREE.Vector3()
+                    )
+
+            };
+
+        }
+
+        if(
+            this.snapTypes.vertex
+        ){
+
+            const vertex =
+                this.snapVertex(hit);
+
+            if(vertex)
+                return vertex;
+
+        }
+
+        if(
+            this.snapTypes.midpoint
+        ){
+
+            const mid =
+                this.snapEdgeMidpoint(hit);
+
+            if(mid)
+                return mid;
+
+        }
+
+        if(
+            this.snapTypes.face
+        ){
+
+            return{
+
+                type:"face",
+
+                object:hit.object,
+
+                position:
+                    hit.point.clone(),
+
+                normal:
+                    hit.face.normal.clone()
+
+            };
+
+        }
+
+        return{
+
+            type:"point",
+
+            object:hit.object,
+
+            position:
+                hit.point.clone()
+
+        };
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Vertex Snap
+    ///////////////////////////////////////////////////////////
+
+    snapVertex(hit){
+
+        const geometry =
+            hit.object.geometry;
+
+        if(!geometry) return null;
+
+        const pos =
+            geometry.attributes.position;
+
+        if(!pos) return null;
+
+        let closest = null;
+
+        let bestDistance = Infinity;
+
+        const world =
+            new THREE.Vector3();
+
+        for(let i=0;i<pos.count;i++){
+
+            world.fromBufferAttribute(
+                pos,
+                i
+            );
+
+            hit.object.localToWorld(world);
+
+            const d =
+                world.distanceTo(
+                    hit.point
+                );
+
+            if(d<bestDistance){
+
+                bestDistance=d;
+
+                closest=world.clone();
+
+            }
+
+        }
+
+        if(bestDistance>
+            this.snapDistance)
+            return null;
+
+        return{
+
+            type:"vertex",
+
+            object:hit.object,
+
+            position:closest
+
+        };
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Edge Midpoint
+    ///////////////////////////////////////////////////////////
+
+    snapEdgeMidpoint(hit){
+
+        if(
+            !hit.face
+        ) return null;
+
+        const geo =
+            hit.object.geometry;
+
+        const pos =
+            geo.attributes.position;
+
+        const a =
+            new THREE.Vector3()
+            .fromBufferAttribute(
+                pos,
+                hit.face.a
+            );
+
+        const b =
+            new THREE.Vector3()
+            .fromBufferAttribute(
+                pos,
+                hit.face.b
+            );
+
+        const mid =
+            a.clone()
+             .lerp(b,0.5);
+
+        hit.object.localToWorld(mid);
+
+        return{
+
+            type:"midpoint",
+
+            object:hit.object,
+
+            position:mid
+
+        };
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Face Center
+    ///////////////////////////////////////////////////////////
+
+    getFaceCenter(hit){
+
+        const geo =
+            hit.object.geometry;
+
+        const pos =
+            geo.attributes.position;
+
+        const a =
+            new THREE.Vector3()
+            .fromBufferAttribute(
+                pos,
+                hit.face.a
+            );
+
+        const b =
+            new THREE.Vector3()
+            .fromBufferAttribute(
+                pos,
+                hit.face.b
+            );
+
+        const c =
+            new THREE.Vector3()
+            .fromBufferAttribute(
+                pos,
+                hit.face.c
+            );
+
+        const center =
+            a.add(b).add(c)
+             .multiplyScalar(1/3);
+
+        hit.object.localToWorld(center);
+
+        return center;
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Grid Snap
+    ///////////////////////////////////////////////////////////
+
+    snapToGrid(point,size=1){
+
+        return new THREE.Vector3(
+
+            Math.round(point.x/size)*size,
+
+            Math.round(point.y/size)*size,
+
+            Math.round(point.z/size)*size
+
+        );
+
+    }
+
+    ///////////////////////////////////////////////////////////
+    // Enable / Disable
+    ///////////////////////////////////////////////////////////
+
+    enable(type){
+
+        this.snapTypes[type]=true;
+
+    }
+
+    disable(type){
+
+        this.snapTypes[type]=false;
+
+    }
+
+}
+
+  
+  
+</script>
