@@ -1224,73 +1224,38 @@ export class HarnessSystem {
 ///////////////////////////////////////////////////////////////
 
 export class ConnectorSystem {
-
     constructor(editor){
-
         this.editor = editor;
-
         this.group = new THREE.Group();
         this.group.name = "ConnectorSystem";
-
         this.editor.scene.add(this.group);
-
         this.connectors = [];
-
         this.defaultPitch = 1.25;
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Create Connector
-    ///////////////////////////////////////////////////////////
-
     createConnector(spec={}){
-
         const connector = {
-
             id: crypto.randomUUID(),
-
             name: spec.name || "Connector",
-
             pins: [],
-
             mesh: null,
-
             housing: null,
-
             position: new THREE.Vector3(),
-
             rotation: new THREE.Euler(),
-
             pitch: spec.pitch || this.defaultPitch,
-
             pinCount: spec.pinCount || 2,
-
             mountedTo: null,
-
             mates: []
-
         };
-
         connector.mesh =
             this.buildHousing(connector);
-
         connector.mesh.userData.connector = connector;
-
         this.generatePins(connector);
-
         this.group.add(connector.mesh);
-
         this.connectors.push(connector);
-
         return connector;
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Housing
-    ///////////////////////////////////////////////////////////
-
     buildHousing(connector){
 
         const width =
@@ -1452,54 +1417,28 @@ export class ConnectorSystem {
             p=>p.index===index
 
         );
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Connect Pin
-    ///////////////////////////////////////////////////////////
-
     connectPin(
-
         connector,
-
         pinIndex,
-
         netName
-
     ){
-
         const pin =
             this.getPin(
-
                 connector,
-
                 pinIndex
-
             );
-
         if(!pin) return;
-
         pin.net = netName;
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Mate Connectors
-    ///////////////////////////////////////////////////////////
-
     mate(
-
         connectorA,
-
         connectorB
-
     ){
-
         connectorA.mesh.position.copy(
-
             connectorB.mesh.position
-
         );
 
         connectorA.mesh.rotation.copy(
@@ -1642,22 +1581,13 @@ export class ConnectorSystem {
 
 }
 
-///////////////////////////////////////////////////////////////
 // SnapSystem.js
-///////////////////////////////////////////////////////////////
-
 export class SnapSystem {
-
     constructor(editor){
-
         this.editor = editor;
-
         this.enabled = true;
-
         this.snapDistance = 0.45;
-
         this.snapTypes = {
-
             vertex:true,
             edge:true,
             midpoint:true,
@@ -1667,83 +1597,43 @@ export class SnapSystem {
             sketch:true
 
         };
-
         this.raycaster = new THREE.Raycaster();
-
         this.mouse = new THREE.Vector2();
-
         this.previewSphere = this.createPreviewSphere();
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Preview
-    ///////////////////////////////////////////////////////////
-
     createPreviewSphere(){
-
         const mesh = new THREE.Mesh(
-
             new THREE.SphereGeometry(0.12,16,16),
-
             new THREE.MeshBasicMaterial({
-
                 color:0xffcc00
-
             })
-
         );
-
         mesh.visible = false;
-
         this.editor.scene.add(mesh);
-
         return mesh;
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Main Snap Entry
-    ///////////////////////////////////////////////////////////
-
     snap(pointerEvent){
-
         const hit = this.pick(pointerEvent);
-
         if(!hit){
-
             this.previewSphere.visible = false;
-
             return null;
         }
-
         let snap = this.findBestSnap(hit);
-
         if(snap){
-
             this.previewSphere.visible = true;
-
             this.previewSphere.position.copy(
                 snap.position
             );
-
         }
         else{
-
             this.previewSphere.visible = false;
-
         }
-
         return snap;
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Raycast
-    ///////////////////////////////////////////////////////////
-
     pick(event){
-
         const rect =
             this.editor.renderer.domElement
             .getBoundingClientRect();
@@ -1815,35 +1705,24 @@ export class SnapSystem {
                 return vertex;
 
         }
-
         if(
             this.snapTypes.midpoint
         ){
-
             const mid =
                 this.snapEdgeMidpoint(hit);
-
             if(mid)
                 return mid;
-
         }
-
         if(
             this.snapTypes.face
         ){
-
             return{
-
                 type:"face",
-
                 object:hit.object,
-
                 position:
                     hit.point.clone(),
-
                 normal:
                     hit.face.normal.clone()
-
             };
 
         }
@@ -2020,33 +1899,19 @@ export class SnapSystem {
     ///////////////////////////////////////////////////////////
 
     snapToGrid(point,size=1){
-
         return new THREE.Vector3(
-
             Math.round(point.x/size)*size,
-
             Math.round(point.y/size)*size,
-
             Math.round(point.z/size)*size
-
         );
-
     }
-
     ///////////////////////////////////////////////////////////
     // Enable / Disable
-    ///////////////////////////////////////////////////////////
-
     enable(type){
-
         this.snapTypes[type]=true;
-
     }
-
     disable(type){
-
         this.snapTypes[type]=false;
-
     }
 
 }
