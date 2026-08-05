@@ -3198,4 +3198,530 @@ export class RevolveSystem{
     }
 
 }    
+
+    import * as THREE from "https://esm.sh/three@0.165.0";
+
+/*
+    NOTE
+
+    This is a scaffold.
+
+    Initially it simply manages Boolean features.
+
+    Later the geometry operations can be replaced with:
+
+        - three-bvh-csg
+        - Manifold CAD
+        - OpenCascade WASM
+        - CGAL backend
+
+    without changing the Editor API.
+*/
+
+export class BooleanSystem{
+
+    constructor(scene, featureTree){
+
+        this.scene = scene;
+        this.featureTree = featureTree;
+
+        this.operations = [];
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    union(target, tool){
+
+        return this.createOperation(
+
+            "Union",
+
+            target,
+
+            tool
+
+        );
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    subtract(target, tool){
+
+        return this.createOperation(
+
+            "Subtract",
+
+            target,
+
+            tool
+
+        );
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    intersect(target, tool){
+
+        return this.createOperation(
+
+            "Intersect",
+
+            target,
+
+            tool
+
+        );
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    createOperation(type, target, tool){
+
+        if(!target || !tool){
+
+            console.warn("Boolean missing bodies.");
+
+            return null;
+
+        }
+
+        const feature={
+
+            id:crypto.randomUUID(),
+
+            type,
+
+            target,
+
+            tool,
+
+            enabled:true,
+
+            result:null
+
+        };
+
+        this.operations.push(feature);
+
+        this.compute(feature);
+
+        this.featureTree?.addFeature(type,feature);
+
+        return feature;
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    compute(feature){
+
+        /*
+            Placeholder implementation.
+
+            Replace with:
+
+            result =
+                evaluator.evaluate(
+
+                    target,
+
+                    tool,
+
+                    SUBTRACTION
+
+                );
+        */
+
+        switch(feature.type){
+
+            case "Union":
+
+                feature.result =
+                    feature.target;
+
+                feature.tool.visible=false;
+
+                break;
+
+            case "Subtract":
+
+                feature.result =
+                    feature.target;
+
+                feature.tool.visible=false;
+
+                break;
+
+            case "Intersect":
+
+                feature.result =
+                    feature.target;
+
+                feature.tool.visible=false;
+
+                break;
+
+        }
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    rebuild(){
+
+        for(const feature of this.operations){
+
+            if(feature.enabled){
+
+                this.compute(feature);
+
+            }
+
+        }
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    delete(feature){
+
+        const i=this.operations.indexOf(feature);
+
+        if(i>=0){
+
+            this.operations.splice(i,1);
+
+        }
+
+        feature.tool.visible=true;
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    enable(feature){
+
+        feature.enabled=true;
+
+        this.compute(feature);
+
+    }
+
+    disable(feature){
+
+        feature.enabled=false;
+
+        feature.tool.visible=true;
+
+    }
+
+}
+
+    import * as THREE from "https://esm.sh/three@0.165.0";
+
+export class MateSystem{
+
+    constructor(){
+
+        this.mates=[];
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    addCoincident(partA,partB){
+
+        return this.addMate(
+
+            "Coincident",
+
+            partA,
+
+            partB
+
+        );
+
+    }
+
+    addConcentric(partA,partB){
+
+        return this.addMate(
+
+            "Concentric",
+
+            partA,
+
+            partB
+
+        );
+
+    }
+
+    addDistance(partA,partB,distance){
+
+        return this.addMate(
+
+            "Distance",
+
+            partA,
+
+            partB,
+
+            distance
+
+        );
+
+    }
+
+    addAngle(partA,partB,angle){
+
+        return this.addMate(
+
+            "Angle",
+
+            partA,
+
+            partB,
+
+            angle
+
+        );
+
+    }
+
+    addParallel(partA,partB){
+
+        return this.addMate(
+
+            "Parallel",
+
+            partA,
+
+            partB
+
+        );
+
+    }
+
+    addWidth(partA,partB){
+
+        return this.addMate(
+
+            "Width",
+
+            partA,
+
+            partB
+
+        );
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    addMate(type,a,b,value=0){
+
+        const mate={
+
+            id:crypto.randomUUID(),
+
+            type,
+
+            partA:a,
+
+            partB:b,
+
+            value,
+
+            enabled:true
+
+        };
+
+        this.mates.push(mate);
+
+        return mate;
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    solve(){
+
+        for(const mate of this.mates){
+
+            if(!mate.enabled)
+                continue;
+
+            switch(mate.type){
+
+                case "Coincident":
+
+                    this.solveCoincident(mate);
+
+                    break;
+
+                case "Concentric":
+
+                    this.solveConcentric(mate);
+
+                    break;
+
+                case "Distance":
+
+                    this.solveDistance(mate);
+
+                    break;
+
+                case "Angle":
+
+                    this.solveAngle(mate);
+
+                    break;
+
+                case "Parallel":
+
+                    this.solveParallel(mate);
+
+                    break;
+
+                case "Width":
+
+                    this.solveWidth(mate);
+
+                    break;
+
+            }
+
+        }
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    solveCoincident(mate){
+
+        mate.partA.position.copy(
+
+            mate.partB.position
+
+        );
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    solveConcentric(mate){
+
+        mate.partA.position.x =
+            mate.partB.position.x;
+
+        mate.partA.position.z =
+            mate.partB.position.z;
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    solveDistance(mate){
+
+        const dir=new THREE.Vector3()
+
+            .subVectors(
+
+                mate.partA.position,
+
+                mate.partB.position
+
+            );
+
+        dir.normalize();
+
+        mate.partA.position.copy(
+
+            mate.partB.position
+
+            .clone()
+
+            .add(
+
+                dir.multiplyScalar(
+
+                    mate.value
+
+                )
+
+            )
+
+        );
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    solveAngle(mate){
+
+        mate.partA.rotation.y =
+            mate.value;
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    solveParallel(mate){
+
+        mate.partA.quaternion.copy(
+
+            mate.partB.quaternion
+
+        );
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    solveWidth(mate){
+
+        /*
+            Width Mate
+
+            Centers Part A
+            between two faces
+            represented by Part B.
+
+            Initial scaffold simply
+            aligns centers.
+        */
+
+        mate.partA.position.x =
+            mate.partB.position.x;
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    remove(mate){
+
+        const i=this.mates.indexOf(mate);
+
+        if(i>=0){
+
+            this.mates.splice(i,1);
+
+        }
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    clear(){
+
+        this.mates=[];
+
+    }
+
+}
 </script>
