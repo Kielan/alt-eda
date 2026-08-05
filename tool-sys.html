@@ -1637,73 +1637,46 @@ export class SnapSystem {
         const rect =
             this.editor.renderer.domElement
             .getBoundingClientRect();
-
         this.mouse.x =
             ((event.clientX-rect.left)/rect.width)*2-1;
-
         this.mouse.y =
             -((event.clientY-rect.top)/rect.height)*2+1;
-
         this.raycaster.setFromCamera(
-
             this.mouse,
-
             this.editor.camera
-
         );
 
         const hits =
             this.raycaster.intersectObjects(
-
                 this.editor.scene.children,
-
                 true
-
             );
-
         if(hits.length===0)
             return null;
-
         return hits[0];
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Best Snap
-    ///////////////////////////////////////////////////////////
-
     findBestSnap(hit){
-
         if(
             this.snapTypes.pin &&
             hit.object.userData.pin
         ){
-
             return{
-
                 type:"pin",
-
                 object:hit.object,
-
                 position:
                     hit.object.getWorldPosition(
                         new THREE.Vector3()
                     )
-
             };
-
         }
-
         if(
             this.snapTypes.vertex
         ){
-
             const vertex =
                 this.snapVertex(hit);
-
             if(vertex)
                 return vertex;
-
         }
         if(
             this.snapTypes.midpoint
@@ -1745,77 +1718,47 @@ export class SnapSystem {
     ///////////////////////////////////////////////////////////
 
     snapVertex(hit){
-
         const geometry =
             hit.object.geometry;
-
         if(!geometry) return null;
-
         const pos =
             geometry.attributes.position;
-
         if(!pos) return null;
-
         let closest = null;
-
         let bestDistance = Infinity;
-
         const world =
             new THREE.Vector3();
-
         for(let i=0;i<pos.count;i++){
-
             world.fromBufferAttribute(
                 pos,
                 i
             );
-
             hit.object.localToWorld(world);
-
             const d =
                 world.distanceTo(
                     hit.point
                 );
-
             if(d<bestDistance){
-
                 bestDistance=d;
-
                 closest=world.clone();
-
             }
-
         }
-
         if(bestDistance>
             this.snapDistance)
             return null;
-
         return{
-
             type:"vertex",
-
             object:hit.object,
-
             position:closest
-
         };
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Edge Midpoint
-    ///////////////////////////////////////////////////////////
-
     snapEdgeMidpoint(hit){
-
         if(
             !hit.face
         ) return null;
-
         const geo =
             hit.object.geometry;
-
         const pos =
             geo.attributes.position;
 
@@ -1825,36 +1768,23 @@ export class SnapSystem {
                 pos,
                 hit.face.a
             );
-
         const b =
             new THREE.Vector3()
             .fromBufferAttribute(
                 pos,
                 hit.face.b
             );
-
         const mid =
             a.clone()
              .lerp(b,0.5);
-
         hit.object.localToWorld(mid);
-
         return{
-
             type:"midpoint",
-
             object:hit.object,
-
             position:mid
-
         };
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Face Center
-    ///////////////////////////////////////////////////////////
-
     getFaceCenter(hit){
 
         const geo =
@@ -1915,101 +1845,56 @@ export class SnapSystem {
     }
 
 }
-
-///////////////////////////////////////////////////////////////
 // SplineBuilder.js
-///////////////////////////////////////////////////////////////
-
 export class SplineBuilder {
-
     constructor(){
-
         this.defaultTubularSegments = 48;
         this.defaultRadialSegments = 12;
         this.defaultRadius = 0.25;
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Build Catmull-Rom Curve
-    ///////////////////////////////////////////////////////////
-
     buildCurve(points, closed=false){
-
         return new THREE.CatmullRomCurve3(
-
             points,
-
             closed,
-
             "centripetal",
-
             0.5
-
         );
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Build Tube Geometry
-    ///////////////////////////////////////////////////////////
-
     buildTube(
-
         points,
-
         radius=this.defaultRadius,
-
         tubularSegments=this.defaultTubularSegments,
-
         radialSegments=this.defaultRadialSegments,
-
         closed=false
-
     ){
-
         const curve = this.buildCurve(
             points,
             closed
         );
-
         return new THREE.TubeGeometry(
-
             curve,
-
             tubularSegments,
-
             radius,
-
             radialSegments,
-
             closed
-
         );
-
     }
-
     // Build Tube Mesh
     buildMesh(
         points,
         options={}
     ){
-
         const geometry = this.buildTube(
-
             points,
-
             options.radius ??
             this.defaultRadius,
-
             options.tubularSegments ??
             this.defaultTubularSegments,
-
             options.radialSegments ??
             this.defaultRadialSegments,
-
             options.closed ?? false
-
         );
         const material =
             options.material ??
@@ -2023,7 +1908,6 @@ export class SplineBuilder {
             material
         );
     }
-    ///////////////////////////////////////////////////////////
     // Rebuild Existing Tube
     rebuildMesh(
         mesh,
@@ -2100,70 +1984,37 @@ export class SplineBuilder {
         index
     ){
         if(index<0) return;
-
         if(index>=points.length) return;
-
         points.splice(index,1);
-
         return points;
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Move Control Point
-    ///////////////////////////////////////////////////////////
-
     movePoint(
-
         points,
-
         index,
-
         position
-
     ){
-
         if(index<0) return;
-
         if(index>=points.length) return;
-
         points[index].copy(position);
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Generate Preview Line
-    ///////////////////////////////////////////////////////////
-
     buildPreview(points){
-
         const geometry =
             new THREE.BufferGeometry()
             .setFromPoints(
-
                 this.sample(
-
                     points,
-
                     100
-
                 )
-
             );
-
         const material =
             new THREE.LineBasicMaterial({
-
                 color:0x44aaff
-
             });
-
         return new THREE.Line(
-
             geometry,
-
             material
-
         );
 
     }
