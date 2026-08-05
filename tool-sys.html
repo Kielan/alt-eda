@@ -16,6 +16,342 @@ SnapSystem, DimensionSystem, OverlayRenderer, SelectionSystem
 
 Sketch, Extrude, Mate Assembly, Hole Wizard, Loft, Sweep, and Fillet
 <script>
+
+  export class FeatureTreeSystem {
+
+    constructor(container){
+
+        this.container = container;
+
+        this.features = [];
+
+        this.selectedFeature = null;
+
+    }
+
+    addFeature(type, data={}){
+
+        const feature = {
+
+            id:crypto.randomUUID(),
+
+            type,
+
+            name:type + (this.features.length+1),
+
+            data,
+
+            enabled:true,
+
+            children:[]
+
+        };
+
+        this.features.push(feature);
+
+        this.refresh();
+
+        return feature;
+
+    }
+
+    removeFeature(feature){
+
+        const i = this.features.indexOf(feature);
+
+        if(i >= 0){
+
+            this.features.splice(i,1);
+
+        }
+
+        this.refresh();
+
+    }
+
+    rename(feature,newName){
+
+        feature.name = newName;
+
+        this.refresh();
+
+    }
+
+    toggle(feature){
+
+        feature.enabled = !feature.enabled;
+
+        this.refresh();
+
+    }
+
+    select(feature){
+
+        this.selectedFeature = feature;
+
+        this.refresh();
+
+    }
+
+    moveUp(feature){
+
+        const i = this.features.indexOf(feature);
+
+        if(i <= 0) return;
+
+        this.features.splice(i,1);
+
+        this.features.splice(i-1,0,feature);
+
+        this.refresh();
+
+    }
+
+    moveDown(feature){
+
+        const i = this.features.indexOf(feature);
+
+        if(i === -1) return;
+
+        if(i >= this.features.length-1) return;
+
+        this.features.splice(i,1);
+
+        this.features.splice(i+1,0,feature);
+
+        this.refresh();
+
+    }
+
+    rebuild(){
+
+        console.log("Rebuilding feature history...");
+
+        for(const feature of this.features){
+
+            if(!feature.enabled)
+                continue;
+
+            switch(feature.type){
+
+                case "Sketch":
+                    console.log("Sketch");
+                    break;
+
+                case "Extrude":
+                    console.log("Extrude");
+                    break;
+
+                case "Revolve":
+                    console.log("Revolve");
+                    break;
+
+                case "Fillet":
+                    console.log("Fillet");
+                    break;
+
+                case "Chamfer":
+                    console.log("Chamfer");
+                    break;
+
+                case "Hole":
+                    console.log("Hole Wizard");
+                    break;
+
+            }
+
+        }
+
+    }
+
+    refresh(){
+
+        this.container.innerHTML = "";
+
+        for(const feature of this.features){
+
+            const row = document.createElement("div");
+
+            row.className = "treeItem";
+
+            if(feature === this.selectedFeature){
+
+                row.classList.add("active");
+
+            }
+
+            row.innerHTML =
+                (feature.enabled ? "🟢 " : "⚪ ") +
+                feature.name;
+
+            row.onclick = ()=>{
+
+                this.select(feature);
+
+            };
+
+            this.container.appendChild(row);
+
+        }
+
+    }
+
+}  
+    
+//Dimensionsys
+export class DimensionSystem {
+
+    constructor(scene, camera, overlay){
+
+        this.scene = scene;
+        this.camera = camera;
+        this.overlay = overlay;
+
+        this.dimensions = [];
+
+        this.activeDimension = null;
+
+        this.mode = "idle";
+
+    }
+
+    begin(){
+
+        this.mode = "placing";
+
+        this.activeDimension = {
+
+            start:null,
+            end:null,
+            value:0,
+            entity:null,
+            html:this.createLabel()
+
+        };
+
+    }
+
+    cancel(){
+
+        if(this.activeDimension){
+
+            this.activeDimension.html.remove();
+
+        }
+
+        this.activeDimension = null;
+
+        this.mode = "idle";
+
+    }
+
+    finish(){
+
+        if(!this.activeDimension) return;
+
+        this.dimensions.push(this.activeDimension);
+
+        this.activeDimension = null;
+
+        this.mode = "idle";
+
+    }
+
+    setStart(position){
+
+        if(!this.activeDimension) return;
+
+        this.activeDimension.start = position.clone();
+
+    }
+
+    setEnd(position){
+
+        if(!this.activeDimension) return;
+
+        this.activeDimension.end = position.clone();
+
+        this.computeLength();
+
+    }
+
+    computeLength(){
+
+        const d = this.activeDimension;
+
+        if(!d.start || !d.end) return;
+
+        d.value = d.start.distanceTo(d.end);
+
+        d.html.innerText =
+            d.value.toFixed(2) + " mm";
+
+    }
+
+    update(){
+
+        for(const dim of this.dimensions){
+
+            this.updateLabel(dim);
+
+        }
+
+        if(this.activeDimension){
+
+            this.updateLabel(this.activeDimension);
+
+        }
+
+    }
+
+    updateLabel(dim){
+
+        if(!dim.start || !dim.end) return;
+
+        const mid = dim.start.clone().lerp(dim.end,0.5);
+
+        mid.project(this.camera);
+
+        const x =
+            (mid.x*0.5+0.5) *
+            window.innerWidth;
+
+        const y =
+            (-mid.y*0.5+0.5) *
+            window.innerHeight;
+
+        dim.html.style.left = x+"px";
+        dim.html.style.top = y+"px";
+
+    }
+
+    createLabel(){
+
+        const div = document.createElement("div");
+
+        div.className = "dimension";
+
+        div.innerText = "0 mm";
+
+        this.overlay.appendChild(div);
+
+        return div;
+
+    }
+
+    setAbsoluteValue(value){
+
+        if(!this.activeDimension) return;
+
+        this.activeDimension.value = value;
+
+        this.activeDimension.html.innerText =
+            value.toFixed(2)+" mm";
+
+    }
+
+}
+    
 ///////////////////////////////////////////////////////////////
 // HarnessSystem.js
 ///////////////////////////////////////////////////////////////
