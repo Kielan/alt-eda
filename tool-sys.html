@@ -16,7 +16,379 @@ SnapSystem, DimensionSystem, OverlayRenderer, SelectionSystem
 
 Sketch, Extrude, Mate Assembly, Hole Wizard, Loft, Sweep, and Fillet
 <script>
+import * as THREE from "https://esm.sh/three@0.165.0";
 
+export class SketchSystem{
+
+    constructor(scene){
+
+        this.scene = scene;
+
+        this.entities = [];
+
+        this.selected = [];
+
+        this.activeSketch = null;
+
+        this.currentPlane = "XY";
+
+        this.group = new THREE.Group();
+        this.group.name = "Sketch";
+
+        scene.add(this.group);
+
+    }
+
+    //////////////////////////////////////////////////////
+    // Sketch
+    //////////////////////////////////////////////////////
+
+    beginSketch(plane="XY"){
+
+        this.currentPlane = plane;
+
+        this.activeSketch = {
+
+            plane,
+            entities:[]
+
+        };
+
+    }
+
+    endSketch(){
+
+        this.activeSketch = null;
+
+    }
+
+    //////////////////////////////////////////////////////
+    // Entity Creation
+    //////////////////////////////////////////////////////
+
+    addPoint(position){
+
+        const point={
+
+            type:"point",
+
+            position:position.clone(),
+
+            mesh:this.buildPoint(position)
+
+        };
+
+        this.entities.push(point);
+
+        this.activeSketch?.entities.push(point);
+
+        return point;
+
+    }
+
+    addLine(start,end){
+
+        const geo = new THREE.BufferGeometry();
+
+        geo.setFromPoints([start,end]);
+
+        const line = new THREE.Line(
+
+            geo,
+
+            new THREE.LineBasicMaterial({
+
+                color:0x66ccff
+
+            })
+
+        );
+
+        this.group.add(line);
+
+        const entity={
+
+            type:"line",
+
+            start:start.clone(),
+
+            end:end.clone(),
+
+            mesh:line
+
+        };
+
+        this.entities.push(entity);
+
+        this.activeSketch?.entities.push(entity);
+
+        return entity;
+
+    }
+
+    addCircle(center,radius){
+
+        const curve = new THREE.EllipseCurve(
+
+            0,
+            0,
+            radius,
+            radius,
+            0,
+            Math.PI*2
+
+        );
+
+        const pts=curve.getPoints(64);
+
+        const geo=new THREE.BufferGeometry().setFromPoints(pts);
+
+        const line=new THREE.LineLoop(
+
+            geo,
+
+            new THREE.LineBasicMaterial({
+
+                color:0xffcc55
+
+            })
+
+        );
+
+        line.position.copy(center);
+
+        this.group.add(line);
+
+        const entity={
+
+            type:"circle",
+
+            center:center.clone(),
+
+            radius,
+
+            mesh:line
+
+        };
+
+        this.entities.push(entity);
+
+        this.activeSketch?.entities.push(entity);
+
+        return entity;
+
+    }
+
+    addArc(center,radius,start,end){
+
+        const curve=new THREE.ArcCurve(
+
+            0,
+            0,
+            radius,
+            start,
+            end
+
+        );
+
+        const pts=curve.getPoints(48);
+
+        const geo=new THREE.BufferGeometry().setFromPoints(pts);
+
+        const mesh=new THREE.Line(
+
+            geo,
+
+            new THREE.LineBasicMaterial({
+
+                color:0xffaa55
+
+            })
+
+        );
+
+        mesh.position.copy(center);
+
+        this.group.add(mesh);
+
+        const entity={
+
+            type:"arc",
+
+            center:center.clone(),
+
+            radius,
+
+            startAngle:start,
+
+            endAngle:end,
+
+            mesh
+
+        };
+
+        this.entities.push(entity);
+
+        this.activeSketch?.entities.push(entity);
+
+        return entity;
+
+    }
+
+    addSpline(points){
+
+        const curve=new THREE.CatmullRomCurve3(points);
+
+        const pts=curve.getPoints(120);
+
+        const geo=new THREE.BufferGeometry();
+
+        geo.setFromPoints(pts);
+
+        const mesh=new THREE.Line(
+
+            geo,
+
+            new THREE.LineBasicMaterial({
+
+                color:0x88ff88
+
+            })
+
+        );
+
+        this.group.add(mesh);
+
+        const entity={
+
+            type:"spline",
+
+            controlPoints:points,
+
+            mesh
+
+        };
+
+        this.entities.push(entity);
+
+        this.activeSketch?.entities.push(entity);
+
+        return entity;
+
+    }
+
+    //////////////////////////////////////////////////////
+    // Editing
+    //////////////////////////////////////////////////////
+
+    movePoint(entity,newPos){
+
+        entity.position.copy(newPos);
+
+        entity.mesh.position.copy(newPos);
+
+    }
+
+    moveLine(entity,start,end){
+
+        entity.start.copy(start);
+
+        entity.end.copy(end);
+
+        entity.mesh.geometry.dispose();
+
+        entity.mesh.geometry=new THREE.BufferGeometry();
+
+        entity.mesh.geometry.setFromPoints([
+
+            start,
+
+            end
+
+        ]);
+
+    }
+
+    changeCircleRadius(entity,radius){
+
+        entity.radius=radius;
+
+        this.group.remove(entity.mesh);
+
+        this.entities.splice(
+
+            this.entities.indexOf(entity),
+
+            1
+
+        );
+
+        return this.addCircle(
+
+            entity.center,
+
+            radius
+
+        );
+
+    }
+
+    //////////////////////////////////////////////////////
+    // Selection
+    //////////////////////////////////////////////////////
+
+    clearSelection(){
+
+        this.selected=[];
+
+    }
+
+    select(entity){
+
+        this.selected.push(entity);
+
+    }
+
+    remove(entity){
+
+        this.group.remove(entity.mesh);
+
+        this.entities=this.entities.filter(
+
+            e=>e!==entity
+
+        );
+
+    }
+
+    //////////////////////////////////////////////////////
+    // Helpers
+    //////////////////////////////////////////////////////
+
+    buildPoint(pos){
+
+        const mesh=new THREE.Mesh(
+
+            new THREE.SphereGeometry(0.08),
+
+            new THREE.MeshBasicMaterial({
+
+                color:0xff3333
+
+            })
+
+        );
+
+        mesh.position.copy(pos);
+
+        this.group.add(mesh);
+
+        return mesh;
+
+    }
+
+}
+  
   export class FeatureTreeSystem {
 
     constructor(container){
