@@ -18,240 +18,127 @@ Sketch, Extrude, Mate Assembly, Hole Wizard, Loft, Sweep, and Fillet
 <script>
 import * as THREE from "https://esm.sh/three@0.165.0";
 import * as THREE from "https://esm.sh/three@0.165.0";
-
 export class ConstraintSolver{
-
     constructor(sketch){
-
         this.sketch = sketch;
-
         this.constraints=[];
-
     }
-
-    //////////////////////////////////////////////////////
     // Add Constraints
-    //////////////////////////////////////////////////////
-
     addCoincident(a,b){
-
         this.constraints.push({
-
             type:"Coincident",
-
             a,
             b
-
         });
-
     }
-
     addHorizontal(line){
-
         this.constraints.push({
-
             type:"Horizontal",
-
             line
-
         });
-
     }
-
     addVertical(line){
-
         this.constraints.push({
-
             type:"Vertical",
-
             line
-
         });
-
     }
-
     addParallel(a,b){
-
         this.constraints.push({
-
             type:"Parallel",
-
             a,
             b
-
         });
-
     }
-
     addPerpendicular(a,b){
-
         this.constraints.push({
-
             type:"Perpendicular",
-
             a,
             b
-
         });
-
     }
-
     addEqual(a,b){
-
         this.constraints.push({
-
             type:"Equal",
-
             a,
             b
-
         });
-
     }
-
     addMidpoint(point,line){
-
         this.constraints.push({
-
             type:"Midpoint",
-
             point,
             line
-
         });
-
     }
-
     addTangent(circle,line){
-
         this.constraints.push({
-
             type:"Tangent",
-
             circle,
             line
-
         });
-
     }
-
     addRadius(circle,value){
-
         this.constraints.push({
-
             type:"Radius",
-
             circle,
             value
-
         });
-
     }
-
     addDistance(a,b,value){
-
         this.constraints.push({
-
             type:"Distance",
-
             a,
             b,
             value
-
         });
-
     }
-
-    //////////////////////////////////////////////////////
     // Solve
-    //////////////////////////////////////////////////////
-
     solve(iterations=8){
-
         for(let i=0;i<iterations;i++){
-
             for(const c of this.constraints){
-
                 this.solveConstraint(c);
-
             }
-
         }
-
     }
-
-    //////////////////////////////////////////////////////
     // Individual Solvers
-    //////////////////////////////////////////////////////
-
     solveConstraint(c){
-
         switch(c.type){
-
             case "Horizontal":
-
                 c.line.end.y = c.line.start.y;
                 this.updateLine(c.line);
                 break;
-
             case "Vertical":
-
                 c.line.end.x = c.line.start.x;
                 this.updateLine(c.line);
                 break;
-
             case "Equal":
-
                 if(c.a.type==="circle" &&
                    c.b.type==="circle"){
-
                     c.b.radius=c.a.radius;
-
                 }
-
                 break;
-
             case "Coincident":
-
                 if(c.a.position && c.b.position){
-
                     c.b.position.copy(
-
                         c.a.position
-
                     );
-
                 }
-
                 break;
-
             case "Midpoint":
-
             {
-
                 const mid=new THREE.Vector3()
-
                 .addVectors(
-
                     c.line.start,
-
                     c.line.end
-
                 )
-
                 .multiplyScalar(0.5);
-
                 c.point.position.copy(mid);
-
             }
-
             break;
-
             case "Radius":
-
                 c.circle.radius=c.value;
                 break;
-
             case "Distance":
 
             {
@@ -291,151 +178,79 @@ export class ConstraintSolver{
         }
 
     }
-
     //////////////////////////////////////////////////////
     // Geometry Updates
-    //////////////////////////////////////////////////////
-
     updateLine(line){
-
         line.mesh.geometry.dispose();
-
         line.mesh.geometry=new THREE.BufferGeometry();
-
         line.mesh.geometry.setFromPoints([
-
             line.start,
-
             line.end
-
         ]);
-
     }
-
 }
-
-    
 export class SketchSystem{
-
     constructor(scene){
-
         this.scene = scene;
-
         this.entities = [];
-
         this.selected = [];
-
         this.activeSketch = null;
-
         this.currentPlane = "XY";
-
         this.group = new THREE.Group();
         this.group.name = "Sketch";
-
         scene.add(this.group);
-
     }
-
-    //////////////////////////////////////////////////////
     // Sketch
-    //////////////////////////////////////////////////////
-
     beginSketch(plane="XY"){
-
         this.currentPlane = plane;
-
         this.activeSketch = {
-
             plane,
             entities:[]
-
         };
-
     }
-
     endSketch(){
-
         this.activeSketch = null;
-
     }
-
-    //////////////////////////////////////////////////////
     // Entity Creation
-    //////////////////////////////////////////////////////
-
     addPoint(position){
-
         const point={
-
             type:"point",
-
             position:position.clone(),
-
             mesh:this.buildPoint(position)
-
         };
-
         this.entities.push(point);
-
         this.activeSketch?.entities.push(point);
-
         return point;
-
     }
-
     addLine(start,end){
-
         const geo = new THREE.BufferGeometry();
-
         geo.setFromPoints([start,end]);
-
         const line = new THREE.Line(
-
             geo,
-
             new THREE.LineBasicMaterial({
-
                 color:0x66ccff
-
             })
-
         );
-
         this.group.add(line);
-
         const entity={
-
             type:"line",
-
             start:start.clone(),
-
             end:end.clone(),
-
             mesh:line
-
         };
-
         this.entities.push(entity);
-
         this.activeSketch?.entities.push(entity);
-
         return entity;
-
     }
-
     addCircle(center,radius){
-
         const curve = new THREE.EllipseCurve(
-
             0,
             0,
             radius,
             radius,
             0,
             Math.PI*2
-
         );
-
         const pts=curve.getPoints(64);
 
         const geo=new THREE.BufferGeometry().setFromPoints(pts);
