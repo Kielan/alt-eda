@@ -17,7 +17,6 @@ SnapSystem, DimensionSystem, OverlayRenderer, SelectionSystem
 Sketch, Extrude, Mate Assembly, Hole Wizard, Loft, Sweep, and Fillet
 <script>
 import * as THREE from "https://esm.sh/three@0.165.0";
-import * as THREE from "https://esm.sh/three@0.165.0";
 export class ConstraintSolver{
     constructor(sketch){
         this.sketch = sketch;
@@ -2125,16 +2124,10 @@ export class SplineBuilder {
 
     }
 
-    ///////////////////////////////////////////////////////////
     // Build Tube Mesh
-    ///////////////////////////////////////////////////////////
-
     buildMesh(
-
         points,
-
         options={}
-
     ){
 
         const geometry = this.buildTube(
@@ -2153,87 +2146,46 @@ export class SplineBuilder {
             options.closed ?? false
 
         );
-
         const material =
             options.material ??
-
             new THREE.MeshStandardMaterial({
-
                 color:0x222222,
-
                 roughness:0.6,
-
                 metalness:0.15
-
             });
-
         return new THREE.Mesh(
-
             geometry,
-
             material
-
         );
-
     }
-
     ///////////////////////////////////////////////////////////
     // Rebuild Existing Tube
-    ///////////////////////////////////////////////////////////
-
     rebuildMesh(
-
         mesh,
-
         points,
-
         radius=this.defaultRadius
 
     ){
-
         mesh.geometry.dispose();
-
         mesh.geometry = this.buildTube(
-
             points,
-
             radius
-
         );
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Evaluate Curve Position
-    ///////////////////////////////////////////////////////////
-
     evaluate(
-
         points,
-
         t
-
     ){
-
         const curve =
             this.buildCurve(points);
-
         return curve.getPoint(t);
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Evaluate Tangent
-    ///////////////////////////////////////////////////////////
-
     tangent(
-
         points,
-
         t
-
     ){
-
         const curve =
             this.buildCurve(points);
 
@@ -2242,34 +2194,20 @@ export class SplineBuilder {
             .normalize();
 
     }
-
-    ///////////////////////////////////////////////////////////
     // Evenly Sample Curve
-    ///////////////////////////////////////////////////////////
-
     sample(
-
         points,
-
         divisions=50
-
     ){
-
         const curve =
             this.buildCurve(points);
-
         return curve.getPoints(
             divisions
         );
 
     }
-
-    ///////////////////////////////////////////////////////////
     // Curve Length
-    ///////////////////////////////////////////////////////////
-
     length(points){
-
         const curve =
             this.buildCurve(points);
 
@@ -2279,44 +2217,23 @@ export class SplineBuilder {
 
     ///////////////////////////////////////////////////////////
     // Insert Control Point
-    ///////////////////////////////////////////////////////////
-
     insertPoint(
-
         points,
-
         index,
-
         point
-
     ){
-
         points.splice(
-
             index,
-
             0,
-
             point.clone()
-
         );
-
         return points;
-
     }
-
-    ///////////////////////////////////////////////////////////
     // Remove Control Point
-    ///////////////////////////////////////////////////////////
-
     removePoint(
-
         points,
-
         index
-
     ){
-
         if(index<0) return;
 
         if(index>=points.length) return;
@@ -2508,184 +2425,96 @@ export class ExtrudeSystem{
         const shape = this.buildShape(sketch);
 
         if(!shape){
-
             console.warn("Extrude failed: sketch is not closed.");
-
             return null;
-
         }
-
         const geometry = new THREE.ExtrudeGeometry(
-
             shape,
-
             {
-
                 depth:params.depth,
-
                 bevelEnabled:params.bevelEnabled,
-
                 bevelSize:params.bevelSize,
-
                 bevelThickness:params.bevelThickness,
-
                 bevelSegments:params.bevelSegments
-
             }
-
         );
-
         if(params.center){
-
             geometry.center();
-
         }
-
         const mesh = new THREE.Mesh(
-
             geometry,
-
             params.material
-
         );
-
         mesh.castShadow = true;
         mesh.receiveShadow = true;
-
         this.scene.add(mesh);
-
         const feature = {
-
             type:"Extrude",
-
             sketch,
-
             mesh,
-
             params
 
         };
-
         this.features.push(feature);
-
         this.featureTree?.addFeature("Extrude",feature);
-
         return feature;
-
     }
-
-    ///////////////////////////////////////////////////////
-
     rebuild(feature){
-
         this.scene.remove(feature.mesh);
-
         feature.mesh.geometry.dispose();
-
         const newFeature = this.extrude(
-
             feature.sketch,
-
             feature.params
-
         );
-
         feature.mesh = newFeature.mesh;
 
     }
-
-    ///////////////////////////////////////////////////////
-
     remove(feature){
-
         this.scene.remove(feature.mesh);
-
         feature.mesh.geometry.dispose();
-
         this.features = this.features.filter(
-
             f=>f!==feature
-
         );
-
     }
-
-    ///////////////////////////////////////////////////////
     // Shape Builder
-    ///////////////////////////////////////////////////////
-
     buildShape(sketch){
-
         if(!sketch) return null;
-
         const shape = new THREE.Shape();
-
         let started=false;
-
         for(const entity of sketch.entities){
-
             switch(entity.type){
-
                 case "line":
-
                     if(!started){
-
                         shape.moveTo(
-
                             entity.start.x,
-
                             entity.start.y
-
                         );
-
                         started=true;
-
                     }
-
                     shape.lineTo(
-
                         entity.end.x,
 
                         entity.end.y
 
                     );
-
                 break;
-
                 case "circle":
-
                     shape.absarc(
-
                         entity.center.x,
-
                         entity.center.y,
-
                         entity.radius,
-
                         0,
-
                         Math.PI*2
-
                     );
-
                 break;
-
                 case "arc":
-
                     shape.absarc(
-
                         entity.center.x,
-
                         entity.center.y,
-
                         entity.radius,
-
                         entity.startAngle,
-
                         entity.endAngle
-
                     );
-
                 break;
 
             }
@@ -2725,91 +2554,47 @@ export class ExtrudeSystem{
     show(feature){
 
         feature.mesh.visible=true;
-
     }
-
 }    
-
-import * as THREE from "https://esm.sh/three@0.165.0";
-
 export class RevolveSystem{
-
     constructor(scene, featureTree){
-
         this.scene = scene;
-
         this.featureTree = featureTree;
-
         this.features = [];
-
         this.material = new THREE.MeshStandardMaterial({
-
             color:0xbfc8d5,
-
             roughness:0.45,
-
             metalness:0.3
-
         });
 
     }
-
-    ////////////////////////////////////////////////////////
-
     revolve(sketch, options={}){
-
         const params={
-
             segments: options.segments ?? 64,
-
             angle: options.angle ?? Math.PI*2,
-
             axis: options.axis ?? "Y",
-
             material: options.material ?? this.material
-
         };
-
         const profile = this.buildProfile(sketch);
-
         if(profile.length<2){
-
             console.warn("Need at least two profile points.");
-
             return null;
-
         }
-
         const geometry = new THREE.LatheGeometry(
-
             profile,
-
             params.segments,
-
             0,
-
             params.angle
-
         );
-
         if(params.axis==="X"){
-
             geometry.rotateZ(Math.PI/2);
-
         }
-
         if(params.axis==="Z"){
-
             geometry.rotateX(Math.PI/2);
-
         }
-
         const mesh = new THREE.Mesh(
-
             geometry,
-
             params.material
-
         );
 
         mesh.castShadow=true;
@@ -2927,102 +2712,46 @@ export class RevolveSystem{
                     const steps=24;
 
                     for(let i=0;i<=steps;i++){
-
                         const t=i/steps;
-
                         const a=
-
                         entity.startAngle+
-
                         (entity.endAngle-
-
                          entity.startAngle)*t;
-
                         pts.push(
-
                             new THREE.Vector2(
-
                                 entity.center.x+
-
                                 Math.cos(a)*entity.radius,
-
                                 entity.center.y+
-
                                 Math.sin(a)*entity.radius
-
                             )
-
                         );
-
                     }
-
                 }
-
                 break;
-
             }
-
         }
-
         return pts;
-
     }
-
-    ////////////////////////////////////////////////////////
-
     setSegments(feature,n){
-
         feature.params.segments=n;
-
         this.rebuild(feature);
-
     }
-
-    ////////////////////////////////////////////////////////
-
     setAngle(feature,radians){
-
         feature.params.angle=radians;
-
         this.rebuild(feature);
-
     }
-
-    ////////////////////////////////////////////////////////
-
-    setAxis(feature,axis){
-
         feature.params.axis=axis;
-
         this.rebuild(feature);
-
     }
-
-    ////////////////////////////////////////////////////////
-
     hide(feature){
-
         feature.mesh.visible=false;
-
     }
-
     show(feature){
-
         feature.mesh.visible=true;
-
     }
-
 }    
-
-    import * as THREE from "https://esm.sh/three@0.165.0";
-
-/*
-    NOTE
-
-    This is a scaffold.
-
+/*  This is a scaffold.
     Initially it simply manages Boolean features.
-
     Later the geometry operations can be replaced with:
 
         - three-bvh-csg
@@ -3446,60 +3175,30 @@ export class MateSystem{
         const dir=new THREE.Vector3()
 
             .subVectors(
-
                 mate.partA.position,
-
                 mate.partB.position
-
             );
-
         dir.normalize();
-
         mate.partA.position.copy(
-
             mate.partB.position
-
             .clone()
-
             .add(
-
                 dir.multiplyScalar(
-
                     mate.value
-
                 )
-
             )
-
         );
-
     }
-
-    ////////////////////////////////////////////////////////
-
     solveAngle(mate){
-
         mate.partA.rotation.y =
             mate.value;
-
     }
-
-    ////////////////////////////////////////////////////////
-
     solveParallel(mate){
-
         mate.partA.quaternion.copy(
-
             mate.partB.quaternion
-
         );
-
     }
-
-    ////////////////////////////////////////////////////////
-
     solveWidth(mate){
-
         /*
             Width Mate
 
@@ -3510,33 +3209,18 @@ export class MateSystem{
             Initial scaffold simply
             aligns centers.
         */
-
         mate.partA.position.x =
             mate.partB.position.x;
 
     }
-
-    ////////////////////////////////////////////////////////
-
     remove(mate){
-
         const i=this.mates.indexOf(mate);
-
         if(i>=0){
-
             this.mates.splice(i,1);
-
         }
-
     }
-
-    ////////////////////////////////////////////////////////
-
     clear(){
-
         this.mates=[];
-
     }
-
 }
 </script>
