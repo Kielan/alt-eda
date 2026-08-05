@@ -2653,6 +2653,549 @@ export class SplineBuilder {
     }
 
 }    
-  
-  
+
+import * as THREE from "https://esm.sh/three@0.165.0";
+
+export class ExtrudeSystem{
+
+    constructor(scene, featureTree){
+
+        this.scene = scene;
+        this.featureTree = featureTree;
+
+        this.features = [];
+        this.material = new THREE.MeshStandardMaterial({
+            color:0x9aa6b2,
+            roughness:0.45,
+            metalness:0.25
+        });
+
+    }
+
+    ///////////////////////////////////////////////////////
+    // Public API
+    ///////////////////////////////////////////////////////
+
+    extrude(sketch, options={}){
+
+        const params = {
+
+            depth: options.depth ?? 5,
+            bevelEnabled: options.bevelEnabled ?? false,
+            bevelSize: options.bevelSize ?? 0.1,
+            bevelThickness: options.bevelThickness ?? 0.1,
+            bevelSegments: options.bevelSegments ?? 2,
+            center: options.center ?? false,
+            material: options.material ?? this.material
+
+        };
+
+        const shape = this.buildShape(sketch);
+
+        if(!shape){
+
+            console.warn("Extrude failed: sketch is not closed.");
+
+            return null;
+
+        }
+
+        const geometry = new THREE.ExtrudeGeometry(
+
+            shape,
+
+            {
+
+                depth:params.depth,
+
+                bevelEnabled:params.bevelEnabled,
+
+                bevelSize:params.bevelSize,
+
+                bevelThickness:params.bevelThickness,
+
+                bevelSegments:params.bevelSegments
+
+            }
+
+        );
+
+        if(params.center){
+
+            geometry.center();
+
+        }
+
+        const mesh = new THREE.Mesh(
+
+            geometry,
+
+            params.material
+
+        );
+
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        this.scene.add(mesh);
+
+        const feature = {
+
+            type:"Extrude",
+
+            sketch,
+
+            mesh,
+
+            params
+
+        };
+
+        this.features.push(feature);
+
+        this.featureTree?.addFeature("Extrude",feature);
+
+        return feature;
+
+    }
+
+    ///////////////////////////////////////////////////////
+
+    rebuild(feature){
+
+        this.scene.remove(feature.mesh);
+
+        feature.mesh.geometry.dispose();
+
+        const newFeature = this.extrude(
+
+            feature.sketch,
+
+            feature.params
+
+        );
+
+        feature.mesh = newFeature.mesh;
+
+    }
+
+    ///////////////////////////////////////////////////////
+
+    remove(feature){
+
+        this.scene.remove(feature.mesh);
+
+        feature.mesh.geometry.dispose();
+
+        this.features = this.features.filter(
+
+            f=>f!==feature
+
+        );
+
+    }
+
+    ///////////////////////////////////////////////////////
+    // Shape Builder
+    ///////////////////////////////////////////////////////
+
+    buildShape(sketch){
+
+        if(!sketch) return null;
+
+        const shape = new THREE.Shape();
+
+        let started=false;
+
+        for(const entity of sketch.entities){
+
+            switch(entity.type){
+
+                case "line":
+
+                    if(!started){
+
+                        shape.moveTo(
+
+                            entity.start.x,
+
+                            entity.start.y
+
+                        );
+
+                        started=true;
+
+                    }
+
+                    shape.lineTo(
+
+                        entity.end.x,
+
+                        entity.end.y
+
+                    );
+
+                break;
+
+                case "circle":
+
+                    shape.absarc(
+
+                        entity.center.x,
+
+                        entity.center.y,
+
+                        entity.radius,
+
+                        0,
+
+                        Math.PI*2
+
+                    );
+
+                break;
+
+                case "arc":
+
+                    shape.absarc(
+
+                        entity.center.x,
+
+                        entity.center.y,
+
+                        entity.radius,
+
+                        entity.startAngle,
+
+                        entity.endAngle
+
+                    );
+
+                break;
+
+            }
+
+        }
+
+        return shape;
+
+    }
+
+    ///////////////////////////////////////////////////////
+
+    setDepth(feature,depth){
+
+        feature.params.depth = depth;
+
+        this.rebuild(feature);
+
+    }
+
+    ///////////////////////////////////////////////////////
+
+    setMaterial(feature,mat){
+
+        feature.mesh.material = mat;
+
+    }
+
+    ///////////////////////////////////////////////////////
+
+    hide(feature){
+
+        feature.mesh.visible=false;
+
+    }
+
+    show(feature){
+
+        feature.mesh.visible=true;
+
+    }
+
+}    
+
+import * as THREE from "https://esm.sh/three@0.165.0";
+
+export class RevolveSystem{
+
+    constructor(scene, featureTree){
+
+        this.scene = scene;
+
+        this.featureTree = featureTree;
+
+        this.features = [];
+
+        this.material = new THREE.MeshStandardMaterial({
+
+            color:0xbfc8d5,
+
+            roughness:0.45,
+
+            metalness:0.3
+
+        });
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    revolve(sketch, options={}){
+
+        const params={
+
+            segments: options.segments ?? 64,
+
+            angle: options.angle ?? Math.PI*2,
+
+            axis: options.axis ?? "Y",
+
+            material: options.material ?? this.material
+
+        };
+
+        const profile = this.buildProfile(sketch);
+
+        if(profile.length<2){
+
+            console.warn("Need at least two profile points.");
+
+            return null;
+
+        }
+
+        const geometry = new THREE.LatheGeometry(
+
+            profile,
+
+            params.segments,
+
+            0,
+
+            params.angle
+
+        );
+
+        if(params.axis==="X"){
+
+            geometry.rotateZ(Math.PI/2);
+
+        }
+
+        if(params.axis==="Z"){
+
+            geometry.rotateX(Math.PI/2);
+
+        }
+
+        const mesh = new THREE.Mesh(
+
+            geometry,
+
+            params.material
+
+        );
+
+        mesh.castShadow=true;
+
+        mesh.receiveShadow=true;
+
+        this.scene.add(mesh);
+
+        const feature={
+
+            type:"Revolve",
+
+            mesh,
+
+            sketch,
+
+            params
+
+        };
+
+        this.features.push(feature);
+
+        this.featureTree?.addFeature(
+
+            "Revolve",
+
+            feature
+
+        );
+
+        return feature;
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    rebuild(feature){
+
+        this.scene.remove(feature.mesh);
+
+        feature.mesh.geometry.dispose();
+
+        const rebuilt=this.revolve(
+
+            feature.sketch,
+
+            feature.params
+
+        );
+
+        feature.mesh=rebuilt.mesh;
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    remove(feature){
+
+        this.scene.remove(feature.mesh);
+
+        feature.mesh.geometry.dispose();
+
+        this.features=this.features.filter(
+
+            f=>f!==feature
+
+        );
+
+    }
+
+    ////////////////////////////////////////////////////////
+    // Build Lathe Profile
+    ////////////////////////////////////////////////////////
+
+    buildProfile(sketch){
+
+        const pts=[];
+
+        for(const entity of sketch.entities){
+
+            switch(entity.type){
+
+                case "line":
+
+                    pts.push(
+
+                        new THREE.Vector2(
+
+                            entity.start.x,
+
+                            entity.start.y
+
+                        )
+
+                    );
+
+                    pts.push(
+
+                        new THREE.Vector2(
+
+                            entity.end.x,
+
+                            entity.end.y
+
+                        )
+
+                    );
+
+                break;
+
+                case "arc":
+
+                {
+
+                    const steps=24;
+
+                    for(let i=0;i<=steps;i++){
+
+                        const t=i/steps;
+
+                        const a=
+
+                        entity.startAngle+
+
+                        (entity.endAngle-
+
+                         entity.startAngle)*t;
+
+                        pts.push(
+
+                            new THREE.Vector2(
+
+                                entity.center.x+
+
+                                Math.cos(a)*entity.radius,
+
+                                entity.center.y+
+
+                                Math.sin(a)*entity.radius
+
+                            )
+
+                        );
+
+                    }
+
+                }
+
+                break;
+
+            }
+
+        }
+
+        return pts;
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    setSegments(feature,n){
+
+        feature.params.segments=n;
+
+        this.rebuild(feature);
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    setAngle(feature,radians){
+
+        feature.params.angle=radians;
+
+        this.rebuild(feature);
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    setAxis(feature,axis){
+
+        feature.params.axis=axis;
+
+        this.rebuild(feature);
+
+    }
+
+    ////////////////////////////////////////////////////////
+
+    hide(feature){
+
+        feature.mesh.visible=false;
+
+    }
+
+    show(feature){
+
+        feature.mesh.visible=true;
+
+    }
+
+}    
 </script>
