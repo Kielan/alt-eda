@@ -9910,7 +9910,1654 @@ export function createWiringHarness(
 
 }//end WiringHarness
 
-        
+        import * as THREE from "three";
+
+import {
+    IGNITION_STATES,
+    IGNITION_STATE_NAMES
+} from "./IgnitionSwitch.js";
+
+
+/* ================================================================
+   KEY ANIMATION CONTROLLER
+   ================================================================
+
+   Controls:
+
+       OFF
+        ↓
+       ACC
+        ↓
+       ON
+        ↓
+      START
+        ↓
+       ON
+
+   START is momentary and spring returns to ON.
+
+   The controller is intentionally independent from the
+   visual geometry. It communicates with IgnitionSwitch
+   through its public state API.
+
+   ================================================================ */
+
+
+/* ================================================================
+   DEFAULT SETTINGS
+   ================================================================ */
+
+const DEFAULT_OPTIONS = {
+
+    rotationSpeed:
+        7.5,
+
+    springSpeed:
+        11.0,
+
+    insertionSpeed:
+        8.0,
+
+    removalSpeed:
+        8.0,
+
+    detentTolerance:
+        0.001,
+
+    keyInsertionDepth:
+        0,
+
+    keyRemovalDepth:
+        18,
+
+    enableSpringReturn:
+        true,
+
+    startHoldTime:
+        0.0,
+
+    smoothRotation:
+        true
+
+};
+
+
+/* ================================================================
+   KEY ANIMATION
+   ================================================================ */
+
+export class KeyAnimation extends THREE.Object3D {
+
+
+    /* ============================================================
+       CONSTRUCTOR
+       ============================================================ */
+
+    constructor(
+        ignitionSwitch,
+        options = {}
+    ) {
+
+        super();
+
+
+        if (
+            !ignitionSwitch
+        ) {
+
+            throw new Error(
+                "KeyAnimation requires an IgnitionSwitch instance."
+            );
+
+        }
+
+
+        this.name =
+            options.name ||
+            "IgnitionKeyAnimation";
+
+
+        this.ignition =
+            ignitionSwitch;
+
+
+        this.options = {
+
+            ...DEFAULT_OPTIONS,
+
+            ...options
+
+        };
+
+
+        /* --------------------------------------------------------
+           STATE
+           -------------------------------------------------------- */
+
+        this.currentState =
+            IGNITION_STATES.OFF;
+
+
+        this.targetState =
+            IGNITION_STATES.OFF;
+
+
+        this.currentAngle =
+            0;
+
+
+        this.targetAngle =
+            0;
+
+
+        this.keyDepth =
+            this.options.keyRemovalDepth;
+
+
+        this.targetKeyDepth =
+            this.options.keyRemovalDepth;
+
+
+        this.inserted =
+            false;
+
+
+        this.locked =
+            false;
+
+
+        this.startHeld =
+            false;
+
+
+        this.startTimer =
+            0;
+
+
+        this.transitioning =
+            false;
+
+
+        this.springReturning =
+            false;
+
+
+        this.rotationVelocity =
+            0;
+
+
+        this.depthVelocity =
+            0;
+
+
+        /* --------------------------------------------------------
+           EVENTS
+           -------------------------------------------------------- */
+
+        this.events = {
+
+            onStateChanged:
+                null,
+
+            onStart:
+                null,
+
+            onStop:
+                null,
+
+            onInserted:
+                null,
+
+            onRemoved:
+                null
+
+        };
+
+
+        /* --------------------------------------------------------
+           KEY REFERENCE
+           -------------------------------------------------------- */
+
+        this.key =
+            null;
+
+
+        /*
+         * If the ignition switch already has a key,
+         * automatically attach it.
+         */
+
+        if (
+            ignitionSwitch.key
+        ) {
+
+            this.attachKey(
+                ignitionSwitch.key
+            );
+
+        }
+
+    }
+
+
+    /* ============================================================
+       ATTACH KEY
+       ============================================================ */
+
+    attachKey(
+        key
+    ) {
+
+        if (
+            !key
+        ) {
+
+            return false;
+
+        }
+
+
+        this.key =
+            key;
+
+
+        /*
+         * The key already belongs to the ignition switch's
+         * lock group. We do not re-parent it.
+
+         * The animation controller manipulates its transform
+         * directly.
+         */
+
+        this.originalPosition =
+            key.position.clone();
+
+
+        this.originalRotation =
+            key.rotation.clone();
+
+
+        this.keyDepth =
+            this.options.keyInsertionDepth;
+
+
+        this.targetKeyDepth =
+            this.options.keyInsertionDepth;
+
+
+        this.inserted =
+            true;
+
+
+        this.updateKeyTransform(
+            true
+        );
+
+
+        if (
+            this.events.onInserted
+        ) {
+
+            this.events.onInserted(
+                this.key
+            );
+
+        }
+
+
+        return true;
+
+    }
+
+
+    /* ============================================================
+       INSERT KEY
+       ============================================================ */
+
+    insertKey() {
+
+        if (
+            !this.key
+        ) {
+
+            /*
+             * Ask the ignition switch to create one.
+             */
+
+            if (
+                typeof this.ignition.createKey ===
+                "function"
+            ) {
+
+                this.key =
+                    this.ignition.createKey();
+
+                this.originalPosition =
+                    this.key.position.clone();
+
+                this.originalRotation =
+                    this.key.rotation.clone();
+
+            }
+
+        }
+
+
+        if (
+            !this.key
+        ) {
+
+            return false;
+
+        }
+
+
+        this.inserted =
+            true;
+
+
+        this.targetKeyDepth =
+            this.options.keyInsertionDepth;
+
+
+        this.transitioning =
+            true;
+
+
+        this.springReturning =
+            false;
+
+
+        return true;
+
+    }
+
+
+    /* ============================================================
+       REMOVE KEY
+       ============================================================ */
+
+    removeKey() {
+
+        /*
+         * A real ignition lock cannot remove the key while
+         * the selector is in ACC, ON, or START.
+         */
+
+        if (
+            this.currentState !==
+            IGNITION_STATES.OFF
+        ) {
+
+            return false;
+
+        }
+
+
+        this.inserted =
+            false;
+
+
+        this.targetKeyDepth =
+            this.options.keyRemovalDepth;
+
+
+        this.transitioning =
+            true;
+
+
+        return true;
+
+    }
+
+
+    /* ============================================================
+       CAN TURN?
+       ============================================================ */
+
+    canTurn() {
+
+        return (
+
+            this.inserted &&
+
+            !this.locked
+
+        );
+
+    }
+
+
+    /* ============================================================
+       SET STATE
+       ============================================================ */
+
+    setState(
+        state
+    ) {
+
+        if (
+            !this.canTurn()
+        ) {
+
+            return false;
+
+        }
+
+
+        state =
+            THREE.MathUtils.clamp(
+                Math.round(state),
+                IGNITION_STATES.OFF,
+                IGNITION_STATES.START
+            );
+
+
+        this.targetState =
+            state;
+
+
+        this.targetAngle =
+            this.ignition.getStateAngle(
+                state
+            );
+
+
+        this.transitioning =
+            true;
+
+
+        /*
+         * START is being actively requested.
+         */
+
+        if (
+            state ===
+            IGNITION_STATES.START
+        ) {
+
+            this.startHeld =
+                true;
+
+
+            this.springReturning =
+                false;
+
+        }
+        else {
+
+            this.startHeld =
+                false;
+
+        }
+
+
+        return true;
+
+    }
+
+
+    /* ============================================================
+       SET STATE BY NAME
+       ============================================================ */
+
+    setStateByName(
+        name
+    ) {
+
+        const normalized =
+            String(
+                name
+            )
+            .trim()
+            .toUpperCase();
+
+
+        const state =
+            IGNITION_STATES[
+                normalized
+            ];
+
+
+        if (
+            state === undefined
+        ) {
+
+            return false;
+
+        }
+
+
+        return this.setState(
+            state
+        );
+
+    }
+
+
+    /* ============================================================
+       TURN TO ACC
+       ============================================================ */
+
+    turnToAccessory() {
+
+        return this.setState(
+            IGNITION_STATES.ACC
+        );
+
+    }
+
+
+    /* ============================================================
+       TURN TO ON
+       ============================================================ */
+
+    turnToOn() {
+
+        return this.setState(
+            IGNITION_STATES.ON
+        );
+
+    }
+
+
+    /* ============================================================
+       TURN TO START
+       ============================================================ */
+
+    turnToStart() {
+
+        if (
+            !this.canTurn()
+        ) {
+
+            return false;
+
+        }
+
+
+        this.startHeld =
+            true;
+
+
+        return this.setState(
+            IGNITION_STATES.START
+        );
+
+    }
+
+
+    /* ============================================================
+       RELEASE START
+       ============================================================ */
+
+    releaseStart() {
+
+        if (
+            this.targetState !==
+            IGNITION_STATES.START
+        ) {
+
+            return false;
+
+        }
+
+
+        this.startHeld =
+            false;
+
+
+        if (
+            this.options.enableSpringReturn
+        ) {
+
+            this.springReturning =
+                true;
+
+
+            this.targetState =
+                IGNITION_STATES.ON;
+
+
+            this.targetAngle =
+                this.ignition.getStateAngle(
+                    IGNITION_STATES.ON
+                );
+
+        }
+        else {
+
+            this.targetState =
+                IGNITION_STATES.ON;
+
+        }
+
+
+        return true;
+
+    }
+
+
+    /* ============================================================
+       TURN CLOCKWISE
+       ============================================================ */
+
+    turnClockwise() {
+
+        if (
+            !this.canTurn()
+        ) {
+
+            return false;
+
+        }
+
+
+        const next =
+            Math.min(
+
+                this.targetState + 1,
+
+                IGNITION_STATES.START
+
+            );
+
+
+        return this.setState(
+            next
+        );
+
+    }
+
+
+    /* ============================================================
+       TURN COUNTER-CLOCKWISE
+       ============================================================ */
+
+    turnCounterClockwise() {
+
+        if (
+            !this.canTurn()
+        ) {
+
+            return false;
+
+        }
+
+
+        const next =
+            Math.max(
+
+                this.targetState - 1,
+
+                IGNITION_STATES.OFF
+
+            );
+
+
+        return this.setState(
+            next
+        );
+
+    }
+
+
+    /* ============================================================
+       RETURN TO OFF
+       ============================================================ */
+
+    returnToOff() {
+
+        return this.setState(
+            IGNITION_STATES.OFF
+        );
+
+    }
+
+
+    /* ============================================================
+       LOCK KEY
+       ============================================================ */
+
+    lockKey() {
+
+        this.locked =
+            true;
+
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       UNLOCK KEY
+       ============================================================ */
+
+    unlockKey() {
+
+        this.locked =
+            false;
+
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       ROTATION INTERPOLATION
+       ============================================================ */
+
+    updateRotation(
+        deltaTime
+    ) {
+
+        const difference =
+            THREE.MathUtils.euclideanModulo(
+
+                this.targetAngle -
+                this.currentAngle +
+                Math.PI,
+
+                Math.PI * 2
+
+            ) -
+            Math.PI;
+
+
+        if (
+            Math.abs(
+                difference
+            ) <=
+            this.options.detentTolerance
+        ) {
+
+            this.currentAngle =
+                this.targetAngle;
+
+
+            return true;
+
+        }
+
+
+        if (
+            this.options.smoothRotation
+        ) {
+
+            /*
+             * Smooth exponential approach.
+
+             * This gives the key a mechanical damping effect.
+             */
+
+            const alpha =
+                1 -
+                Math.exp(
+                    -this.options.rotationSpeed *
+                    deltaTime
+                );
+
+
+            this.currentAngle +=
+                difference *
+                alpha;
+
+        }
+        else {
+
+            const step =
+                this.options.rotationSpeed *
+                deltaTime;
+
+
+            this.currentAngle +=
+                THREE.MathUtils.clamp(
+                    difference,
+                    -step,
+                    step
+                );
+
+        }
+
+
+        return false;
+
+    }
+
+
+    /* ============================================================
+       DEPTH INTERPOLATION
+       ============================================================ */
+
+    updateDepth(
+        deltaTime
+    ) {
+
+        const difference =
+            this.targetKeyDepth -
+            this.keyDepth;
+
+
+        if (
+            Math.abs(
+                difference
+            ) <
+            0.001
+        ) {
+
+            this.keyDepth =
+                this.targetKeyDepth;
+
+
+            return true;
+
+        }
+
+
+        const speed =
+            this.keyDepth <
+            this.targetKeyDepth
+
+                ? this.options.removalSpeed
+
+                : this.options.insertionSpeed;
+
+
+        const alpha =
+            1 -
+            Math.exp(
+                -speed *
+                deltaTime
+            );
+
+
+        this.keyDepth +=
+            difference *
+            alpha;
+
+
+        return false;
+
+    }
+
+
+    /* ============================================================
+       APPLY KEY TRANSFORM
+       ============================================================ */
+
+    updateKeyTransform(
+        immediate = false
+    ) {
+
+        if (
+            !this.key
+        ) {
+
+            return;
+
+        }
+
+
+        /*
+         * The ignition model uses Y as its longitudinal axis.
+
+         * The key is therefore rotated around local Y.
+         */
+
+        this.key.rotation.y =
+            this.currentAngle;
+
+
+        /*
+         * Key insertion/removal is represented by movement
+         * along Y.
+
+         * The original key position is the fully inserted
+         * position.
+         */
+
+        if (
+            this.originalPosition
+        ) {
+
+            this.key.position.copy(
+                this.originalPosition
+            );
+
+
+            this.key.position.y +=
+                this.keyDepth;
+
+        }
+
+
+        /*
+         * The ignition switch itself follows the same
+         * mechanical selector angle.
+         */
+
+        if (
+            this.ignition
+        ) {
+
+            this.ignition.selectorAngle =
+                this.currentAngle;
+
+
+            this.ignition.targetSelectorAngle =
+                this.currentAngle;
+
+
+            this.ignition.applySelectorTransform();
+
+        }
+
+    }
+
+
+    /* ============================================================
+       UPDATE IGNITION SWITCH
+       ============================================================ */
+
+    syncIgnitionState() {
+
+        const state =
+            this.targetState;
+
+
+        if (
+            this.ignition.getState() !==
+            state
+        ) {
+
+            this.ignition.setState(
+                state
+            );
+
+        }
+
+
+        /*
+         * Keep electrical outputs synchronized.
+
+         */
+
+        if (
+            typeof this.ignition.updateElectricalState ===
+            "function"
+        ) {
+
+            this.ignition.updateElectricalState();
+
+        }
+
+    }
+
+
+    /* ============================================================
+       STATE TRANSITION COMPLETE
+       ============================================================ */
+
+    checkStateTransition() {
+
+        const targetAngle =
+            this.ignition.getStateAngle(
+                this.targetState
+            );
+
+
+        const difference =
+            Math.abs(
+                this.currentAngle -
+                targetAngle
+            );
+
+
+        if (
+            difference >
+            this.options.detentTolerance
+        ) {
+
+            return;
+
+        }
+
+
+        const previousState =
+            this.currentState;
+
+
+        this.currentState =
+            this.targetState;
+
+
+        this.transitioning =
+            false;
+
+
+        if (
+            previousState !==
+            this.currentState
+        ) {
+
+            this.syncIgnitionState();
+
+
+            if (
+                this.events.onStateChanged
+            ) {
+
+                this.events.onStateChanged(
+
+                    this.currentState,
+
+                    previousState,
+
+                    IGNITION_STATE_NAMES[
+                        this.currentState
+                    ]
+
+                );
+
+            }
+
+
+            /*
+             * START event.
+             */
+
+            if (
+                this.currentState ===
+                IGNITION_STATES.START
+            ) {
+
+                if (
+                    this.events.onStart
+                ) {
+
+                    this.events.onStart();
+
+                }
+
+            }
+
+
+            /*
+             * ON after START means starter released.
+             */
+
+            if (
+                previousState ===
+                IGNITION_STATES.START &&
+
+                this.currentState ===
+                IGNITION_STATES.ON
+            ) {
+
+                if (
+                    this.events.onStop
+                ) {
+
+                    this.events.onStop();
+
+                }
+
+            }
+
+        }
+
+    }
+
+
+    /* ============================================================
+       CHECK KEY INSERTION
+       ============================================================ */
+
+    checkInsertion() {
+
+        const difference =
+            Math.abs(
+                this.keyDepth -
+                this.targetKeyDepth
+            );
+
+
+        if (
+            difference >
+            0.01
+        ) {
+
+            return;
+
+        }
+
+
+        /*
+         * Key has reached inserted position.
+         */
+
+        if (
+            this.targetKeyDepth ===
+            this.options.keyInsertionDepth
+        ) {
+
+            if (
+                !this.inserted
+            ) {
+
+                this.inserted =
+                    true;
+
+
+                if (
+                    this.events.onInserted
+                ) {
+
+                    this.events.onInserted(
+                        this.key
+                    );
+
+                }
+
+            }
+
+        }
+
+
+        /*
+         * Key has reached removal position.
+         */
+
+        if (
+            this.targetKeyDepth ===
+            this.options.keyRemovalDepth
+        ) {
+
+            if (
+                this.inserted
+            ) {
+
+                this.inserted =
+                    false;
+
+
+                if (
+                    this.events.onRemoved
+                ) {
+
+                    this.events.onRemoved(
+                        this.key
+                    );
+
+                }
+
+            }
+
+        }
+
+    }
+
+
+    /* ============================================================
+       START SPRING RETURN
+       ============================================================ */
+
+    updateSpringReturn(
+        deltaTime
+    ) {
+
+        if (
+            !this.springReturning
+        ) {
+
+            return;
+
+        }
+
+
+        /*
+         * Once the key has reached ON, stop the spring animation.
+         */
+
+        const onAngle =
+            this.ignition.getStateAngle(
+                IGNITION_STATES.ON
+            );
+
+
+        const difference =
+            Math.abs(
+                this.currentAngle -
+                onAngle
+            );
+
+
+        if (
+            difference <
+            this.options.detentTolerance
+        ) {
+
+            this.currentAngle =
+                onAngle;
+
+
+            this.springReturning =
+                false;
+
+
+            this.startHeld =
+                false;
+
+
+            this.currentState =
+                IGNITION_STATES.ON;
+
+
+            this.targetState =
+                IGNITION_STATES.ON;
+
+
+            this.syncIgnitionState();
+
+
+            if (
+                this.events.onStop
+            ) {
+
+                this.events.onStop();
+
+            }
+
+
+            return;
+
+        }
+
+
+        /*
+         * Spring-return uses a slightly faster response
+         * than normal selector rotation.
+         */
+
+        const alpha =
+            1 -
+            Math.exp(
+                -this.options.springSpeed *
+                deltaTime
+            );
+
+
+        this.currentAngle +=
+            (
+                onAngle -
+                this.currentAngle
+            ) *
+            alpha;
+
+
+        this.targetAngle =
+            onAngle;
+
+
+        this.updateKeyTransform();
+
+    }
+
+
+    /* ============================================================
+       UPDATE
+       ============================================================ */
+
+    update(
+        deltaTime
+    ) {
+
+        if (
+            !Number.isFinite(
+                deltaTime
+            )
+        ) {
+
+            return;
+
+        }
+
+
+        /*
+         * Clamp unusually large frame times so the
+         * mechanism cannot teleport.
+         */
+
+        deltaTime =
+            Math.min(
+                deltaTime,
+                0.1
+            );
+
+
+        /*
+         * Key insertion/removal.
+
+         */
+
+        this.updateDepth(
+            deltaTime
+        );
+
+
+        this.checkInsertion();
+
+
+        /*
+         * Do not rotate until key is sufficiently inserted.
+         */
+
+        const depthDifference =
+            Math.abs(
+                this.keyDepth -
+                this.options.keyInsertionDepth
+            );
+
+
+        if (
+            this.inserted &&
+            depthDifference <
+            0.5
+        ) {
+
+            /*
+             * START spring-return gets priority.
+             */
+
+            if (
+                this.springReturning
+            ) {
+
+                this.updateSpringReturn(
+                    deltaTime
+                );
+
+            }
+            else {
+
+                this.updateRotation(
+                    deltaTime
+                );
+
+            }
+
+        }
+
+
+        /*
+         * Apply transform.
+
+         */
+
+        this.updateKeyTransform();
+
+
+        /*
+         * Detect detent completion.
+
+         */
+
+        if (
+            !this.springReturning
+        ) {
+
+            this.checkStateTransition();
+
+        }
+
+
+        /*
+         * START hold timer.
+
+         */
+
+        if (
+            this.startHeld
+        ) {
+
+            this.startTimer +=
+                deltaTime;
+
+        }
+
+    }
+
+
+    /* ============================================================
+       GET STATE
+       ============================================================ */
+
+    getState() {
+
+        return this.currentState;
+
+    }
+
+
+    /* ============================================================
+       GET TARGET STATE
+       ============================================================ */
+
+    getTargetState() {
+
+        return this.targetState;
+
+    }
+
+
+    /* ============================================================
+       GET STATE NAME
+       ============================================================ */
+
+    getStateName() {
+
+        return IGNITION_STATE_NAMES[
+            this.currentState
+        ];
+
+    }
+
+
+    /* ============================================================
+       GET TARGET STATE NAME
+       ============================================================ */
+
+    getTargetStateName() {
+
+        return IGNITION_STATE_NAMES[
+            this.targetState
+        ];
+
+    }
+
+
+    /* ============================================================
+       GET ANGLE
+       ============================================================ */
+
+    getAngle() {
+
+        return this.currentAngle;
+
+    }
+
+
+    /* ============================================================
+       GET KEY DEPTH
+       ============================================================ */
+
+    getKeyDepth() {
+
+        return this.keyDepth;
+
+    }
+
+
+    /* ============================================================
+       IS INSERTED
+       ============================================================ */
+
+    isInserted() {
+
+        return this.inserted;
+
+    }
+
+
+    /* ============================================================
+       IS STARTING
+       ============================================================ */
+
+    isStarting() {
+
+        return (
+
+            this.currentState ===
+            IGNITION_STATES.START
+
+        );
+
+    }
+
+
+    /* ============================================================
+       IS RETURNING
+       ============================================================ */
+
+    isSpringReturning() {
+
+        return this.springReturning;
+
+    }
+
+
+    /* ============================================================
+       RESET
+       ============================================================ */
+
+    reset() {
+
+        this.startHeld =
+            false;
+
+
+        this.springReturning =
+            false;
+
+
+        this.currentState =
+            IGNITION_STATES.OFF;
+
+
+        this.targetState =
+            IGNITION_STATES.OFF;
+
+
+        this.currentAngle =
+            this.ignition.getStateAngle(
+                IGNITION_STATES.OFF
+            );
+
+
+        this.targetAngle =
+            this.currentAngle;
+
+
+        this.keyDepth =
+            this.options.keyInsertionDepth;
+
+
+        this.targetKeyDepth =
+            this.options.keyInsertionDepth;
+
+
+        this.inserted =
+            true;
+
+
+        this.ignition.setState(
+            IGNITION_STATES.OFF,
+            true
+        );
+
+
+        this.updateKeyTransform(
+            true
+        );
+
+
+        return this;
+
+    }
+    /* ============================================================
+       EVENT CALLBACKS */
+    onStateChanged(
+        callback
+    ) {
+        this.events.onStateChanged =
+            callback;
+        return this;
+    }
+    onStart(
+        callback
+    ) {
+        this.events.onStart =
+            callback;
+        return this;
+    }
+
+    onStop(
+        callback
+    ) {
+        this.events.onStop =
+            callback;
+        return this;
+    }
+    onInserted(callback) {
+        this.events.onInserted =
+            callback;
+        return this;
+    }
+    onRemoved(callback) {
+        this.events.onRemoved =
+            callback;
+        return this;
+    }
+    /* DISPOSE */
+    dispose() {
+        this.key =
+            null;
+        this.ignition =
+            null;
+        this.events.onStateChanged =
+            null;
+        this.events.onStart =
+            null;
+        this.events.onStop =
+            null;
+        this.events.onInserted =
+            null;
+        this.events.onRemoved =
+            null;
+    }
+}
+/* FACTORY */
+export function createKeyAnimation(
+    ignitionSwitch,
+    options = {}
+) {
+    return new KeyAnimation(
+        ignitionSwitch,
+        options
+    );
+}//end KeyAnimation
         
     /* APPLICATION CLASS */
     class IgnitionSwitchDemo {
