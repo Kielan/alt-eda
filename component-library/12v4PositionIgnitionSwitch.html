@@ -11009,109 +11009,57 @@ export class KeyAnimation extends THREE.Object3D {
         );
 
     }
-
-
-    /* ============================================================
-       IS RETURNING
-       ============================================================ */
-
+    /*  IS RETURNING */
     isSpringReturning() {
-
         return this.springReturning;
-
     }
-
-
-    /* ============================================================
-       RESET
-       ============================================================ */
-
+    /* RESET */
     reset() {
-
         this.startHeld =
             false;
-
-
         this.springReturning =
             false;
-
-
         this.currentState =
             IGNITION_STATES.OFF;
-
-
         this.targetState =
             IGNITION_STATES.OFF;
-
-
         this.currentAngle =
             this.ignition.getStateAngle(
                 IGNITION_STATES.OFF
             );
-
-
         this.targetAngle =
             this.currentAngle;
-
-
         this.keyDepth =
             this.options.keyInsertionDepth;
-
-
         this.targetKeyDepth =
             this.options.keyInsertionDepth;
-
-
-        this.inserted =
-            true;
-
-
+        this.inserted = true;
         this.ignition.setState(
             IGNITION_STATES.OFF,
             true
         );
-
-
-        this.updateKeyTransform(
-            true
-        );
-
-
-        return this;
-
-    }
-    /* ============================================================
-       EVENT CALLBACKS */
-    onStateChanged(
-        callback
-    ) {
-        this.events.onStateChanged =
-            callback;
+        this.updateKeyTransform(true);
         return this;
     }
-    onStart(
-        callback
-    ) {
-        this.events.onStart =
-            callback;
+    /* EVENT CALLBACKS */
+    onStateChanged(callback) {
+        this.events.onStateChanged = callback;
         return this;
     }
-
-    onStop(
-        callback
-    ) {
-        this.events.onStop =
-            callback;
+    onStart(callback) {
+        this.events.onStart = callback;
+        return this;
+    }
+    onStop(callback) {
+        this.events.onStop = callback;
         return this;
     }
     onInserted(callback) {
-        this.events.onInserted =
-            callback;
+        this.events.onInserted = callback;
         return this;
     }
     onRemoved(callback) {
-        this.events.onRemoved =
-            callback;
+        this.events.onRemoved = callback;
         return this;
     }
     /* DISPOSE */
