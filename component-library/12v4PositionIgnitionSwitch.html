@@ -7955,7 +7955,1963 @@ export class IgnitionSwitch extends THREE.Group {
     
     }//end IgnitionSwitch
 
+import * as THREE from "three";
 
+import PrimitiveFactory from "./PrimitiveFactory.js";
+import materials from "./Materials.js";
+
+
+/* ================================================================
+   WIRING HARNESS
+   ================================================================
+
+   Rear electrical wiring for the 12V ignition switch.
+
+   Electrical terminals:
+
+       BAT = Battery / constant 12V
+       ACC = Accessory
+       IGN = Ignition
+       ST  = Starter
+
+   Coordinate convention:
+
+       +Y = front
+       -Y = rear
+
+   Wires leave the rear electrical housing toward -Y.
+
+   ================================================================ */
+
+
+/* ================================================================
+   DEFAULT WIRE DEFINITIONS
+   ================================================================ */
+
+export const DEFAULT_WIRES = Object.freeze({
+
+    BAT: {
+
+        name: "BAT",
+
+        color: 0xff2020,
+
+        radius: 1.45,
+
+        length: 32,
+
+        terminalRadius: 3.3
+
+    },
+
+    ACC: {
+
+        name: "ACC",
+
+        color: 0xffc928,
+
+        radius: 1.15,
+
+        length: 34,
+
+        terminalRadius: 2.7
+
+    },
+
+    IGN: {
+
+        name: "IGN",
+
+        color: 0x303030,
+
+        radius: 1.15,
+
+        length: 35,
+
+        terminalRadius: 2.7
+
+    },
+
+    ST: {
+
+        name: "ST",
+
+        color: 0x4b7cff,
+
+        radius: 1.15,
+
+        length: 38,
+
+        terminalRadius: 2.7
+
+    }
+
+});
+
+
+/* ================================================================
+   WIRING HARNESS
+   ================================================================ */
+
+export class WiringHarness extends THREE.Group {
+
+
+    /* ============================================================
+       CONSTRUCTOR
+       ============================================================ */
+
+    constructor(
+        options = {}
+    ) {
+
+        super();
+
+
+        this.name =
+            options.name ||
+            "IgnitionWiringHarness";
+
+
+        this.options =
+            options;
+
+
+        this.wires = {};
+
+        this.terminals = {};
+
+        this.boots = {};
+
+        this.routes = {};
+
+
+        /*
+         * Default rear exit direction.
+         */
+
+        this.exitDirection =
+            new THREE.Vector3(
+                0,
+                -1,
+                0
+            );
+
+
+        /*
+         * Wire definitions.
+
+         * Clone them so individual harnesses can be
+         * modified independently.
+         */
+
+        this.wireDefinitions = {};
+
+
+        Object.entries(
+            DEFAULT_WIRES
+        ).forEach(
+            (
+                [
+                    name,
+                    definition
+                ]
+            ) => {
+
+                this.wireDefinitions[name] = {
+
+                    ...definition,
+
+                    ...(
+                        options.wires?.[name] ||
+                        {}
+                    )
+
+                };
+
+            }
+        );
+
+
+        /*
+         * Main groups.
+         */
+
+        this.groups = {
+
+            connector:
+                new THREE.Group(),
+
+            boots:
+                new THREE.Group(),
+
+            wires:
+                new THREE.Group(),
+
+            terminals:
+                new THREE.Group(),
+
+            labels:
+                new THREE.Group(),
+
+            strainRelief:
+                new THREE.Group()
+
+        };
+
+
+        this.groups.connector.name =
+            "IgnitionConnector";
+
+        this.groups.boots.name =
+            "WireBoots";
+
+        this.groups.wires.name =
+            "Wires";
+
+        this.groups.terminals.name =
+            "WireTerminals";
+
+        this.groups.labels.name =
+            "WireLabels";
+
+        this.groups.strainRelief.name =
+            "StrainRelief";
+
+
+        Object.values(
+            this.groups
+        ).forEach(
+            group => this.add(group)
+        );
+
+
+        this.buildConnector();
+
+        this.buildWireBoots();
+
+        this.buildWires();
+
+        this.buildStrainRelief();
+
+    }
+
+
+    /* ============================================================
+       CREATE WIRE MATERIAL
+       ============================================================ */
+
+    createWireMaterial(
+        definition
+    ) {
+
+        /*
+         * Use MeshStandardMaterial directly rather than
+         * depending on a particular Materials.js implementation.
+         */
+
+        const material =
+            new THREE.MeshStandardMaterial({
+
+                color:
+                    definition.color,
+
+                roughness:
+                    0.72,
+
+                metalness:
+                    0.02
+
+            });
+
+
+        material.name =
+            `${definition.name}_WireMaterial`;
+
+
+        return material;
+
+    }
+
+
+    /* ============================================================
+       CREATE WIRE CURVE
+       ============================================================ */
+
+    createWireCurve(
+        points
+    ) {
+
+        return new THREE.CatmullRomCurve3(
+            points
+        );
+
+    }
+
+
+    /* ============================================================
+       CREATE WIRE MESH
+       ============================================================ */
+
+    createWireMesh(
+        points,
+        definition
+    ) {
+
+        const curve =
+            this.createWireCurve(
+                points
+            );
+
+
+        const geometry =
+            new THREE.TubeGeometry(
+
+                curve,
+
+                definition.segments ??
+                    32,
+
+                definition.radius,
+
+                definition.radialSegments ??
+                    8,
+
+                false
+
+            );
+
+
+        const material =
+            this.createWireMaterial(
+                definition
+            );
+
+
+        const mesh =
+            new THREE.Mesh(
+                geometry,
+                material
+            );
+
+
+        mesh.name =
+            `Wire_${definition.name}`;
+
+
+        mesh.castShadow =
+            true;
+
+        mesh.receiveShadow =
+            true;
+
+
+        return mesh;
+
+    }
+
+
+    /* ============================================================
+       CONNECTOR BODY
+       ============================================================ */
+
+    buildConnector() {
+
+        const width =
+            this.options.connectorWidth ??
+            31;
+
+        const height =
+            this.options.connectorHeight ??
+            20;
+
+        const depth =
+            this.options.connectorDepth ??
+            17;
+
+
+        /*
+         * Main rear connector body.
+         */
+
+        const body =
+            PrimitiveFactory.createBeveledBox(
+
+                width,
+
+                height,
+
+                depth,
+
+                2.0,
+
+                materials.get(
+                    "blackPlastic"
+                ),
+
+                {
+
+                    name:
+                        "IgnitionConnectorBody",
+
+                    bevelSegments:
+                        3,
+
+                    bevelSize:
+                        1.4,
+
+                    bevelThickness:
+                        1.2
+
+                }
+
+            );
+
+
+        body.position.y =
+            this.options.connectorY ??
+            -55;
+
+
+        this.groups.connector.add(
+            body
+        );
+
+
+        this.connectorBody =
+            body;
+
+
+        /*
+         * Front mating collar.
+         */
+
+        const collar =
+            PrimitiveFactory.createBeveledBox(
+
+                width + 3,
+
+                height + 3,
+
+                5,
+
+                materials.get(
+                    "darkPlastic"
+                ),
+
+                {
+
+                    name:
+                        "ConnectorMatingCollar",
+
+                    bevelSegments:
+                        3,
+
+                    bevelSize:
+                        1.0,
+
+                    bevelThickness:
+                        1.0
+
+                }
+
+            );
+
+
+        collar.position.y =
+            body.position.y +
+            depth / 2;
+
+
+        this.groups.connector.add(
+            collar
+        );
+
+
+        /*
+         * Four terminal sockets.
+         */
+
+        const socketSpacing =
+            this.options.socketSpacing ??
+            6.6;
+
+
+        const names = [
+            "BAT",
+            "ACC",
+            "IGN",
+            "ST"
+        ];
+
+
+        names.forEach(
+            (
+                name,
+                index
+            ) => {
+
+                const x =
+                    (
+                        index -
+                        1.5
+                    ) *
+                    socketSpacing;
+
+
+                const socket =
+                    PrimitiveFactory.createCylinder(
+
+                        this.wireDefinitions[
+                            name
+                        ].terminalRadius +
+                        1.0,
+
+                        5,
+
+                        materials.get(
+                            "darkSteel"
+                        ),
+
+                        {
+
+                            name:
+                                `Socket_${name}`,
+
+                            radialSegments:
+                                24,
+
+                            position:
+                                new THREE.Vector3(
+                                    x,
+                                    body.position.y -
+                                    height / 2 -
+                                    2.5,
+                                    0
+                                )
+
+                        }
+
+                    );
+
+
+                this.groups.connector.add(
+                    socket
+                );
+
+
+                /*
+                 * Inner brass contact.
+                 */
+
+                const contact =
+                    PrimitiveFactory.createCylinder(
+
+                        this.wireDefinitions[
+                            name
+                        ].terminalRadius *
+                        0.65,
+
+                        2,
+
+                        materials.get(
+                            "terminal"
+                        ),
+
+                        {
+
+                            name:
+                                `SocketContact_${name}`,
+
+                            radialSegments:
+                                24,
+
+                            position:
+                                new THREE.Vector3(
+                                    x,
+                                    body.position.y -
+                                    height / 2 -
+                                    5.0,
+                                    0
+                                )
+
+                        }
+
+                    );
+
+
+                this.groups.connector.add(
+                    contact
+                );
+
+            }
+        );
+
+
+        /*
+         * Connector locking ridge.
+         */
+
+        const lockingRidge =
+            PrimitiveFactory.createBox(
+
+                width + 2,
+
+                2.5,
+
+                3,
+
+                materials.get(
+                    "blackPlastic"
+                ),
+
+                {
+
+                    name:
+                        "ConnectorLockingRidge",
+
+                    position:
+                        new THREE.Vector3(
+                            0,
+                            body.position.y +
+                            height / 2 +
+                            1.5,
+                            0
+                        )
+
+                }
+
+            );
+
+
+        this.groups.connector.add(
+            lockingRidge
+        );
+
+
+        /*
+         * Connector latch.
+
+         */
+
+        const latch =
+            PrimitiveFactory.createBeveledBox(
+
+                10,
+
+                5,
+
+                4,
+
+                2,
+
+                materials.get(
+                    "blackPlastic"
+                ),
+
+                {
+
+                    name:
+                        "ConnectorLatch",
+
+                    bevelSegments:
+                        2,
+
+                    bevelSize:
+                        0.8,
+
+                    bevelThickness:
+                        0.8,
+
+                    position:
+                        new THREE.Vector3(
+                            0,
+                            body.position.y +
+                            height / 2 +
+                            4,
+                            0
+                        )
+
+                }
+
+            );
+
+
+        this.groups.connector.add(
+            latch
+        );
+
+        this.connectorLatch =
+            latch;
+
+    }
+
+
+    /* ============================================================
+       WIRE BOOTS
+       ============================================================ */
+
+    buildWireBoots() {
+
+        const spacing =
+            this.options.socketSpacing ??
+            6.6;
+
+
+        const connectorY =
+            this.options.connectorY ??
+            -55;
+
+
+        const names = [
+            "BAT",
+            "ACC",
+            "IGN",
+            "ST"
+        ];
+
+
+        names.forEach(
+            (
+                name,
+                index
+            ) => {
+
+                const definition =
+                    this.wireDefinitions[
+                        name
+                    ];
+
+
+                const x =
+                    (
+                        index -
+                        1.5
+                    ) *
+                    spacing;
+
+
+                /*
+                 * Rubber strain-relief boot.
+                 */
+
+                const boot =
+                    PrimitiveFactory.createTaperedCylinder(
+
+                        definition.radius * 2.3,
+
+                        definition.radius * 1.5,
+
+                        7,
+
+                        materials.get(
+                            "rubber"
+                        ),
+
+                        {
+
+                            name:
+                                `WireBoot_${name}`,
+
+                            radialSegments:
+                                24
+
+                        }
+
+                    );
+
+
+                boot.position.set(
+
+                    x,
+
+                    connectorY -
+                    13,
+
+                    0
+
+                );
+
+
+                /*
+                 * The wire exits toward -Y.
+                 */
+
+                boot.rotation.x =
+                    0;
+
+
+                this.groups.boots.add(
+                    boot
+                );
+
+
+                this.boots[name] =
+                    boot;
+
+            }
+        );
+
+    }
+
+
+    /* ============================================================
+       BUILD ALL WIRES
+       ============================================================ */
+
+    buildWires() {
+
+        const names = [
+            "BAT",
+            "ACC",
+            "IGN",
+            "ST"
+        ];
+
+
+        names.forEach(
+            name => {
+
+                this.createWire(
+                    name
+                );
+
+            }
+        );
+
+    }
+
+
+    /* ============================================================
+       CREATE INDIVIDUAL WIRE
+       ============================================================ */
+
+    createWire(
+        name,
+        options = {}
+    ) {
+
+        const definition =
+            this.wireDefinitions[
+                name
+            ];
+
+
+        if (
+            !definition
+        ) {
+
+            throw new Error(
+                `Unknown ignition wire: ${name}`
+            );
+
+        }
+
+
+        const connectorY =
+            this.options.connectorY ??
+            -55;
+
+
+        const spacing =
+            this.options.socketSpacing ??
+            6.6;
+
+
+        const index =
+            [
+                "BAT",
+                "ACC",
+                "IGN",
+                "ST"
+            ]
+            .indexOf(
+                name
+            );
+
+
+        const x =
+            (
+                index -
+                1.5
+            ) *
+            spacing;
+
+
+        /*
+         * Default wire routing.
+
+         * The points deliberately create a slight
+         * natural bend instead of a perfectly straight
+         * mechanical cylinder.
+         */
+
+        const length =
+            options.length ??
+            definition.length;
+
+
+        const sag =
+            options.sag ??
+            (
+                2.0 +
+                index * 0.7
+            );
+
+
+        const spread =
+            options.spread ??
+            (
+                (index - 1.5) *
+                2.0
+            );
+
+
+        const points = [
+
+            new THREE.Vector3(
+                x,
+                connectorY - 15,
+                0
+            ),
+
+            new THREE.Vector3(
+                x + spread * 0.25,
+                connectorY - 20,
+                0
+            ),
+
+            new THREE.Vector3(
+                x + spread,
+                connectorY - length * 0.55,
+                sag
+            ),
+
+            new THREE.Vector3(
+                x + spread * 1.35,
+                connectorY - length,
+                sag * 0.65
+            )
+
+        ];
+
+
+        const wire =
+            this.createWireMesh(
+                points,
+                {
+                    ...definition,
+
+                    ...options
+
+                }
+            );
+
+
+        this.groups.wires.add(
+            wire
+        );
+
+
+        this.wires[name] =
+            wire;
+
+
+        this.routes[name] =
+            points;
+
+
+        /*
+         * Terminal connector at the start of
+         * the wire.
+         */
+
+        const terminal =
+            this.createWireTerminal(
+                name,
+                definition
+            );
+
+
+        terminal.position.copy(
+            points[0]
+        );
+
+
+        this.groups.terminals.add(
+            terminal
+        );
+
+
+        this.terminals[name] =
+            terminal;
+
+
+        return wire;
+
+    }
+
+
+    /* ============================================================
+       WIRE TERMINAL
+       ============================================================ */
+
+    createWireTerminal(
+        name,
+        definition
+    ) {
+
+        const group =
+            new THREE.Group();
+
+
+        group.name =
+            `WireTerminal_${name}`;
+
+
+        /*
+         * Crimp barrel.
+         */
+
+        const barrel =
+            PrimitiveFactory.createCylinder(
+
+                definition.terminalRadius,
+
+                5,
+
+                materials.get(
+                    "terminal"
+                ),
+
+                {
+
+                    name:
+                        `${name}_CrimpBarrel`,
+
+                    radialSegments:
+                        24
+
+                }
+
+            );
+
+
+        group.add(
+            barrel
+        );
+
+
+        /*
+         * Contact pin.
+
+         */
+
+        const pin =
+            PrimitiveFactory.createCylinder(
+
+                definition.terminalRadius *
+                0.58,
+
+                4,
+
+                materials.get(
+                    "terminal"
+                ),
+
+                {
+
+                    name:
+                        `${name}_ContactPin`,
+
+                    radialSegments:
+                        20,
+
+                    position:
+                        new THREE.Vector3(
+                            0,
+                            -4,
+                            0
+                        )
+
+                }
+
+            );
+
+
+        group.add(
+            pin
+        );
+
+
+        return group;
+
+    }
+
+
+    /* ============================================================
+       STRAIN RELIEF
+       ============================================================ */
+
+    buildStrainRelief() {
+
+        const connectorY =
+            this.options.connectorY ??
+            -55;
+
+
+        /*
+         * Main cable bundle sleeve.
+
+         * This visually gathers the individual wires
+         * into one harness.
+         */
+
+        const bundle =
+            PrimitiveFactory.createTaperedCylinder(
+
+                8.0,
+
+                6.5,
+
+                12,
+
+                materials.get(
+                    "rubber"
+                ),
+
+                {
+
+                    name:
+                        "MainHarnessSleeve",
+
+                    radialSegments:
+                        32
+
+                }
+
+            );
+
+
+        bundle.position.set(
+
+            0,
+
+            connectorY - 10,
+
+            0
+
+        );
+
+
+        this.groups.strainRelief.add(
+            bundle
+        );
+
+
+        /*
+         * Rear cable clamp.
+
+         */
+
+        const clamp =
+            PrimitiveFactory.createTorus(
+
+                7.3,
+
+                1.0,
+
+                materials.get(
+                    "rubber"
+                ),
+
+                {
+
+                    name:
+                        "HarnessClamp",
+
+                    radialSegments:
+                        32,
+
+                    tubularSegments:
+                        10
+
+                }
+
+            );
+
+
+        clamp.rotation.x =
+            Math.PI / 2;
+
+
+        clamp.position.y =
+            connectorY - 16;
+
+
+        this.groups.strainRelief.add(
+            clamp
+        );
+
+    }
+
+
+    /* ============================================================
+       SET WIRE ROUTE
+       ============================================================ */
+
+    setWireRoute(
+        name,
+        points
+    ) {
+
+        const definition =
+            this.wireDefinitions[
+                name
+            ];
+
+
+        if (
+            !definition
+        ) {
+
+            return false;
+
+        }
+
+
+        const oldWire =
+            this.wires[name];
+
+
+        if (
+            oldWire
+        ) {
+
+            this.groups.wires.remove(
+                oldWire
+            );
+
+
+            oldWire.geometry.dispose();
+
+
+            if (
+                oldWire.material &&
+                oldWire.material.dispose
+            ) {
+
+                oldWire.material.dispose();
+
+            }
+
+        }
+
+
+        const wire =
+            this.createWireMesh(
+                points,
+                definition
+            );
+
+
+        this.groups.wires.add(
+            wire
+        );
+
+
+        this.wires[name] =
+            wire;
+
+
+        this.routes[name] =
+            points.map(
+                point =>
+                    point.clone()
+            );
+
+
+        return true;
+
+    }
+
+
+    /* ============================================================
+       EXTEND WIRES
+       ============================================================ */
+
+    extendWire(
+        name,
+        amount
+    ) {
+
+        const route =
+            this.routes[name];
+
+
+        if (
+            !route ||
+            route.length < 2
+        ) {
+
+            return false;
+
+        }
+
+
+        const points =
+            route.map(
+                point =>
+                    point.clone()
+            );
+
+
+        const last =
+            points[
+                points.length - 1
+            ];
+
+
+        const direction =
+            last.clone()
+                .sub(
+                    points[
+                        points.length - 2
+                    ]
+                )
+                .normalize();
+
+
+        last.add(
+            direction.multiplyScalar(
+                amount
+            )
+        );
+
+
+        points[
+            points.length - 1
+        ] =
+            last;
+
+
+        return this.setWireRoute(
+            name,
+            points
+        );
+
+    }
+
+
+    /* ============================================================
+       SET WIRE LENGTH
+       ============================================================ */
+
+    setWireLength(
+        name,
+        length
+    ) {
+
+        const route =
+            this.routes[name];
+
+
+        if (
+            !route
+        ) {
+
+            return false;
+
+        }
+
+
+        const start =
+            route[0].clone();
+
+
+        const end =
+            route[
+                route.length - 1
+            ]
+            .clone();
+
+
+        const direction =
+            end
+                .sub(start)
+                .normalize();
+
+
+        const newEnd =
+            start.clone()
+                .add(
+                    direction.multiplyScalar(
+                        length
+                    )
+                );
+
+
+        const points =
+            route.map(
+                point =>
+                    point.clone()
+            );
+
+
+        points[
+            points.length - 1
+        ] =
+            newEnd;
+
+
+        return this.setWireRoute(
+            name,
+            points
+        );
+
+    }
+
+
+    /* ============================================================
+       GET WIRE
+       ============================================================ */
+
+    getWire(
+        name
+    ) {
+
+        return this.wires[
+            name
+        ] || null;
+
+    }
+
+
+    /* ============================================================
+       GET ROUTE
+       ============================================================ */
+
+    getWireRoute(
+        name
+    ) {
+
+        if (
+            !this.routes[name]
+        ) {
+
+            return null;
+
+        }
+
+
+        return this.routes[
+            name
+        ].map(
+            point =>
+                point.clone()
+        );
+
+    }
+
+
+    /* ============================================================
+       GET TERMINAL
+       ============================================================ */
+
+    getTerminal(
+        name
+    ) {
+
+        return this.terminals[
+            name
+        ] || null;
+
+    }
+
+
+    /* ============================================================
+       SET WIRE VISIBILITY
+       ============================================================ */
+
+    setWireVisible(
+        name,
+        visible
+    ) {
+
+        const wire =
+            this.wires[name];
+
+
+        if (
+            wire
+        ) {
+
+            wire.visible =
+                Boolean(
+                    visible
+                );
+
+        }
+
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       SET ALL WIRES VISIBLE
+       ============================================================ */
+
+    setAllWiresVisible(
+        visible
+    ) {
+
+        this.groups.wires.visible =
+            Boolean(
+                visible
+            );
+
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       CONNECT EXTERNAL CABLE
+       ============================================================ */
+
+    createExternalCable(
+        name,
+        endPoint,
+        options = {}
+    ) {
+
+        const route =
+            this.routes[name];
+
+
+        if (
+            !route
+        ) {
+
+            return null;
+
+        }
+
+
+        const points =
+            route.map(
+                point =>
+                    point.clone()
+            );
+
+
+        points.push(
+            endPoint.clone()
+        );
+
+
+        const definition =
+            this.wireDefinitions[
+                name
+            ];
+
+
+        const cable =
+            this.createWireMesh(
+
+                points,
+
+                {
+
+                    ...definition,
+
+                    radius:
+                        options.radius ??
+                        definition.radius,
+
+                    color:
+                        options.color ??
+                        definition.color,
+
+                    name:
+                        `${name}_External`
+
+                }
+
+            );
+
+
+        this.groups.wires.add(
+            cable
+        );
+
+
+        if (
+            !this.externalCables
+        ) {
+
+            this.externalCables = {};
+
+        }
+
+
+        if (
+            !this.externalCables[name]
+        ) {
+
+            this.externalCables[name] =
+                [];
+
+        }
+
+
+        this.externalCables[name].push(
+            cable
+        );
+
+
+        return cable;
+
+    }
+
+
+    /* ============================================================
+       CREATE LABELED CABLE
+       ============================================================ */
+
+    createCableLabel(
+        name,
+        position
+    ) {
+
+        /*
+         * A small black backing plate.
+
+         * This is intentionally geometry-only so the
+         * harness remains independent of font loading.
+         */
+
+        const label =
+            PrimitiveFactory.createBeveledBox(
+
+                8,
+
+                3.5,
+
+                1.0,
+
+                0.8,
+
+                materials.get(
+                    "blackPlastic"
+                ),
+
+                {
+
+                    name:
+                        `CableLabel_${name}`,
+
+                    bevelSegments:
+                        2,
+
+                    bevelSize:
+                        0.25,
+
+                    bevelThickness:
+                        0.25
+
+                }
+
+            );
+
+
+        label.position.copy(
+            position
+        );
+
+
+        this.groups.labels.add(
+            label
+        );
+
+
+        return label;
+
+    }
+
+
+    /* ============================================================
+       APPLY IGNITION STATE
+       ============================================================ */
+
+    applyIgnitionState(
+        electricalState
+    ) {
+
+        /*
+         * Visually brighten active wires.
+
+         * This is useful for the interactive demo because
+         * the electrical behavior can be seen directly.
+         */
+
+        const states = {
+
+            BAT:
+                true,
+
+            ACC:
+                Boolean(
+                    electricalState.ACC
+                ),
+
+            IGN:
+                Boolean(
+                    electricalState.IGN
+                ),
+
+            ST:
+                Boolean(
+                    electricalState.ST
+                )
+
+        };
+
+
+        Object.entries(
+            states
+        ).forEach(
+            (
+                [
+                    name,
+                    active
+                ]
+            ) => {
+
+                const wire =
+                    this.wires[name];
+
+
+                if (
+                    !wire
+                ) {
+
+                    return;
+
+                }
+
+
+                const material =
+                    wire.material;
+
+
+                /*
+                 * Store original color once.
+                 */
+
+                if (
+                    material.userData
+                        .baseColor ===
+                    undefined
+                ) {
+
+                    material.userData
+                        .baseColor =
+                        material.color.getHex();
+
+                }
+
+
+                if (
+                    active
+                ) {
+
+                    /*
+                     * Make active wires visually brighter.
+                     */
+
+                    material.color
+                        .setHex(
+                            this.wireDefinitions[
+                                name
+                            ].color
+                        );
+
+
+                    material.emissive
+                        .setHex(
+                            this.wireDefinitions[
+                                name
+                            ].color
+                        );
+
+
+                    material.emissiveIntensity =
+                        0.12;
+
+                }
+                else {
+
+                    /*
+                     * Keep inactive wire insulation dark.
+                     */
+
+                    material.color
+                        .setHex(
+                            material.userData
+                                .baseColor
+                        );
+
+
+                    material.emissive
+                        .setHex(
+                            0x000000
+                        );
+
+
+                    material.emissiveIntensity =
+                        0;
+
+                }
+
+            }
+        );
+
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       SET POSITION
+       ============================================================ */
+
+    setPosition(
+        x,
+        y,
+        z
+    ) {
+
+        this.position.set(
+            x,
+            y,
+            z
+        );
+
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       SET ROTATION
+       ============================================================ */
+
+    setRotation(
+        x,
+        y,
+        z
+    ) {
+
+        this.rotation.set(
+            x,
+            y,
+            z
+        );
+
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       UPDATE
+       ============================================================ */
+
+    update(
+        deltaTime
+    ) {
+
+        /*
+         * Reserved for future harness animation.
+
+         * For example:
+         *
+         *  - cable vibration
+         *  - starter cable movement
+         *  - engine-bay flex
+         *  - connector insertion animation
+         */
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       DISPOSE
+       ============================================================ */
+
+    dispose() {
+
+        this.traverse(
+            object => {
+
+                if (
+                    object.geometry
+                ) {
+
+                    object.geometry.dispose();
+
+                }
+
+
+                /*
+                 * Wire materials are locally generated.
+                 */
+
+                if (
+                    object.material &&
+                    object.material.name &&
+                    object.material.name
+                        .includes(
+                            "WireMaterial"
+                        )
+                ) {
+
+                    object.material.dispose();
+
+                }
+
+            }
+        );
+
+    }
+
+}
+
+
+/* ================================================================
+   FACTORY
+   ================================================================ */
+
+export function createWiringHarness(
+    options = {}
+) {
+
+    return new WiringHarness(
+        options
+    );
+
+}//end WiringHarness
+
+        
+        
     /* APPLICATION CLASS */
     class IgnitionSwitchDemo {
         constructor() {
