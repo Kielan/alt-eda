@@ -2366,43 +2366,29 @@ export class PrimitiveFactory {
                         options.curveSegments ?? 8
                 }
             );
-
-
         geometry.translate(
             0,
             0,
             -depth / 2
         );
-
-
         const mesh =
             new THREE.Mesh(
                 geometry,
                 material
             );
-
-
         mesh.name =
             options.name ||
             "RoundedRectangle";
-
-
         this.applyTransform(
             mesh,
             options
         );
-
-
         this.enableShadows(
             mesh,
             options
         );
-
-
         return mesh;
     }
-
-
     /* ============================================================
        HEXAGON
        ============================================================ */
@@ -2413,22 +2399,12 @@ export class PrimitiveFactory {
         material,
         options = {}
     ) {
-
         const points = [];
-
-
-        for (
-            let i = 0;
-            i < 6;
-            i++
-        ) {
-
+        for (let i = 0;i < 6;i++) {
             const angle =
                 i *
                 Math.PI /
                 3;
-
-
             points.push([
                 Math.cos(angle) * radius,
                 Math.sin(angle) * radius
@@ -2443,19 +2419,13 @@ export class PrimitiveFactory {
             material,
             {
                 ...options,
-
                 name:
                     options.name ||
                     "Hexagon"
             }
         );
     }
-
-
-    /* ============================================================
-       NUT
-       ============================================================ */
-
+    /* NUT */
     static createHexNut(
         outerRadius,
         innerRadius,
@@ -2463,13 +2433,8 @@ export class PrimitiveFactory {
         material,
         options = {}
     ) {
-
         const outerPoints = [];
-
-
         const innerPoints = [];
-
-
         for (
             let i = 0;
             i < 6;
@@ -2499,73 +2464,39 @@ export class PrimitiveFactory {
                 Math.sin(angle) *
                     innerRadius
             ]);
-
         }
-
-
         const shape =
             new THREE.Shape();
-
-
         shape.moveTo(
             outerPoints[0][0],
             outerPoints[0][1]
         );
-
-
-        for (
-            let i = 1;
-            i < outerPoints.length;
-            i++
-        ) {
-
+        for (let i = 1;i < outerPoints.length;i++) {
             shape.lineTo(
                 outerPoints[i][0],
                 outerPoints[i][1]
             );
 
         }
-
-
         shape.closePath();
-
-
         const hole =
             new THREE.Path();
-
-
         /*
-         * Reverse the inner contour.
-         */
-
+         * Reverse the inner contour. */
         hole.moveTo(
             innerPoints[0][0],
             innerPoints[0][1]
         );
-
-
-        for (
-            let i = innerPoints.length - 1;
-            i >= 0;
-            i--
-        ) {
-
+        for (let i = innerPoints.length - 1;i >= 0;i--) {
             hole.lineTo(
                 innerPoints[i][0],
                 innerPoints[i][1]
             );
-
         }
-
-
         hole.closePath();
-
-
         shape.holes.push(
             hole
         );
-
-
         const geometry =
             new THREE.ExtrudeGeometry(
                 shape,
@@ -2776,10 +2707,7 @@ export class PrimitiveFactory {
     }
 
 
-    /* ============================================================
-       KEY BLADE
-       ============================================================ */
-
+    /*  KEY BLADE */
     static createKeyBlade(
         length,
         width,
@@ -2787,22 +2715,15 @@ export class PrimitiveFactory {
         material,
         options = {}
     ) {
-
         const halfLength =
             length / 2;
-
         const halfWidth =
             width / 2;
-
-
-        /*
-         * Generic stepped automotive key profile.
+        /* Generic stepped automotive key profile.
          *
          * The profile intentionally contains several
          * asymmetric cuts so the blade doesn't look
-         * like a simple rectangular bar.
-         */
-
+         * like a simple rectangular bar. */
         const cuts =
             options.cuts || [
 
@@ -2825,42 +2746,26 @@ export class PrimitiveFactory {
                 0.40
 
             ];
-
-
         const top = [];
-
-
         top.push([
             -halfLength,
             halfWidth
         ]);
-
-
-        for (
-            let i = 0;
-            i < cuts.length;
-            i++
-        ) {
-
+        for (let i = 0;i < cuts.length;i++) {
             const x =
                 -halfLength +
                 cuts[i] * length;
-
             const depth =
                 halfWidth -
                 depths[i] *
                 width *
                 0.5;
-
-
             top.push([
                 x,
                 depth
             ]);
 
         }
-
-
         top.push([
             halfLength,
             halfWidth
@@ -3019,61 +2924,41 @@ export class PrimitiveFactory {
             }
         );
     }
-
-
-    /* ============================================================
-       CABLE / WIRE
-       ============================================================ */
-
+    /* CABLE / WIRE */
     static createWire(
         points,
         radius,
         material,
         options = {}
     ) {
-
         if (
             !Array.isArray(points) ||
             points.length < 2
         ) {
-
             throw new Error(
                 "createWire requires at least two points."
             );
-
         }
-
-
         const vectorPoints =
             points.map(
                 point => {
-
                     if (
                         point instanceof
                         THREE.Vector3
                     ) {
-
                         return point.clone();
-
                     }
-
-
                     return new THREE.Vector3(
                         point[0],
                         point[1],
                         point[2]
                     );
-
                 }
             );
-
-
         const curve =
             new THREE.CatmullRomCurve3(
                 vectorPoints
             );
-
-
         curve.curveType =
             "centripetal";
 
@@ -3123,10 +3008,7 @@ export class PrimitiveFactory {
     }
 
 
-    /* ============================================================
-       SPRING
-       ============================================================ */
-
+    /* SPRING */
     static createSpring(
         radius,
         tubeRadius,
@@ -3135,22 +3017,14 @@ export class PrimitiveFactory {
         material,
         options = {}
     ) {
-
         const points = [];
-
         const segments =
             options.segments ??
             Math.max(
                 64,
                 turns * 32
             );
-
-
-        for (
-            let i = 0;
-            i <= segments;
-            i++
-        ) {
+        for (let i = 0;i <= segments;i++) {
 
             const t =
                 i / segments;
@@ -4302,6 +4176,1899 @@ export class MaterialFactory {
 }
 /* DEFAULT MATERIAL LIBRARY */
 const materials = new MaterialFactory();
+
+
+        import * as THREE from "three";
+
+import PrimitiveFactory from "./PrimitiveFactory.js";
+import materials from "./Materials.js";
+
+
+/* ================================================================
+   MECHANICAL PARTS
+   ================================================================
+
+   Reusable mechanical assemblies for the 12V starter / ignition
+   switch.
+
+   Approximate coordinate convention:
+
+       Y = primary mechanical axis
+       X/Z = radial plane
+
+   The front of the ignition switch is +Y.
+
+   All dimensions are approximate millimeters and are intentionally
+   parameterized so the model can later be calibrated against
+   physical measurements.
+
+   ================================================================ */
+
+
+/* ================================================================
+   MATERIAL SHORTCUTS
+   ================================================================ */
+
+const M = materials;
+
+
+/* ================================================================
+   MECHANICAL PARTS CLASS
+   ================================================================ */
+
+export class MechanicalParts {
+
+
+    /* ============================================================
+       THREAD PROFILE
+       ============================================================
+
+       Generates a visual helical thread.
+
+       This is deliberately a separate mesh rather than a boolean
+       operation. It is sufficient for a visualization model and
+       keeps geometry generation lightweight.
+
+       ============================================================ */
+
+    static createThreadedSection(
+        radius,
+        length,
+        pitch,
+        material = M.get("darkSteel"),
+        options = {}
+    ) {
+
+        const group =
+            new THREE.Group();
+
+        group.name =
+            options.name ||
+            "ThreadedSection";
+
+
+        const turns =
+            length / pitch;
+
+        const segmentsPerTurn =
+            options.segmentsPerTurn ??
+            18;
+
+        const segments =
+            Math.max(
+                24,
+                Math.ceil(
+                    turns *
+                    segmentsPerTurn
+                )
+            );
+
+
+        const points = [];
+
+
+        for (
+            let i = 0;
+            i <= segments;
+            i++
+        ) {
+
+            const t =
+                i / segments;
+
+            const y =
+                -length / 2 +
+                t * length;
+
+            const angle =
+                t *
+                turns *
+                Math.PI *
+                2;
+
+
+            points.push(
+                new THREE.Vector3(
+                    Math.cos(angle) *
+                        radius,
+
+                    y,
+
+                    Math.sin(angle) *
+                        radius
+                )
+            );
+
+        }
+
+
+        const curve =
+            new THREE.CatmullRomCurve3(
+                points
+            );
+
+
+        const geometry =
+            new THREE.TubeGeometry(
+                curve,
+                segments,
+                options.threadRadius ??
+                    0.45,
+                options.radialSegments ??
+                    6,
+                false
+            );
+
+
+        const thread =
+            new THREE.Mesh(
+                geometry,
+                material
+            );
+
+
+        thread.name =
+            "Thread";
+
+
+        thread.castShadow = true;
+
+        thread.receiveShadow = true;
+
+
+        group.add(
+            thread
+        );
+
+
+        /*
+         * Core underneath the thread.
+         */
+
+        const core =
+            PrimitiveFactory.createCylinder(
+                radius -
+                    (options.threadRadius ?? 0.45) * 0.55,
+
+                length,
+
+                material,
+
+                {
+                    name:
+                        "ThreadCore",
+
+                    radialSegments:
+                        options.radialSegments ??
+                        48
+                }
+            );
+
+
+        group.add(
+            core
+        );
+
+
+        if (options.position) {
+
+            group.position.copy(
+                options.position
+            );
+
+        }
+
+
+        return group;
+    }
+
+
+    /* ============================================================
+       THREADED BARREL
+       ============================================================ */
+
+    static createThreadedBarrel(
+        options = {}
+    ) {
+
+        const group =
+            new THREE.Group();
+
+        group.name =
+            options.name ||
+            "ThreadedBarrel";
+
+
+        const outerRadius =
+            options.radius ??
+            15.0;
+
+        const length =
+            options.length ??
+            43.0;
+
+        const threadPitch =
+            options.threadPitch ??
+            2.0;
+
+        const threadLength =
+            options.threadLength ??
+            29.0;
+
+
+        /*
+         * Main metal barrel.
+         */
+
+        const barrel =
+            PrimitiveFactory.createCylinder(
+                outerRadius,
+                length,
+                M.get("zinc"),
+                {
+                    name:
+                        "BarrelBody",
+
+                    radialSegments:
+                        64
+                }
+            );
+
+
+        group.add(
+            barrel
+        );
+
+
+        /*
+         * Threaded rear section.
+         */
+
+        const thread =
+            this.createThreadedSection(
+                outerRadius + 0.25,
+                threadLength,
+                threadPitch,
+                M.get("darkSteel"),
+                {
+                    name:
+                        "BarrelThreads",
+
+                    threadRadius:
+                        0.42
+                }
+            );
+
+
+        thread.position.y =
+            -(length - threadLength) / 2;
+
+
+        group.add(
+            thread
+        );
+
+
+        /*
+         * Front shoulder.
+         */
+
+        const shoulder =
+            PrimitiveFactory.createCylinder(
+                outerRadius + 2.2,
+                5.0,
+                M.get("zinc"),
+                {
+                    name:
+                        "BarrelShoulder",
+
+                    radialSegments:
+                        64,
+
+                    position:
+                        new THREE.Vector3(
+                            0,
+                            length / 2 - 2.5,
+                            0
+                        )
+                }
+            );
+
+
+        group.add(
+            shoulder
+        );
+
+
+        /*
+         * Rear electrical housing collar.
+         */
+
+        const rearCollar =
+            PrimitiveFactory.createCylinder(
+                outerRadius - 1.5,
+                6.0,
+                M.get("darkZinc"),
+                {
+                    name:
+                        "RearCollar",
+
+                    radialSegments:
+                        48,
+
+                    position:
+                        new THREE.Vector3(
+                            0,
+                            -length / 2 - 2.5,
+                            0
+                        )
+                }
+            );
+
+
+        group.add(
+            rearCollar
+        );
+
+
+        return group;
+    }
+
+
+    /* ============================================================
+       FRONT BEZEL
+       ============================================================ */
+
+    static createBezel(
+        options = {}
+    ) {
+
+        const group =
+            new THREE.Group();
+
+        group.name =
+            options.name ||
+            "FrontBezel";
+
+
+        const outerRadius =
+            options.outerRadius ??
+            22.0;
+
+        const innerRadius =
+            options.innerRadius ??
+            14.2;
+
+        const depth =
+            options.depth ??
+            5.0;
+
+
+        /*
+         * Main retaining bezel.
+         */
+
+        const ring =
+            PrimitiveFactory.createRing(
+                outerRadius,
+                innerRadius,
+                depth,
+                M.get("chrome"),
+                {
+                    name:
+                        "ChromeBezel",
+
+                    bevelEnabled:
+                        true,
+
+                    bevelSize:
+                        0.5,
+
+                    bevelThickness:
+                        0.5
+                }
+            );
+
+
+        group.add(
+            ring
+        );
+
+
+        /*
+         * Dark backing washer visible through
+         * the center.
+         */
+
+        const backing =
+            PrimitiveFactory.createRing(
+                innerRadius + 0.5,
+                innerRadius - 1.0,
+                2.0,
+                M.get("blackPlastic"),
+                {
+                    name:
+                        "BezelBacking"
+                }
+            );
+
+
+        backing.position.y =
+            -1.5;
+
+
+        group.add(
+            backing
+        );
+
+
+        /*
+         * Outer decorative lip.
+         */
+
+        const lip =
+            PrimitiveFactory.createTorus(
+                outerRadius - 1.0,
+                1.05,
+                M.get("chrome"),
+                {
+                    name:
+                        "BezelLip",
+
+                    radialSegments:
+                        64,
+
+                    tubularSegments:
+                        12
+                }
+            );
+
+
+        group.add(
+            lip
+        );
+
+
+        return group;
+    }
+
+
+    /* ============================================================
+       RETAINING NUT
+       ============================================================ */
+
+    static createRetainingNut(
+        options = {}
+    ) {
+
+        const outerRadius =
+            options.outerRadius ??
+            20.0;
+
+        const innerRadius =
+            options.innerRadius ??
+            15.0;
+
+        const height =
+            options.height ??
+            7.0;
+
+
+        const nut =
+            PrimitiveFactory.createHexNut(
+                outerRadius,
+                innerRadius,
+                height,
+                M.get("steel"),
+                {
+                    name:
+                        options.name ||
+                        "RetainingNut",
+
+                    bevelEnabled:
+                        true,
+
+                    bevelSize:
+                        0.4,
+
+                    bevelThickness:
+                        0.4
+                }
+            );
+
+
+        return nut;
+    }
+
+
+    /* ============================================================
+       SELECTOR SHAFT
+       ============================================================ */
+
+    static createSelectorShaft(
+        options = {}
+    ) {
+
+        const group =
+            new THREE.Group();
+
+        group.name =
+            options.name ||
+            "SelectorShaft";
+
+
+        const shaftRadius =
+            options.radius ??
+            5.0;
+
+        const shaftLength =
+            options.length ??
+            25.0;
+
+
+        /*
+         * Main shaft.
+         */
+
+        const shaft =
+            PrimitiveFactory.createShaft(
+                shaftRadius,
+                shaftLength,
+                M.get("steel"),
+                {
+                    name:
+                        "ShaftCore",
+
+                    radialSegments:
+                        48
+                }
+            );
+
+
+        group.add(
+            shaft
+        );
+
+
+        /*
+         * Front key-cylinder carrier.
+         */
+
+        const carrier =
+            PrimitiveFactory.createCylinder(
+                8.8,
+                8.0,
+                M.get("darkSteel"),
+                {
+                    name:
+                        "CylinderCarrier",
+
+                    radialSegments:
+                        48,
+
+                    position:
+                        new THREE.Vector3(
+                            0,
+                            shaftLength / 2 + 2,
+                            0
+                        )
+                }
+            );
+
+
+        group.add(
+            carrier
+        );
+
+
+        /*
+         * Small anti-rotation flat.
+
+         * This gives the shaft a recognizable machined
+         * selector-shaft appearance.
+         */
+
+        const flat =
+            PrimitiveFactory.createBox(
+                shaftRadius * 1.1,
+                shaftLength * 0.55,
+                1.4,
+                M.get("steel"),
+                {
+                    name:
+                        "ShaftAntiRotationFlat",
+
+                    position:
+                        new THREE.Vector3(
+                            shaftRadius * 0.82,
+                            0,
+                            0
+                        )
+                }
+            );
+
+
+        group.add(
+            flat
+        );
+
+
+        return group;
+    }
+
+
+    /* ============================================================
+       KEY CYLINDER
+       ============================================================ */
+
+    static createKeyCylinder(
+        options = {}
+    ) {
+
+        const group =
+            new THREE.Group();
+
+        group.name =
+            options.name ||
+            "KeyCylinder";
+
+
+        const radius =
+            options.radius ??
+            9.2;
+
+        const length =
+            options.length ??
+            17.0;
+
+
+        /*
+         * Outer cylinder.
+         */
+
+        const body =
+            PrimitiveFactory.createCylinder(
+                radius,
+                length,
+                M.get("blackPlastic"),
+                {
+                    name:
+                        "KeyCylinderBody",
+
+                    radialSegments:
+                        64
+                }
+            );
+
+
+        group.add(
+            body
+        );
+
+
+        /*
+         * Chrome front sleeve.
+         */
+
+        const frontRing =
+            PrimitiveFactory.createRing(
+                radius + 0.8,
+                radius - 1.1,
+                2.0,
+                M.get("chrome"),
+                {
+                    name:
+                        "KeyCylinderFrontRing",
+
+                    bevelEnabled:
+                        true,
+
+                    bevelSize:
+                        0.25,
+
+                    bevelThickness:
+                        0.25
+                }
+            );
+
+
+        frontRing.position.y =
+            length / 2;
+
+
+        group.add(
+            frontRing
+        );
+
+
+        /*
+         * Key slot.
+
+         * The slot is modeled as a dark recessed profile.
+         */
+
+        const slot =
+            PrimitiveFactory.createKeySlot(
+                7.2,
+                2.0,
+                1.8,
+                M.get("darkPlastic"),
+                {
+                    name:
+                        "KeySlot"
+                }
+            );
+
+
+        /*
+         * KeySlot is created in XY space.
+         * Rotate it to face the front along +Y.
+         */
+
+        slot.rotation.x =
+            Math.PI / 2;
+
+
+        slot.position.y =
+            length / 2 + 1.05;
+
+
+        group.add(
+            slot
+        );
+
+
+        /*
+         * Internal cylinder.
+         */
+
+        const internal =
+            PrimitiveFactory.createCylinder(
+                radius - 1.6,
+                length - 4.0,
+                M.get("darkSteel"),
+                {
+                    name:
+                        "CylinderCore",
+
+                    radialSegments:
+                        48
+                }
+            );
+
+
+        internal.position.y =
+            -1.0;
+
+
+        group.add(
+            internal
+        );
+
+
+        return group;
+    }
+
+
+    /* ============================================================
+       KEY
+       ============================================================ */
+
+    static createKey(
+        options = {}
+    ) {
+
+        const group =
+            new THREE.Group();
+
+        group.name =
+            options.name ||
+            "IgnitionKey";
+
+
+        const bladeLength =
+            options.bladeLength ??
+            36;
+
+        const bladeWidth =
+            options.bladeWidth ??
+            6;
+
+        const bladeThickness =
+            options.bladeThickness ??
+            1.7;
+
+
+        /*
+         * Blade.
+         */
+
+        const blade =
+            PrimitiveFactory.createKeyBlade(
+                bladeLength,
+                bladeWidth,
+                bladeThickness,
+                M.get("key"),
+                {
+                    name:
+                        "KeyBlade"
+                }
+            );
+
+
+        /*
+         * The blade geometry's long dimension is
+         * initially X. Rotate it so the key extends
+         * along Y.
+         */
+
+        blade.rotation.z =
+            Math.PI / 2;
+
+
+        blade.position.y =
+            bladeLength / 2;
+
+
+        group.add(
+            blade
+        );
+
+
+        /*
+         * Key shoulder.
+         */
+
+        const shoulder =
+            PrimitiveFactory.createCylinder(
+                5.0,
+                3.2,
+                M.get("keyDark"),
+                {
+                    name:
+                        "KeyShoulder",
+
+                    radialSegments:
+                        32,
+
+                    position:
+                        new THREE.Vector3(
+                            0,
+                            -1.0,
+                            0
+                        )
+                }
+            );
+
+
+        group.add(
+            shoulder
+        );
+
+
+        /*
+         * Key bow / handle.
+
+         * A rounded rectangular handle gives the key
+         * a recognizable automotive ignition-key silhouette.
+         */
+
+        const bow =
+            PrimitiveFactory.createRoundedRectangle(
+                options.bowWidth ?? 21,
+                options.bowHeight ?? 27,
+                options.bowRadius ?? 6,
+                options.bowThickness ?? 4.5,
+                M.get("key"),
+                {
+                    name:
+                        "KeyBow",
+
+                    bevelEnabled:
+                        true,
+
+                    bevelSegments:
+                        4,
+
+                    bevelSize:
+                        1.0,
+
+                    bevelThickness:
+                        1.0
+                }
+            );
+
+
+        bow.rotation.x =
+            Math.PI / 2;
+
+
+        bow.position.y =
+            -15;
+
+
+        group.add(
+            bow
+        );
+
+
+        /*
+         * Handle center insert.
+         */
+
+        const insert =
+            PrimitiveFactory.createRoundedRectangle(
+                12,
+                17,
+                4,
+                1.2,
+                M.get("keyDark"),
+                {
+                    name:
+                        "KeyHandleInsert",
+
+                    bevelEnabled:
+                        true,
+
+                    bevelSegments:
+                        3,
+
+                    bevelSize:
+                        0.5,
+
+                    bevelThickness:
+                        0.5
+                }
+            );
+
+
+        insert.rotation.x =
+            Math.PI / 2;
+
+
+        insert.position.y =
+            -15.2;
+
+
+        group.add(
+            insert
+        );
+
+
+        return group;
+    }
+
+
+    /* ============================================================
+       TERMINAL POST
+       ============================================================ */
+
+    static createTerminalPost(
+        options = {}
+    ) {
+
+        const group =
+            new THREE.Group();
+
+        group.name =
+            options.name ||
+            "TerminalPost";
+
+
+        const radius =
+            options.radius ??
+            3.0;
+
+        const height =
+            options.height ??
+            12;
+
+
+        /*
+         * Main brass/copper post.
+         */
+
+        const post =
+            PrimitiveFactory.createCylinder(
+                radius,
+                height,
+                M.get("terminal"),
+                {
+                    name:
+                        "TerminalPostBody",
+
+                    radialSegments:
+                        32
+                }
+            );
+
+
+        group.add(
+            post
+        );
+
+
+        /*
+         * Terminal screw head.
+         */
+
+        const screw =
+            PrimitiveFactory.createScrewHead(
+                radius * 1.45,
+                2.4,
+                M.get("steel"),
+                {
+                    name:
+                        "TerminalScrew",
+
+                    slotMaterial:
+                        M.get("darkSteel"),
+
+                    slotWidth:
+                        0.65,
+
+                    slotDepth:
+                        radius * 1.45
+                }
+            );
+
+
+        screw.position.y =
+            height / 2;
+
+
+        group.add(
+            screw
+        );
+
+
+        /*
+         * Insulating collar.
+         */
+
+        const collar =
+            PrimitiveFactory.createCylinder(
+                radius + 1.2,
+                2.2,
+                M.get("blackPlastic"),
+                {
+                    name:
+                        "TerminalInsulator",
+
+                    radialSegments:
+                        32,
+
+                    position:
+                        new THREE.Vector3(
+                            0,
+                            -height / 2,
+                            0
+                        )
+                }
+            );
+
+
+        group.add(
+            collar
+        );
+
+
+        return group;
+    }
+
+
+    /* ============================================================
+       TERMINAL BLOCK
+       ============================================================ */
+
+    static createTerminalBlock(
+        options = {}
+    ) {
+
+        const group =
+            new THREE.Group();
+
+        group.name =
+            options.name ||
+            "TerminalBlock";
+
+
+        const width =
+            options.width ??
+            29;
+
+        const height =
+            options.height ??
+            17;
+
+        const depth =
+            options.depth ??
+            22;
+
+
+        /*
+         * Main molded rear housing.
+         */
+
+        const housing =
+            PrimitiveFactory.createBeveledBox(
+                width,
+                height,
+                depth,
+                2.0,
+                M.get("blackPlastic"),
+                {
+                    name:
+                        "TerminalHousing",
+
+                    bevelSegments:
+                        3,
+
+                    bevelSize:
+                        1.2,
+
+                    bevelThickness:
+                        1.2
+                }
+            );
+
+
+        group.add(
+            housing
+        );
+
+
+        /*
+         * Electrical terminal positions.
+
+         * BAT = battery
+         * ACC = accessory
+         * IGN = ignition
+         * ST  = starter
+         */
+
+        const positions = {
+
+            BAT: [
+                -10,
+                0,
+                0
+            ],
+
+            ACC: [
+                -3.3,
+                0,
+                0
+            ],
+
+            IGN: [
+                3.3,
+                0,
+                0
+            ],
+
+            ST: [
+                10,
+                0,
+                0
+            ]
+
+        };
+
+
+        for (
+            const [name, p] of
+            Object.entries(
+                positions
+            )
+        ) {
+
+            const post =
+                this.createTerminalPost({
+
+                    name:
+                        `Terminal_${name}`,
+
+                    radius:
+                        name === "BAT"
+                            ? 3.3
+                            : 2.7,
+
+                    height:
+                        10
+
+                });
+
+
+            post.position.set(
+                p[0],
+                height / 2 + 4.5,
+                p[2]
+            );
+
+
+            group.add(
+                post
+            );
+
+        }
+
+
+        return group;
+    }
+
+
+    /* ============================================================
+       MOUNTING SCREW
+       ============================================================ */
+
+    static createMountingScrew(
+        options = {}
+    ) {
+
+        const group =
+            new THREE.Group();
+
+        group.name =
+            options.name ||
+            "MountingScrew";
+
+
+        const radius =
+            options.radius ??
+            3.0;
+
+        const headHeight =
+            options.headHeight ??
+            2.5;
+
+        const shaftLength =
+            options.shaftLength ??
+            12;
+
+
+        const head =
+            PrimitiveFactory.createScrewHead(
+                radius,
+                headHeight,
+                M.get("steel"),
+                {
+                    name:
+                        "MountingScrewHead",
+
+                    slotMaterial:
+                        M.get("darkSteel")
+                }
+            );
+
+
+        group.add(
+            head
+        );
+
+
+        const shaft =
+            PrimitiveFactory.createCylinder(
+                radius * 0.55,
+                shaftLength,
+                M.get("darkSteel"),
+                {
+                    name:
+                        "MountingScrewShaft",
+
+                    radialSegments:
+                        24,
+
+                    position:
+                        new THREE.Vector3(
+                            0,
+                            -(shaftLength / 2),
+                            0
+                        )
+                }
+            );
+
+
+        group.add(
+            shaft
+        );
+
+
+        /*
+         * Thread ridges.
+         */
+
+        const thread =
+            this.createThreadedSection(
+                radius * 0.58,
+                shaftLength,
+                1.5,
+                M.get("darkSteel"),
+                {
+                    name:
+                        "MountingScrewThread",
+
+                    threadRadius:
+                        0.28
+                }
+            );
+
+
+        thread.position.y =
+            -shaftLength / 2;
+
+
+        group.add(
+            thread
+        );
+
+
+        return group;
+    }
+
+
+    /* ============================================================
+       LOCK WASHER
+       ============================================================ */
+
+    static createLockWasher(
+        options = {}
+    ) {
+
+        const outerRadius =
+            options.outerRadius ??
+            8;
+
+        const innerRadius =
+            options.innerRadius ??
+            5;
+
+        const thickness =
+            options.thickness ??
+            1.3;
+
+
+        return PrimitiveFactory.createRing(
+            outerRadius,
+            innerRadius,
+            thickness,
+            M.get("steel"),
+            {
+                name:
+                    options.name ||
+                    "LockWasher",
+
+                bevelEnabled:
+                    true,
+
+                bevelSize:
+                    0.18,
+
+                bevelThickness:
+                    0.18
+            }
+        );
+    }
+
+
+    /* ============================================================
+       FLAT WASHER
+       ============================================================ */
+
+    static createFlatWasher(
+        options = {}
+    ) {
+
+        const outerRadius =
+            options.outerRadius ??
+            9;
+
+        const innerRadius =
+            options.innerRadius ??
+            5;
+
+        const thickness =
+            options.thickness ??
+            1;
+
+
+        return PrimitiveFactory.createRing(
+            outerRadius,
+            innerRadius,
+            thickness,
+            M.get("steel"),
+            {
+                name:
+                    options.name ||
+                    "FlatWasher",
+
+                bevelEnabled:
+                    true,
+
+                bevelSize:
+                    0.15,
+
+                bevelThickness:
+                    0.15
+            }
+        );
+    }
+
+
+    /* ============================================================
+       RETURN SPRING
+       ============================================================ */
+
+    static createReturnSpring(
+        options = {}
+    ) {
+
+        const spring =
+            PrimitiveFactory.createSpring(
+                options.radius ??
+                    6,
+
+                options.tubeRadius ??
+                    0.65,
+
+                options.height ??
+                    15,
+
+                options.turns ??
+                    7,
+
+                M.get("steel"),
+                {
+                    name:
+                        options.name ||
+                        "ReturnSpring",
+
+                    radialSegments:
+                        8
+                }
+            );
+
+
+        return spring;
+    }
+
+
+    /* ============================================================
+       CONTACT ROTOR
+       ============================================================ */
+
+    static createContactRotor(
+        options = {}
+    ) {
+
+        const group =
+            new THREE.Group();
+
+        group.name =
+            options.name ||
+            "ContactRotor";
+
+
+        const radius =
+            options.radius ??
+            12;
+
+        const thickness =
+            options.thickness ??
+            5;
+
+
+        /*
+         * Main insulating rotor.
+         */
+
+        const rotor =
+            PrimitiveFactory.createCylinder(
+                radius,
+                thickness,
+                M.get("blackPlastic"),
+                {
+                    name:
+                        "ContactRotorBody",
+
+                    radialSegments:
+                        64
+                }
+            );
+
+
+        group.add(
+            rotor
+        );
+
+
+        /*
+         * Conductive contact segments.
+
+         * Four small radial contact pads correspond
+         * conceptually to the BAT/ACC/IGN/ST terminals.
+         */
+
+        const contacts = [
+
+            {
+                name: "BATContact",
+                angle: 0
+            },
+
+            {
+                name: "ACCContact",
+                angle: Math.PI / 2
+            },
+
+            {
+                name: "IGNContact",
+                angle: Math.PI
+            },
+
+            {
+                name: "STContact",
+                angle: Math.PI * 1.5
+            }
+
+        ];
+
+
+        for (
+            const contact of contacts
+        ) {
+
+            const pad =
+                PrimitiveFactory.createBox(
+                    4.0,
+                    thickness * 0.45,
+                    6.0,
+                    M.get("contact"),
+                    {
+                        name:
+                            contact.name
+                    }
+                );
+
+
+            const r =
+                radius * 0.62;
+
+
+            pad.position.x =
+                Math.cos(
+                    contact.angle
+                ) * r;
+
+
+            pad.position.z =
+                Math.sin(
+                    contact.angle
+                ) * r;
+
+
+            pad.position.y =
+                thickness * 0.28;
+
+
+            pad.rotation.y =
+                -contact.angle;
+
+
+            group.add(
+                pad
+            );
+
+        }
+
+
+        return group;
+    }
+
+
+    /* ============================================================
+       REAR CONTACT HOUSING
+       ============================================================ */
+
+    static createRearContactHousing(
+        options = {}
+    ) {
+
+        const group =
+            new THREE.Group();
+
+        group.name =
+            options.name ||
+            "RearContactHousing";
+
+
+        const radius =
+            options.radius ??
+            17;
+
+        const length =
+            options.length ??
+            23;
+
+
+        const body =
+            PrimitiveFactory.createCylinder(
+                radius,
+                length,
+                M.get("darkPlastic"),
+                {
+                    name:
+                        "RearHousingBody",
+
+                    radialSegments:
+                        64
+                }
+            );
+
+
+        group.add(
+            body
+        );
+
+
+        /*
+         * Rear cap.
+         */
+
+        const cap =
+            PrimitiveFactory.createCylinder(
+                radius + 0.8,
+                4,
+                M.get("blackPlastic"),
+                {
+                    name:
+                        "RearHousingCap",
+
+                    radialSegments:
+                        64,
+
+                    position:
+                        new THREE.Vector3(
+                            0,
+                            -length / 2 - 2,
+                            0
+                        )
+                }
+            );
+
+        group.add(
+            cap
+        );
+        /* Four cable exit guides.*/
+        const cablePositions = [
+            [-10, 0, 0],
+            [-3.3, 0, 0],
+            [3.3, 0, 0],
+            [10, 0, 0]
+        ];
+        cablePositions.forEach(
+            (p, index) => {
+                const guide =
+                    PrimitiveFactory.createCylinder(
+                        2.5,
+                        7,
+                        M.get("rubber"),
+                        {
+                            name:
+                                `CableGuide_${index}`,
+                            radialSegments:
+                                20,
+                            position:
+                                new THREE.Vector3(
+                                    p[0],
+                                    -length / 2 - 5,
+                                    p[2]
+                                )
+                        }
+                    );
+                group.add(
+                    guide
+                );
+            }
+        );
+        return group;
+    }
+
+    /*  COMPLETE BARREL HARDWARE */
+    static createBarrelHardware(
+        options = {}
+    ) {
+        const group =
+            new THREE.Group();
+        group.name =
+            options.name ||
+            "BarrelHardware";
+        const barrel =
+            this.createThreadedBarrel(
+                options
+            );
+        group.add(
+            barrel
+        );
+
+
+        const bezel =
+            this.createBezel(
+                options
+            );
+
+
+        bezel.position.y =
+            options.length ??
+            43;
+
+
+        group.add(
+            bezel
+        );
+
+
+        const nut =
+            this.createRetainingNut(
+                options
+            );
+
+
+        nut.position.y =
+            -(
+                (options.length ?? 43) /
+                2
+            ) - 2;
+
+
+        group.add(
+            nut
+        );
+
+
+        return group;
+    }
+
+
+    /* ============================================================
+       COMPLETE LOCK CYLINDER ASSEMBLY
+       ============================================================ */
+
+    static createLockCylinderAssembly(
+        options = {}
+    ) {
+
+        const group =
+            new THREE.Group();
+
+        group.name =
+            options.name ||
+            "LockCylinderAssembly";
+
+
+        const cylinder =
+            this.createKeyCylinder(
+                options
+            );
+
+
+        group.add(
+            cylinder
+        );
+
+
+        const shaft =
+            this.createSelectorShaft(
+                options
+            );
+
+
+        shaft.position.y =
+            -(
+                options.length ??
+                17
+            ) / 2;
+
+
+        group.add(
+            shaft
+        );
+
+
+        const rotor =
+            this.createContactRotor(
+                options
+            );
+        rotor.position.y =
+            -(
+                options.length ??
+                17
+            ) -
+            5;
+        group.add(
+            rotor
+        );
+        return group;
+    }
+
+    /* COMPLETE REAR ELECTRICAL ASSEMBLY */
+    static createElectricalAssembly(
+        options = {}
+    ) {
+        const group =
+            new THREE.Group();
+        group.name =
+            options.name ||
+            "ElectricalAssembly";
+        const housing =
+            this.createRearContactHousing(
+                options
+            );
+        group.add(
+            housing
+        );
+        const terminalBlock =
+            this.createTerminalBlock(
+                options
+            );
+
+
+        terminalBlock.position.y =
+            -(
+                options.length ??
+                23
+            ) / 2 -
+            12;
+        group.add(
+            terminalBlock
+        );
+        return group;
+    }
+    /*  COMPLETE MOUNTING HARDWARE */
+    static createMountingHardware(
+        options = {}
+    ) {
+        const group =
+            new THREE.Group();
+        group.name =
+            options.name ||
+            "MountingHardware";
+        const washer =
+            this.createLockWasher(
+                options
+            );
+        group.add(
+            washer
+        );
+        const screw =
+            this.createMountingScrew(
+                options
+            );
+        screw.position.y =-2;
+        group.add(screw);
+        return group;
+    }
+} //end MechanicalParts
         
     /* APPLICATION CLASS */
     class IgnitionSwitchDemo {
