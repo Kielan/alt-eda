@@ -6069,7 +6069,1893 @@ export class MechanicalParts {
         return group;
     }
 } //end MechanicalParts
-        
+        import * as THREE from "three";
+
+import PrimitiveFactory from "./PrimitiveFactory.js";
+import MechanicalParts from "./MechanicalParts.js";
+import materials from "./Materials.js";
+
+
+/* ================================================================
+   12V AUTOMOTIVE IGNITION / STARTER SWITCH
+   ================================================================
+
+   Four-position selector:
+
+       0 = OFF
+       1 = ACC
+       2 = ON
+       3 = START
+
+   Coordinate convention:
+
+       +Y = front / key side
+       -Y = rear / electrical terminals
+
+       X/Z = radial plane
+
+   The assembly is intentionally procedural.
+
+   ================================================================ */
+
+
+/* ================================================================
+   SELECTOR STATES
+   ================================================================ */
+
+export const IGNITION_STATES = Object.freeze({
+
+    OFF: 0,
+
+    ACC: 1,
+
+    ON: 2,
+
+    START: 3
+
+});
+
+
+/* ================================================================
+   STATE NAMES
+   ================================================================ */
+
+export const IGNITION_STATE_NAMES = [
+
+    "OFF",
+    "ACC",
+    "ON",
+    "START"
+
+];
+
+
+/* ================================================================
+   IGNITION SWITCH
+   ================================================================ */
+
+export class IgnitionSwitch extends THREE.Group {
+
+
+    /* ============================================================
+       CONSTRUCTOR
+       ============================================================ */
+
+    constructor(
+        options = {}
+    ) {
+
+        super();
+
+
+        this.name =
+            options.name ||
+            "12V_IgnitionSwitch";
+
+
+        /* --------------------------------------------------------
+           DIMENSIONS
+           -------------------------------------------------------- */
+
+        this.dimensions = {
+
+            barrelLength:
+                options.barrelLength ??
+                43,
+
+            barrelRadius:
+                options.barrelRadius ??
+                15,
+
+            bezelRadius:
+                options.bezelRadius ??
+                22,
+
+            bezelInnerRadius:
+                options.bezelInnerRadius ??
+                14.2,
+
+            rearRadius:
+                options.rearRadius ??
+                17,
+
+            rearLength:
+                options.rearLength ??
+                23
+
+        };
+
+
+        /* --------------------------------------------------------
+           SELECTOR STATE
+           -------------------------------------------------------- */
+
+        this.state =
+            IGNITION_STATES.OFF;
+
+
+        this.targetState =
+            IGNITION_STATES.OFF;
+
+
+        this.selectorAngle =
+            0;
+
+
+        this.targetSelectorAngle =
+            0;
+
+
+        /* --------------------------------------------------------
+           ANIMATION
+           -------------------------------------------------------- */
+
+        this.animation = {
+
+            enabled:
+                true,
+
+            speed:
+                options.selectorSpeed ??
+                8.0,
+
+            springReturn:
+                options.springReturn ??
+                true
+
+        };
+
+
+        /* --------------------------------------------------------
+           ELECTRICAL STATE
+           -------------------------------------------------------- */
+
+        this.electricalState = {
+
+            BAT:
+                true,
+
+            ACC:
+                false,
+
+            IGN:
+                false,
+
+            ST:
+                false
+
+        };
+
+
+        /* --------------------------------------------------------
+           ROOT GROUPS
+           -------------------------------------------------------- */
+
+        this.groups = {
+
+            barrel:
+                new THREE.Group(),
+
+            front:
+                new THREE.Group(),
+
+            lock:
+                new THREE.Group(),
+
+            rear:
+                new THREE.Group(),
+
+            terminals:
+                new THREE.Group(),
+
+            mounting:
+                new THREE.Group(),
+
+            selector:
+                new THREE.Group(),
+
+            markings:
+                new THREE.Group()
+
+        };
+
+
+        this.groups.barrel.name =
+            "BarrelAssembly";
+
+        this.groups.front.name =
+            "FrontAssembly";
+
+        this.groups.lock.name =
+            "LockCylinderAssembly";
+
+        this.groups.rear.name =
+            "RearElectricalAssembly";
+
+        this.groups.terminals.name =
+            "TerminalAssembly";
+
+        this.groups.mounting.name =
+            "MountingAssembly";
+
+        this.groups.selector.name =
+            "SelectorMechanism";
+
+        this.groups.markings.name =
+            "SelectorMarkings";
+
+
+        this.add(
+            this.groups.barrel
+        );
+
+        this.add(
+            this.groups.front
+        );
+
+        this.add(
+            this.groups.lock
+        );
+
+        this.add(
+            this.groups.rear
+        );
+
+        this.add(
+            this.groups.terminals
+        );
+
+        this.add(
+            this.groups.mounting
+        );
+
+        this.add(
+            this.groups.selector
+        );
+
+        this.add(
+            this.groups.markings
+        );
+
+
+        /* --------------------------------------------------------
+           BUILD
+           -------------------------------------------------------- */
+
+        this.buildBarrel();
+
+        this.buildFront();
+
+        this.buildLockCylinder();
+
+        this.buildRearHousing();
+
+        this.buildTerminals();
+
+        this.buildMountingHardware();
+
+        this.buildSelector();
+
+        this.buildMarkings();
+
+
+        /* --------------------------------------------------------
+           INITIAL STATE
+           -------------------------------------------------------- */
+
+        this.setState(
+            IGNITION_STATES.OFF,
+            true
+        );
+
+    }
+
+
+    /* ============================================================
+       BUILD BARREL
+       ============================================================ */
+
+    buildBarrel() {
+
+        const barrel =
+            MechanicalParts.createThreadedBarrel({
+
+                name:
+                    "MainThreadedBarrel",
+
+                radius:
+                    this.dimensions.barrelRadius,
+
+                length:
+                    this.dimensions.barrelLength,
+
+                threadPitch:
+                    2.0,
+
+                threadLength:
+                    29
+
+            });
+
+
+        this.groups.barrel.add(
+            barrel
+        );
+
+
+        /*
+         * Rear contact housing.
+         */
+
+        const rearCollar =
+            PrimitiveFactory.createCylinder(
+
+                this.dimensions.rearRadius,
+
+                5,
+
+                materials.get(
+                    "darkZinc"
+                ),
+
+                {
+
+                    name:
+                        "RearBarrelCollar",
+
+                    radialSegments:
+                        64,
+
+                    position:
+                        new THREE.Vector3(
+                            0,
+                            -25,
+                            0
+                        )
+
+                }
+
+            );
+
+
+        this.groups.barrel.add(
+            rearCollar
+        );
+
+    }
+
+
+    /* ============================================================
+       BUILD FRONT
+       ============================================================ */
+
+    buildFront() {
+
+        /*
+         * Chrome retaining bezel.
+         */
+
+        const bezel =
+            MechanicalParts.createBezel({
+
+                name:
+                    "FrontChromeBezel",
+
+                outerRadius:
+                    this.dimensions.bezelRadius,
+
+                innerRadius:
+                    this.dimensions.bezelInnerRadius,
+
+                depth:
+                    5
+
+            });
+
+
+        bezel.position.y =
+            this.dimensions.barrelLength / 2;
+
+
+        this.groups.front.add(
+            bezel
+        );
+
+
+        /*
+         * Secondary black ring.
+         */
+
+        const blackRing =
+            PrimitiveFactory.createRing(
+
+                this.dimensions.bezelInnerRadius + 0.3,
+
+                this.dimensions.bezelInnerRadius - 1.5,
+
+                2.5,
+
+                materials.get(
+                    "blackPlastic"
+                ),
+
+                {
+
+                    name:
+                        "FrontBlackRing"
+
+                }
+
+            );
+
+
+        blackRing.position.y =
+            this.dimensions.barrelLength / 2 +
+            1.2;
+
+
+        this.groups.front.add(
+            blackRing
+        );
+
+
+        /*
+         * Decorative outer shoulder.
+         */
+
+        const shoulder =
+            PrimitiveFactory.createCylinder(
+
+                this.dimensions.bezelRadius - 2,
+
+                3.0,
+
+                materials.get(
+                    "darkZinc"
+                ),
+
+                {
+
+                    name:
+                        "FrontShoulder",
+
+                    radialSegments:
+                        64,
+
+                    position:
+                        new THREE.Vector3(
+                            0,
+                            this.dimensions.barrelLength / 2 - 1.0,
+                            0
+                        )
+
+                }
+
+            );
+
+
+        this.groups.front.add(
+            shoulder
+        );
+
+    }
+
+
+    /* ============================================================
+       BUILD LOCK CYLINDER
+       ============================================================ */
+
+    buildLockCylinder() {
+
+        const lock =
+            MechanicalParts.createKeyCylinder({
+
+                name:
+                    "KeyCylinder",
+
+                radius:
+                    9.2,
+
+                length:
+                    17
+
+            });
+
+
+        lock.position.y =
+            this.dimensions.barrelLength / 2 +
+            4;
+
+
+        this.groups.lock.add(
+            lock
+        );
+
+
+        /*
+         * Selector shaft behind lock cylinder.
+         */
+
+        const shaft =
+            MechanicalParts.createSelectorShaft({
+
+                name:
+                    "SelectorShaft",
+
+                radius:
+                    5,
+
+                length:
+                    25
+
+            });
+
+
+        shaft.position.y =
+            this.dimensions.barrelLength / 2 -
+            6;
+
+
+        this.groups.lock.add(
+            shaft
+        );
+
+
+        /*
+         * Contact rotor at rear.
+         */
+
+        const rotor =
+            MechanicalParts.createContactRotor({
+
+                name:
+                    "ElectricalContactRotor",
+
+                radius:
+                    12,
+
+                thickness:
+                    5
+
+            });
+
+
+        rotor.position.y =
+            -this.dimensions.barrelLength / 2 -
+            5;
+
+
+        this.groups.selector.add(
+            rotor
+        );
+
+
+        this.contactRotor =
+            rotor;
+
+    }
+
+
+    /* ============================================================
+       BUILD REAR HOUSING
+       ============================================================ */
+
+    buildRearHousing() {
+
+        const housing =
+            MechanicalParts.createRearContactHousing({
+
+                name:
+                    "RearElectricalHousing",
+
+                radius:
+                    this.dimensions.rearRadius,
+
+                length:
+                    this.dimensions.rearLength
+
+            });
+
+
+        housing.position.y =
+            -this.dimensions.barrelLength / 2 -
+            this.dimensions.rearLength / 2;
+
+
+        this.groups.rear.add(
+            housing
+        );
+
+
+        /*
+         * Rear terminal block.
+         */
+
+        const block =
+            MechanicalParts.createTerminalBlock({
+
+                name:
+                    "TerminalBlock",
+
+                width:
+                    29,
+
+                height:
+                    17,
+
+                depth:
+                    22
+
+            });
+
+
+        block.position.y =
+            -48;
+
+
+        this.groups.terminals.add(
+            block
+        );
+
+
+        this.terminalBlock =
+            block;
+
+    }
+
+
+    /* ============================================================
+       BUILD TERMINALS
+       ============================================================ */
+
+    buildTerminals() {
+
+        this.terminals = {};
+
+
+        const terminalNames = [
+
+            "BAT",
+            "ACC",
+            "IGN",
+            "ST"
+
+        ];
+
+
+        const spacing =
+            6.6;
+
+
+        terminalNames.forEach(
+            (
+                terminalName,
+                index
+            ) => {
+
+                const x =
+                    (
+                        index -
+                        1.5
+                    ) *
+                    spacing;
+
+
+                const terminal =
+                    MechanicalParts.createTerminalPost({
+
+                        name:
+                            `Terminal_${terminalName}`,
+
+                        radius:
+                            terminalName === "BAT"
+                                ? 3.3
+                                : 2.7,
+
+                        height:
+                            10
+
+                    });
+
+
+                terminal.position.set(
+
+                    x,
+
+                    -39,
+
+                    0
+
+                );
+
+
+                this.groups.terminals.add(
+                    terminal
+                );
+
+
+                this.terminals[
+                    terminalName
+                ] =
+                    terminal;
+
+            }
+        );
+
+    }
+
+
+    /* ============================================================
+       BUILD MOUNTING HARDWARE
+       ============================================================ */
+
+    buildMountingHardware() {
+
+        /*
+         * Retaining nut.
+         */
+
+        const nut =
+            MechanicalParts.createRetainingNut({
+
+                name:
+                    "MainRetainingNut",
+
+                outerRadius:
+                    20,
+
+                innerRadius:
+                    15,
+
+                height:
+                    7
+
+            });
+
+
+        nut.position.y =
+            -this.dimensions.barrelLength / 2 -
+            2;
+
+
+        this.groups.mounting.add(
+            nut
+        );
+
+
+        /*
+         * Lock washer.
+         */
+
+        const washer =
+            MechanicalParts.createLockWasher({
+
+                name:
+                    "MainLockWasher",
+
+                outerRadius:
+                    16,
+
+                innerRadius:
+                    13,
+
+                thickness:
+                    1.4
+
+            });
+
+
+        washer.position.y =
+            -this.dimensions.barrelLength / 2 -
+            5.5;
+
+
+        this.groups.mounting.add(
+            washer
+        );
+
+
+        /*
+         * Four mounting / housing screws.
+         */
+
+        const screwPositions = [
+
+            [-13, -46, -8],
+
+            [13, -46, -8],
+
+            [-13, -46, 8],
+
+            [13, -46, 8]
+
+        ];
+
+
+        screwPositions.forEach(
+            (
+                position,
+                index
+            ) => {
+
+                const screw =
+                    MechanicalParts.createMountingScrew({
+
+                        name:
+                            `RearMountScrew_${index}`,
+
+                        radius:
+                            2.4,
+
+                        headHeight:
+                            2.0,
+
+                        shaftLength:
+                            8
+
+                    });
+
+
+                screw.position.set(
+                    position[0],
+                    position[1],
+                    position[2]
+                );
+
+
+                this.groups.mounting.add(
+                    screw
+                );
+
+            }
+        );
+
+    }
+
+
+    /* ============================================================
+       BUILD SELECTOR MECHANISM
+       ============================================================ */
+
+    buildSelector() {
+
+        /*
+         * Selector hub.
+
+         * This is the visible rotational component behind
+         * the key cylinder.
+         */
+
+        const hub =
+            PrimitiveFactory.createCylinder(
+
+                10,
+
+                4,
+
+                materials.get(
+                    "darkSteel"
+                ),
+
+                {
+
+                    name:
+                        "SelectorHub",
+
+                    radialSegments:
+                        48,
+
+                    position:
+                        new THREE.Vector3(
+                            0,
+                            17,
+                            0
+                        )
+
+                }
+
+            );
+
+
+        this.groups.selector.add(
+            hub
+        );
+
+
+        /*
+         * Index pointer.
+         */
+
+        const pointer =
+            PrimitiveFactory.createBox(
+
+                1.4,
+
+                5.0,
+
+                1.2,
+
+                materials.get(
+                    "white"
+                ),
+
+                {
+
+                    name:
+                        "SelectorPointer",
+
+                    position:
+                        new THREE.Vector3(
+                            0,
+                            20.0,
+                            9.2
+                        )
+
+                }
+
+            );
+
+
+        this.groups.selector.add(
+            pointer
+        );
+
+
+        this.selectorPointer =
+            pointer;
+
+
+        /*
+         * Spring return mechanism.
+         */
+
+        const spring =
+            MechanicalParts.createReturnSpring({
+
+                name:
+                    "SelectorReturnSpring",
+
+                radius:
+                    5.5,
+
+                tubeRadius:
+                    0.55,
+
+                height:
+                    12,
+
+                turns:
+                    7
+
+            });
+
+
+        spring.position.y =
+            -12;
+
+
+        this.groups.selector.add(
+            spring
+        );
+
+
+        this.returnSpring =
+            spring;
+
+
+        /*
+         * Contact rotor reference.
+         */
+
+        if (
+            this.contactRotor
+        ) {
+
+            this.contactRotor.name =
+                "SelectorContactRotor";
+
+        }
+
+    }
+
+
+    /* ============================================================
+       BUILD MARKINGS
+       ============================================================ */
+
+    buildMarkings() {
+
+        /*
+         * Four selector labels.
+
+         * These are small 3D text-like plates rather than
+         * font geometry, keeping this file dependency-free.
+         */
+
+        const labels = [
+
+            {
+                text:
+                    "OFF",
+
+                angle:
+                    -Math.PI / 2
+            },
+
+            {
+                text:
+                    "ACC",
+
+                angle:
+                    -Math.PI / 6
+            },
+
+            {
+                text:
+                    "ON",
+
+                angle:
+                    Math.PI / 6
+            },
+
+            {
+                text:
+                    "START",
+
+                angle:
+                    Math.PI / 2
+            }
+
+        ];
+
+
+        const radius =
+            25;
+
+
+        labels.forEach(
+            (
+                label,
+                index
+            ) => {
+
+                const plate =
+                    PrimitiveFactory.createLabelPlate(
+
+                        label.text,
+
+                        7,
+
+                        2.2,
+
+                        materials.get(
+                            "labelWhite"
+                        ),
+
+                        {
+
+                            name:
+                                `Label_${label.text}`
+
+                        }
+
+                    );
+
+
+                plate.position.x =
+                    Math.cos(
+                        label.angle
+                    ) *
+                    radius;
+
+
+                plate.position.z =
+                    Math.sin(
+                        label.angle
+                    ) *
+                    radius;
+
+
+                plate.position.y =
+                    this.dimensions.barrelLength /
+                    2 +
+                    3;
+
+
+                /*
+                 * Rotate each label toward the center.
+                 */
+
+                plate.rotation.y =
+                    -label.angle;
+
+
+                this.groups.markings.add(
+                    plate
+                );
+
+            }
+        );
+
+    }
+
+
+    /* ============================================================
+       CREATE / ATTACH KEY
+       ============================================================ */
+
+    createKey(
+        options = {}
+    ) {
+
+        if (
+            this.key
+        ) {
+
+            this.removeKey();
+
+        }
+
+
+        const key =
+            MechanicalParts.createKey({
+
+                name:
+                    options.name ||
+                    "IgnitionKey",
+
+                bladeLength:
+                    options.bladeLength ??
+                    36,
+
+                bladeWidth:
+                    options.bladeWidth ??
+                    6,
+
+                bladeThickness:
+                    options.bladeThickness ??
+                    1.7,
+
+                bowWidth:
+                    options.bowWidth ??
+                    21,
+
+                bowHeight:
+                    options.bowHeight ??
+                    27,
+
+                bowRadius:
+                    options.bowRadius ??
+                    6,
+
+                bowThickness:
+                    options.bowThickness ??
+                    4.5
+
+            });
+
+
+        /*
+         * Place the key approximately through the
+         * front cylinder.
+
+         * Key geometry is intentionally slightly offset
+         * from the center so the blade visually enters
+         * the lock.
+         */
+
+        key.position.set(
+
+            0,
+
+            this.dimensions.barrelLength / 2 +
+            13,
+
+            0
+
+        );
+
+
+        this.groups.lock.add(
+            key
+        );
+
+
+        this.key =
+            key;
+
+
+        return key;
+
+    }
+
+
+    /* ============================================================
+       REMOVE KEY
+       ============================================================ */
+
+    removeKey() {
+
+        if (
+            !this.key
+        ) {
+
+            return;
+
+        }
+
+
+        this.groups.lock.remove(
+            this.key
+        );
+
+
+        this.key =
+            null;
+
+    }
+
+
+    /* ============================================================
+       GET STATE ANGLE
+       ============================================================ */
+
+    getStateAngle(
+        state
+    ) {
+
+        /*
+         * Approximately 30 degrees between
+         * each detent.
+
+         * START is the fourth clockwise position.
+         */
+
+        const angles = [
+
+            0,
+
+            -Math.PI / 6,
+
+            0,
+
+            Math.PI / 6
+
+        ];
+
+
+        return angles[
+            state
+        ] ??
+        0;
+
+    }
+
+
+    /* ============================================================
+       SET STATE
+       ============================================================ */
+
+    setState(
+        state,
+        immediate = false
+    ) {
+
+        state =
+            THREE.MathUtils.clamp(
+                Math.round(state),
+                IGNITION_STATES.OFF,
+                IGNITION_STATES.START
+            );
+
+
+        /*
+         * START automatically returns to ON when the
+         * key is released.
+
+         * The explicit state remains START until
+         * releaseStart() is called.
+         */
+
+        this.targetState =
+            state;
+
+
+        this.targetSelectorAngle =
+            this.getStateAngle(
+                state
+            );
+
+
+        if (
+            immediate
+        ) {
+
+            this.selectorAngle =
+                this.targetSelectorAngle;
+
+            this.applySelectorTransform();
+
+        }
+
+
+        this.updateElectricalState();
+
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       SET STATE BY NAME
+       ============================================================ */
+
+    setStateByName(
+        name,
+        immediate = false
+    ) {
+
+        const normalized =
+            String(
+                name
+            )
+            .trim()
+            .toUpperCase();
+
+
+        const state =
+            IGNITION_STATES[
+                normalized
+            ];
+
+
+        if (
+            state === undefined
+        ) {
+
+            console.warn(
+                `Unknown ignition state: ${name}`
+            );
+
+            return this;
+
+        }
+
+
+        return this.setState(
+            state,
+            immediate
+        );
+
+    }
+
+
+    /* ============================================================
+       TURN KEY CLOCKWISE
+       ============================================================ */
+
+    turnClockwise() {
+
+        const next =
+            Math.min(
+                this.targetState + 1,
+                IGNITION_STATES.START
+            );
+
+
+        this.setState(
+            next
+        );
+
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       TURN KEY COUNTER-CLOCKWISE
+       ============================================================ */
+
+    turnCounterClockwise() {
+
+        const next =
+            Math.max(
+                this.targetState - 1,
+                IGNITION_STATES.OFF
+            );
+
+
+        this.setState(
+            next
+        );
+
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       PRESS / HOLD START
+       ============================================================ */
+
+    pressStart() {
+
+        this.setState(
+            IGNITION_STATES.START
+        );
+
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       RELEASE START
+       ============================================================ */
+
+    releaseStart() {
+
+        if (
+            this.targetState ===
+            IGNITION_STATES.START
+        ) {
+
+            this.setState(
+                IGNITION_STATES.ON
+            );
+
+        }
+
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       UPDATE ELECTRICAL STATE
+       ============================================================ */
+
+    updateElectricalState() {
+
+        const state =
+            this.targetState;
+
+
+        this.electricalState.BAT =
+            true;
+
+
+        this.electricalState.ACC =
+            (
+                state >=
+                IGNITION_STATES.ACC
+            );
+
+
+        this.electricalState.IGN =
+            (
+                state >=
+                IGNITION_STATES.ON
+            );
+
+
+        this.electricalState.ST =
+            (
+                state ===
+                IGNITION_STATES.START
+            );
+
+
+        /*
+         * Apply visual contact state.
+         */
+
+        this.updateTerminalVisuals();
+
+    }
+
+
+    /* ============================================================
+       UPDATE TERMINAL VISUALS
+       ============================================================ */
+
+    updateTerminalVisuals() {
+
+        const active =
+            this.electricalState;
+
+
+        const terminalColors = {
+
+            BAT:
+                0xc49338,
+
+            ACC:
+                active.ACC
+                    ? 0xd4a94c
+                    : 0x755f31,
+
+            IGN:
+                active.IGN
+                    ? 0xd4a94c
+                    : 0x755f31,
+
+            ST:
+                active.ST
+                    ? 0xd4a94c
+                    : 0x755f31
+
+        };
+
+
+        Object.entries(
+            this.terminals
+        )
+        .forEach(
+            (
+                [
+                    name,
+                    terminal
+                ]
+            ) => {
+
+                terminal.traverse(
+                    object => {
+
+                        if (
+                            !object.isMesh
+                        ) {
+
+                            return;
+
+                        }
+
+
+                        if (
+                            object.name
+                                .includes(
+                                    "TerminalPostBody"
+                                )
+                        ) {
+
+                            object.material =
+                                object.material.clone();
+
+
+                            object.material.color.setHex(
+                                terminalColors[
+                                    name
+                                ]
+                            );
+
+                        }
+
+                    }
+                );
+
+            }
+        );
+
+    }
+
+
+    /* ============================================================
+       APPLY SELECTOR TRANSFORM
+       ============================================================ */
+
+    applySelectorTransform() {
+
+        /*
+         * Rotate visible selector hardware around
+         * the mechanical Y axis.
+
+         * Since the switch's principal axis is Y,
+         * rotation occurs in the X/Z plane.
+         */
+
+        this.groups.selector.rotation.y =
+            this.selectorAngle;
+
+
+        /*
+         * Rotate the key with the cylinder.
+
+         */
+
+        if (
+            this.key
+        ) {
+
+            this.key.rotation.y =
+                this.selectorAngle;
+
+        }
+
+    }
+
+
+    /* ============================================================
+       UPDATE
+       ============================================================ */
+
+    update(
+        deltaTime
+    ) {
+
+        if (
+            !this.animation.enabled
+        ) {
+
+            return;
+
+        }
+
+
+        const difference =
+            this.targetSelectorAngle -
+            this.selectorAngle;
+
+
+        if (
+            Math.abs(
+                difference
+            ) <
+            0.0001
+        ) {
+
+            this.selectorAngle =
+                this.targetSelectorAngle;
+
+        }
+        else {
+
+            const step =
+                this.animation.speed *
+                deltaTime;
+
+
+            this.selectorAngle +=
+                THREE.MathUtils.clamp(
+                    difference,
+                    -step,
+                    step
+                );
+
+        }
+
+
+        this.applySelectorTransform();
+
+
+        /*
+         * START spring return.
+
+         * This does not automatically trigger while START
+         * is actively being held. The demo can call
+         * releaseStart() when the user releases the control.
+         */
+
+    }
+
+
+    /* ============================================================
+       GET CURRENT STATE
+       ============================================================ */
+
+    getState() {
+
+        return this.targetState;
+
+    }
+
+
+    /* ============================================================
+       GET CURRENT STATE NAME
+       ============================================================ */
+
+    getStateName() {
+
+        return IGNITION_STATE_NAMES[
+            this.targetState
+        ];
+
+    }
+
+
+    /* ============================================================
+       GET ELECTRICAL OUTPUTS
+       ============================================================ */
+
+    getElectricalState() {
+
+        return {
+
+            BAT:
+                this.electricalState.BAT,
+
+            ACC:
+                this.electricalState.ACC,
+
+            IGN:
+                this.electricalState.IGN,
+
+            ST:
+                this.electricalState.ST
+
+        };
+
+    }
+
+
+    /* ============================================================
+       IS STARTING?
+       ============================================================ */
+
+    isStarting() {
+
+        return (
+            this.targetState ===
+            IGNITION_STATES.START
+        );
+
+    }
+
+
+    /* ============================================================
+       IS IGNITION ON?
+       ============================================================ */
+
+    isIgnitionOn() {
+
+        return (
+            this.targetState >=
+            IGNITION_STATES.ON
+        );
+
+    }
+
+
+    /* ============================================================
+       IS ACCESSORY ON?
+       ============================================================ */
+
+    isAccessoryOn() {
+
+        return (
+            this.targetState >=
+            IGNITION_STATES.ACC
+        );
+
+    }
+
+
+    /* ============================================================
+       RESET
+       ============================================================ */
+
+    reset() {
+
+        this.setState(
+            IGNITION_STATES.OFF
+        );
+
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       ENABLE / DISABLE ANIMATION
+       ============================================================ */
+
+    setAnimationEnabled(
+        enabled
+    ) {
+
+        this.animation.enabled =
+            Boolean(
+                enabled
+            );
+
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       SET SELECTOR SPEED
+       ============================================================ */
+
+    setSelectorSpeed(
+        speed
+    ) {
+
+        this.animation.speed =
+            Math.max(
+                0,
+                speed
+            );
+
+
+        return this;
+
+    }
+
+
+    /* ============================================================
+       DISPOSE
+       ============================================================ */
+
+    dispose() {
+
+        this.traverse(
+            object => {
+
+                if (
+                    object.geometry
+                ) {
+
+                    object.geometry.dispose();
+
+                }
+
+
+                /*
+                 * Materials are normally shared through
+                 * MaterialFactory, so do not dispose them
+                 * here.
+                 */
+
+            }
+        );
+
+    }
+
+}
+
+
+    /* ================================================================
+       FACTORY FUNCTION
+       ================================================================ */
+    
+    export function createIgnitionSwitch(
+        options = {}
+    ) {
+    
+        return new IgnitionSwitch(
+            options
+        );
+    
+    }//end IgnitionSwitch
+
+
     /* APPLICATION CLASS */
     class IgnitionSwitchDemo {
         constructor() {
