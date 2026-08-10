@@ -1959,58 +1959,37 @@ export class PrimitiveFactory {
                 options.thetaStart ?? 0,
                 options.thetaLength ?? Math.PI
             );
-
-
         const mesh =
             new THREE.Mesh(
                 geometry,
                 material
             );
-
-
         mesh.name =
             options.name ||
             "Sphere";
-
-
         this.applyTransform(
             mesh,
             options
         );
-
-
         this.enableShadows(
             mesh,
             options
         );
-
-
         return mesh;
     }
-
-
-    /* ============================================================
-       CAPSULE
-       ============================================================ */
-
+    /* CAPSULE */
     static createCapsule(
         radius,
         length,
         material,
         options = {}
     ) {
-
         const group =
             new THREE.Group();
-
         group.name =
             options.name ||
             "Capsule";
-
-
-        /*
-         * Central cylinder.
-         */
+        /* Central cylinder. */
 
         const cylinder =
             this.createCylinder(
@@ -2043,8 +2022,6 @@ export class PrimitiveFactory {
                         "CapsuleTop"
                 }
             );
-
-
         const bottom =
             this.createSphere(
                 radius,
@@ -2052,40 +2029,27 @@ export class PrimitiveFactory {
                 {
                     widthSegments:
                         options.widthSegments ?? 24,
-
                     heightSegments:
                         options.heightSegments ?? 12,
-
                     name:
                         "CapsuleBottom"
                 }
             );
-
-
         top.position.y =
             length / 2;
-
         bottom.position.y =
             -length / 2;
-
-
         group.add(
             cylinder,
             top,
             bottom
         );
-
-
         this.applyTransform(
             group,
             options
         );
-
-
         return group;
     }
-
-
     /* ============================================================
        LATHE
        ============================================================
@@ -3438,6 +3402,906 @@ export class PrimitiveFactory {
         );
     }
 } //end primitivefactory
+
+import * as THREE from "three";
+
+
+/* ================================================================
+   MATERIAL LIBRARY
+   ================================================================
+
+   Materials are centralized here so the procedural model can
+   reference physical-looking materials rather than hard-coded
+   THREE.MeshStandardMaterial instances throughout the geometry.
+
+   The reference ignition switch contains several visually
+   distinct manufacturing materials:
+
+       - black molded engineering plastic
+       - dark textured plastic
+       - zinc / die-cast metal
+       - plated steel
+       - chrome
+       - brass / copper electrical terminals
+       - rubber wire insulation
+       - stamped key metal
+       - dark electrical contact material
+
+   ================================================================ */
+
+
+/* ================================================================
+   MATERIAL FACTORY
+   ================================================================ */
+
+export class MaterialFactory {
+
+
+    /* ============================================================
+       CONSTRUCTOR
+       ============================================================ */
+
+    constructor() {
+
+        this.materials = {};
+
+        this.createMaterials();
+
+    }
+
+
+    /* ============================================================
+       CREATE ALL MATERIALS
+       ============================================================ */
+
+    createMaterials() {
+
+        this.materials.blackPlastic =
+            this.createBlackPlastic();
+
+
+        this.materials.darkPlastic =
+            this.createDarkPlastic();
+
+
+        this.materials.ribbedPlastic =
+            this.createRibbedPlastic();
+
+
+        this.materials.zinc =
+            this.createZinc();
+
+
+        this.materials.darkZinc =
+            this.createDarkZinc();
+
+
+        this.materials.chrome =
+            this.createChrome();
+
+
+        this.materials.steel =
+            this.createSteel();
+
+
+        this.materials.darkSteel =
+            this.createDarkSteel();
+
+
+        this.materials.brass =
+            this.createBrass();
+
+
+        this.materials.copper =
+            this.createCopper();
+
+
+        this.materials.terminal =
+            this.createTerminal();
+
+
+        this.materials.contact =
+            this.createContact();
+
+
+        this.materials.rubber =
+            this.createRubber();
+
+
+        this.materials.key =
+            this.createKey();
+
+
+        this.materials.keyDark =
+            this.createKeyDark();
+
+
+        this.materials.red =
+            this.createRed();
+
+
+        this.materials.green =
+            this.createGreen();
+
+
+        this.materials.amber =
+            this.createAmber();
+
+
+        this.materials.white =
+            this.createWhite();
+
+
+        this.materials.labelWhite =
+            this.createLabelWhite();
+
+
+        this.materials.labelBlack =
+            this.createLabelBlack();
+
+
+        this.materials.backgroundMetal =
+            this.createBackgroundMetal();
+
+
+        this.materials.ground =
+            this.createGround();
+
+    }
+
+
+    /* ============================================================
+       BLACK MOLDED ENGINEERING PLASTIC
+       ============================================================ */
+
+    createBlackPlastic() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "BlackMoldedPlastic",
+
+            color:
+                0x111315,
+
+            roughness:
+                0.48,
+
+            metalness:
+                0.04,
+
+            envMapIntensity:
+                0.65
+
+        });
+
+    }
+
+
+    /* ============================================================
+       DARK PLASTIC
+       ============================================================ */
+
+    createDarkPlastic() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "DarkPlastic",
+
+            color:
+                0x090b0d,
+
+            roughness:
+                0.68,
+
+            metalness:
+                0.02,
+
+            envMapIntensity:
+                0.45
+
+        });
+
+    }
+
+
+    /* ============================================================
+       RIBBED / TEXTURED PLASTIC
+       ============================================================ */
+
+    createRibbedPlastic() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "RibbedPlastic",
+
+            color:
+                0x181b1d,
+
+            roughness:
+                0.78,
+
+            metalness:
+                0.015,
+
+            envMapIntensity:
+                0.4
+
+        });
+
+    }
+
+
+    /* ============================================================
+       ZINC / DIE CAST METAL
+       ============================================================ */
+
+    createZinc() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "ZincDieCast",
+
+            color:
+                0x777d80,
+
+            roughness:
+                0.32,
+
+            metalness:
+                0.88,
+
+            envMapIntensity:
+                1.15
+
+        });
+
+    }
+
+
+    /* ============================================================
+       DARK ZINC
+       ============================================================ */
+
+    createDarkZinc() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "DarkZinc",
+
+            color:
+                0x464b4e,
+
+            roughness:
+                0.4,
+
+            metalness:
+                0.9,
+
+            envMapIntensity:
+                1.0
+
+        });
+
+    }
+
+
+    /* ============================================================
+       CHROME
+       ============================================================ */
+
+    createChrome() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "Chrome",
+
+            color:
+                0xd7dde0,
+
+            roughness:
+                0.12,
+
+            metalness:
+                1.0,
+
+            envMapIntensity:
+                1.5
+
+        });
+
+    }
+
+
+    /* ============================================================
+       PLATED STEEL
+       ============================================================ */
+
+    createSteel() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "PlatedSteel",
+
+            color:
+                0xa2a6a8,
+
+            roughness:
+                0.27,
+
+            metalness:
+                0.96,
+
+            envMapIntensity:
+                1.25
+
+        });
+
+    }
+
+
+    /* ============================================================
+       DARK STEEL
+       ============================================================ */
+
+    createDarkSteel() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "DarkSteel",
+
+            color:
+                0x363a3d,
+
+            roughness:
+                0.36,
+
+            metalness:
+                0.94,
+
+            envMapIntensity:
+                1.0
+
+        });
+
+    }
+
+
+    /* ============================================================
+       BRASS
+       ============================================================ */
+
+    createBrass() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "Brass",
+
+            color:
+                0xb88732,
+
+            roughness:
+                0.29,
+
+            metalness:
+                0.92,
+
+            envMapIntensity:
+                1.15
+
+        });
+
+    }
+
+
+    /* ============================================================
+       COPPER
+       ============================================================ */
+
+    createCopper() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "Copper",
+
+            color:
+                0xb96d42,
+
+            roughness:
+                0.3,
+
+            metalness:
+                0.94,
+
+            envMapIntensity:
+                1.15
+
+        });
+
+    }
+
+
+    /* ============================================================
+       ELECTRICAL TERMINAL
+       ============================================================ */
+
+    createTerminal() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "ElectricalTerminal",
+
+            color:
+                0xc49338,
+
+            roughness:
+                0.24,
+
+            metalness:
+                0.96,
+
+            envMapIntensity:
+                1.25
+
+        });
+
+    }
+
+
+    /* ============================================================
+       ELECTRICAL CONTACT
+       ============================================================ */
+
+    createContact() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "ElectricalContact",
+
+            color:
+                0x22272a,
+
+            roughness:
+                0.31,
+
+            metalness:
+                0.86,
+
+            envMapIntensity:
+                0.95
+
+        });
+
+    }
+
+
+    /* ============================================================
+       RUBBER
+       ============================================================ */
+
+    createRubber() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "Rubber",
+
+            color:
+                0x080909,
+
+            roughness:
+                0.92,
+
+            metalness:
+                0.0,
+
+            envMapIntensity:
+                0.25
+
+        });
+
+    }
+
+
+    /* ============================================================
+       KEY METAL
+       ============================================================ */
+
+    createKey() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "KeyMetal",
+
+            color:
+                0xb8bdc0,
+
+            roughness:
+                0.2,
+
+            metalness:
+                0.98,
+
+            envMapIntensity:
+                1.35
+
+        });
+
+    }
+
+
+    /* ============================================================
+       DARK KEY METAL
+       ============================================================ */
+
+    createKeyDark() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "KeyDarkMetal",
+
+            color:
+                0x555b5e,
+
+            roughness:
+                0.25,
+
+            metalness:
+                0.96,
+
+            envMapIntensity:
+                1.15
+
+        });
+
+    }
+
+
+    /* ============================================================
+       RED
+       ============================================================ */
+
+    createRed() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "Red",
+
+            color:
+                0x9e1717,
+
+            roughness:
+                0.42,
+
+            metalness:
+                0.04,
+
+            envMapIntensity:
+                0.6
+
+        });
+
+    }
+
+
+    /* ============================================================
+       GREEN
+       ============================================================ */
+
+    createGreen() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "Green",
+
+            color:
+                0x2f8a4c,
+
+            roughness:
+                0.4,
+
+            metalness:
+                0.04,
+
+            envMapIntensity:
+                0.6
+
+        });
+
+    }
+
+
+    /* ============================================================
+       AMBER
+       ============================================================ */
+
+    createAmber() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "Amber",
+
+            color:
+                0xc77b16,
+
+            roughness:
+                0.34,
+
+            metalness:
+                0.03,
+
+            envMapIntensity:
+                0.7
+
+        });
+
+    }
+
+
+    /* ============================================================
+       WHITE
+       ============================================================ */
+
+    createWhite() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "White",
+
+            color:
+                0xe4e6e7,
+
+            roughness:
+                0.4,
+
+            metalness:
+                0.02,
+
+            envMapIntensity:
+                0.75
+
+        });
+
+    }
+
+
+    /* ============================================================
+       WHITE LABEL / PRINT
+       ============================================================ */
+
+    createLabelWhite() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "LabelWhite",
+
+            color:
+                0xf1f1ed,
+
+            roughness:
+                0.65,
+
+            metalness:
+                0.0,
+
+            envMapIntensity:
+                0.35
+
+        });
+
+    }
+
+
+    /* ============================================================
+       BLACK LABEL
+       ============================================================ */
+
+    createLabelBlack() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "LabelBlack",
+
+            color:
+                0x050505,
+
+            roughness:
+                0.82,
+
+            metalness:
+                0.0,
+
+            envMapIntensity:
+                0.2
+
+        });
+
+    }
+
+
+    /* ============================================================
+       BACKGROUND METAL
+       ============================================================ */
+
+    createBackgroundMetal() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "BackgroundMetal",
+
+            color:
+                0x252a2e,
+
+            roughness:
+                0.52,
+
+            metalness:
+                0.72,
+
+            envMapIntensity:
+                0.8
+
+        });
+
+    }
+
+
+    /* ============================================================
+       GROUND
+       ============================================================ */
+
+    createGround() {
+
+        return new THREE.MeshStandardMaterial({
+
+            name:
+                "Ground",
+
+            color:
+                0x111418,
+
+            roughness:
+                0.82,
+
+            metalness:
+                0.06,
+
+            envMapIntensity:
+                0.4
+
+        });
+
+    }
+    /* GET MATERIAL */
+    get(name) {
+        return this.materials[name];
+    }
+    /* SET MATERIAL */
+    set(name,
+        material) {
+        this.materials[name] =
+            material;
+    }
+    /* CLONE MATERIAL */
+    clone(name) {
+        const source =
+            this.get(name);
+        if (!source) {
+            throw new Error(
+                `Material "${name}" does not exist.`
+            );
+        }
+        return source.clone();
+    }
+    /* CREATE CUSTOM STANDARD MATERIAL */
+    static standard(
+        options = {}
+    ) {
+        return new THREE.MeshStandardMaterial({
+            color:
+                options.color ??
+                0xffffff,
+            roughness:
+                options.roughness ??
+                0.5,
+            metalness:
+                options.metalness ??
+                0.0,
+            opacity:
+                options.opacity ??
+                1.0,
+            transparent:
+                options.transparent ??
+                false,
+            side:
+                options.side ??
+                THREE.FrontSide,
+            depthWrite:
+                options.depthWrite ??
+                true,
+            envMapIntensity:
+                options.envMapIntensity ??
+                1.0
+        });
+    }
+    /* CREATE PHYSICAL MATERIAL */
+    static physical(
+        options = {}
+    ) {
+        return new THREE.MeshPhysicalMaterial({
+            color:
+                options.color ??
+                0xffffff,
+
+            roughness:
+                options.roughness ??
+                0.5,
+            metalness:
+                options.metalness ??
+                0.0,
+            clearcoat:
+                options.clearcoat ??
+                0.0,
+            clearcoatRoughness:
+                options.clearcoatRoughness ??
+                0.1,
+            transmission:
+                options.transmission ??
+                0.0,
+            thickness:
+                options.thickness ??
+                0.0,
+            ior:
+                options.ior ??
+                1.5,
+            opacity:
+                options.opacity ??
+                1.0,
+            transparent:
+                options.transparent ??
+                false,
+            envMapIntensity:
+                options.envMapIntensity ??
+                1.0
+        });
+    }
+    /* DISPOSE */
+    dispose() {
+        for (
+            const key of
+            Object.keys(this.materials)
+        ) {
+            const material =
+                this.materials[key];
+            if (material) {
+                material.dispose();
+            }
+        }
+        this.materials = {};
+    }
+}
+/* DEFAULT MATERIAL LIBRARY */
+const materials = new MaterialFactory();
         
     /* APPLICATION CLASS */
     class IgnitionSwitchDemo {
@@ -4182,17 +5046,11 @@ export class PrimitiveFactory {
         }
     
     
-        /* ============================================================
-           INSERT KEY
-           ============================================================ */
-    
+        /* INSERT KEY */
         insertKey() {
-    
             if (!this.ignition) {
                 return;
             }
-    
-    
             /*
              * If an animation controller provides
              * key animation, use it.
@@ -4226,39 +5084,26 @@ export class PrimitiveFactory {
         /* ============================================================
            REMOVE KEY
            ============================================================ */
-    
         removeKey() {
-    
             if (!this.ignition) {
                 return;
             }
-    
-    
             if (
                 this.animation &&
                 typeof this.animation.removeKey ===
                     "function"
             ) {
-    
                 this.animation.removeKey();
-    
             } else if (
                 typeof this.ignition.removeKey ===
                     "function"
             ) {
-    
                 this.ignition.removeKey();
-    
             }
-    
-    
             this.updateKeyUI(
                 false
             );
-    
         }
-    
-    
         /* ============================================================
            EXPLODED VIEW
            ============================================================ */
@@ -4423,20 +5268,16 @@ export class PrimitiveFactory {
            ============================================================ */
     
         updateContactsUI(position) {
-    
             const rows =
                 document.querySelectorAll(
                     ".contact-row"
                 );
-    
-    
             /*
              * The visual electrical abstraction.
              *
              * This is intentionally kept independent
              * of the actual ContactBlock implementation.
              */
-    
             const states = {
     
                 OFF: {
