@@ -7724,57 +7724,28 @@ export const DEFAULT_WIRES = Object.freeze({
 export class WiringHarness extends THREE.Group {
 
 
-    /* ============================================================
-       CONSTRUCTOR
-       ============================================================ */
-
-    constructor(
-        options = {}
-    ) {
-
+    /* CONSTRUCTOR */
+    constructor(options = {}) {
         super();
-
-
         this.name =
             options.name ||
             "IgnitionWiringHarness";
-
-
-        this.options =
-            options;
-
-
+        this.options = options;
         this.wires = {};
-
         this.terminals = {};
-
         this.boots = {};
-
         this.routes = {};
-
-
-        /*
-         * Default rear exit direction.
-         */
-
+        /* Default rear exit direction. */
         this.exitDirection =
             new THREE.Vector3(
                 0,
                 -1,
                 0
             );
-
-
-        /*
-         * Wire definitions.
-
+        /* Wire definitions.
          * Clone them so individual harnesses can be
-         * modified independently.
-         */
-
+         * modified independently. */
         this.wireDefinitions = {};
-
-
         Object.entries(
             DEFAULT_WIRES
         ).forEach(
@@ -7805,132 +7776,77 @@ export class WiringHarness extends THREE.Group {
          */
 
         this.groups = {
-
             connector:
                 new THREE.Group(),
-
             boots:
                 new THREE.Group(),
-
             wires:
                 new THREE.Group(),
-
             terminals:
                 new THREE.Group(),
-
             labels:
                 new THREE.Group(),
-
             strainRelief:
                 new THREE.Group()
-
         };
-
-
         this.groups.connector.name =
             "IgnitionConnector";
-
         this.groups.boots.name =
             "WireBoots";
-
         this.groups.wires.name =
             "Wires";
-
         this.groups.terminals.name =
             "WireTerminals";
-
         this.groups.labels.name =
             "WireLabels";
-
         this.groups.strainRelief.name =
             "StrainRelief";
-
-
         Object.values(
             this.groups
         ).forEach(
             group => this.add(group)
         );
-
-
         this.buildConnector();
-
         this.buildWireBoots();
-
         this.buildWires();
-
         this.buildStrainRelief();
-
     }
-
-
-    /* ============================================================
-       CREATE WIRE MATERIAL
-       ============================================================ */
-
-    createWireMaterial(
-        definition
-    ) {
-
-        /*
-         * Use MeshStandardMaterial directly rather than
-         * depending on a particular Materials.js implementation.
-         */
-
+    /* CREATE WIRE MATERIAL */
+    createWireMaterial( definition ) {
+        /* Use MeshStandardMaterial directly rather than
+         * depending on a particular Materials.js implementation. */
         const material =
             new THREE.MeshStandardMaterial({
-
                 color:
                     definition.color,
-
                 roughness:
                     0.72,
-
                 metalness:
                     0.02
-
             });
-
-
         material.name =
             `${definition.name}_WireMaterial`;
-
-
         return material;
-
     }
-
-
-    /* ============================================================
-       CREATE WIRE CURVE
-       ============================================================ */
-
+    /* CREATE WIRE CURVE */
     createWireCurve(
         points
     ) {
-
         return new THREE.CatmullRomCurve3(
             points
         );
-
     }
-
-
     /* ============================================================
        CREATE WIRE MESH
        ============================================================ */
-
     createWireMesh(
         points,
         definition
     ) {
-
         const curve =
             this.createWireCurve(
                 points
             );
-
-
         const geometry =
             new THREE.TubeGeometry(
 
