@@ -141,17 +141,11 @@
             1px solid rgba(255,255,255,0.06);
         background:
             rgba(255,255,255,0.025);
-    
         color: #7f8993;
-    
         font-size: 9px;
-    
         font-weight: 700;
-    
         letter-spacing: 0.18em;
     }
-    
-    
     .panel-content {
         padding: 7px;
     }
@@ -162,91 +156,55 @@
         height: 38px;
         display: flex;
         align-items: center;
-    
         margin-bottom: 5px;
-    
         padding: 0 10px;
-    
         border: 1px solid transparent;
-    
         border-radius: 4px;
-    
         background: rgba(255,255,255,0.025);
-    
         color: #9ba4ad;
-    
         cursor: pointer;
-    
         transition:
             background 120ms ease,
             border-color 120ms ease,
             color 120ms ease,
             transform 120ms ease;
     }
-    
-    
     .position-button:last-child {
         margin-bottom: 0;
     }
-    
-    
     .position-button:hover {
-        background:
-            rgba(255,255,255,0.07);
-    
+        background: rgba(255,255,255,0.07);
         color: #e4e8ec;
     }
-    
-    
     .position-button:active {
         transform: scale(0.985);
     }
-    
-    
     .position-button.active {
         border-color:
             rgba(87, 166, 255, 0.45);
-    
         background:
             rgba(54, 116, 174, 0.20);
-    
         color: #f3f7fb;
-    
         box-shadow:
             inset 3px 0 0 #4f9de8;
     }
-    
-    
     .position-number {
         width: 25px;
-    
         font-size: 10px;
-    
         font-weight: 700;
-    
         color: #65707b;
     }
-    
-    
     .position-button.active
     .position-number {
         color: #7fbbf0;
     }
-    
-    
     .position-name {
         font-size: 11px;
-    
         font-weight: 700;
-    
         letter-spacing: 0.14em;
     }
-    
-    
-    /* ================================================================
-       GENERAL CONTROL BUTTON
-       ================================================================ */
-    
+    /* GENERAL CONTROL BUTTON */
+
     .control-button {
         width: 100%;
     
@@ -519,106 +477,63 @@
             1px solid rgba(255,255,255,0.12);
     
         border-radius: 3px;
-    
         background:
             rgba(255,255,255,0.055);
-    
         color: #bbc3ca;
-    
         font-size: 8px;
-    
         font-weight: 800;
     }
-    
-    
     .help-divider {
         width: 1px;
-    
         height: 17px;
-    
         background:
             rgba(255,255,255,0.10);
     }
-    
-    
-    /* ================================================================
-       LOADING SCREEN
-       ================================================================ */
-    
+    /* LOADING SCREEN */
     .loading-screen {
         position: absolute;
-    
         inset: 0;
-    
         z-index: 100;
-    
         display: flex;
-    
         align-items: center;
-    
         justify-content: center;
-    
         background:
             radial-gradient(
                 circle at center,
                 #1b2025,
                 #080a0d 70%
             );
-    
         transition:
             opacity 350ms ease,
             visibility 350ms ease;
     }
-    
-    
     .loading-screen.hidden {
         opacity: 0;
-    
         visibility: hidden;
-    
         pointer-events: none;
     }
-    
-    
     .loading-content {
         width: 360px;
-    
         text-align: center;
     }
-    
-    
     .loading-title {
         margin-bottom: 18px;
-    
         color: #d9e0e6;
-    
         font-size: 12px;
-    
         font-weight: 700;
-    
         letter-spacing: 0.2em;
     }
-    
-    
     .loading-bar {
         width: 100%;
-    
         height: 3px;
-    
         overflow: hidden;
-    
         border-radius: 3px;
-    
         background:
             rgba(255,255,255,0.08);
     }
-    
-    
     .loading-progress {
         width: 0%;
-    
         height: 100%;
-    
         background: #5ba6e9;
     
         box-shadow:
@@ -780,9 +695,7 @@
 <body>
     <!-- APPLICATION ROOT -->
     <div id="app">
-        <!-- ========================================================
-             THREE.JS VIEWPORT
-             ======================================================== -->
+        <!-- THREE.JS VIEWPORT -->
         <canvas
             id="viewport"
             aria-label="Three.js ignition switch viewport"
@@ -1019,19 +932,14 @@
             </div>
 
             <div class="help-group">
-
                 <span class="key-hint">
                     4
                 </span>
-
                 <span>
                     START
                 </span>
-
             </div>
-
             <div class="help-divider"></div>
-
             <div class="help-group">
                 <span class="key-hint">
                     I
@@ -1065,9 +973,7 @@
                 </span>
             </div>
         </footer>
-        <!-- ========================================================
-             LOADING SCREEN
-             ======================================================== -->
+        <!-- LOADING SCREEN -->
         <div
             id="loadingScreen"
             class="loading-screen"
@@ -1090,9 +996,7 @@
                 </div>
             </div>
         </div>
-        <!-- ========================================================
-             ERROR DISPLAY
-             ======================================================== -->
+        <!-- ERROR DISPLAY -->
         <div
             id="errorScreen"
             class="error-screen hidden"
@@ -1607,16 +1511,12 @@ export class PrimitiveFactory {
     }
 
 
-    /* ============================================================
-       SPHERE
-       ============================================================ */
-
+    /* SPHERE */
     static createSphere(
         radius,
         material,
         options = {}
     ) {
-
         const geometry =
             new THREE.SphereGeometry(
                 radius,
@@ -1670,24 +1570,15 @@ export class PrimitiveFactory {
                 }
             );
 
-
-        /*
-         * Hemispherical ends.
-         */
-
+        /* Hemispherical ends. */
         const top =
             this.createSphere(
                 radius,
                 material,
                 {
-                    widthSegments:
-                        options.widthSegments ?? 24,
-
-                    heightSegments:
-                        options.heightSegments ?? 12,
-
-                    name:
-                        "CapsuleTop"
+                    widthSegments:options.widthSegments ?? 24,
+                    heightSegments:options.heightSegments ?? 12,
+                    name:"CapsuleTop"
                 }
             );
         const bottom =
@@ -1695,18 +1586,13 @@ export class PrimitiveFactory {
                 radius,
                 material,
                 {
-                    widthSegments:
-                        options.widthSegments ?? 24,
-                    heightSegments:
-                        options.heightSegments ?? 12,
-                    name:
-                        "CapsuleBottom"
+                    widthSegments:options.widthSegments ?? 24,
+                    heightSegments:options.heightSegments ?? 12,
+                    name:"CapsuleBottom"
                 }
             );
-        top.position.y =
-            length / 2;
-        bottom.position.y =
-            -length / 2;
+        top.position.y =length / 2;
+        bottom.position.y = -length / 2;
         group.add(
             cylinder,
             top,
@@ -1720,59 +1606,42 @@ export class PrimitiveFactory {
     }
     /* ============================================================
        LATHE
-       ============================================================
-
        profile format:
-
        [
            [radius, y],
            [radius, y],
            ...
        ]
-
        This is particularly useful for:
-
            bezel
            lock cylinder
            plastic housing
            washers
            knobs
            stepped shafts
-           mounting nuts
-
-       ============================================================ */
-
+           mounting nuts */
     static createLathe(
         profile,
         material,
         options = {}
     ) {
-
         if (
             !Array.isArray(profile) ||
             profile.length < 2
         ) {
-
             throw new Error(
                 "createLathe requires at least two profile points."
             );
-
         }
-
-
         const points =
             profile.map(
                 point => {
-
                     return new THREE.Vector2(
                         point[0],
                         point[1]
                     );
-
                 }
             );
-
-
         const geometry =
             new THREE.LatheGeometry(
                 points,
@@ -1780,149 +1649,70 @@ export class PrimitiveFactory {
                 options.phiStart ?? 0,
                 options.phiLength ?? Math.PI * 2
             );
-
-
         const mesh =
             new THREE.Mesh(
                 geometry,
                 material
             );
-
-
         mesh.name =
             options.name ||
             "Lathe";
-
-
         this.applyTransform(
             mesh,
             options
         );
-
-
         this.enableShadows(
             mesh,
             options
         );
-
-
         return mesh;
     }
-
-
-    /* ============================================================
-       EXTRUDED SHAPE
-       ============================================================ */
-
+    /* EXTRUDED SHAPE */
     static createExtrusion(
         points,
         depth,
         material,
         options = {}
     ) {
-
         if (
             !Array.isArray(points) ||
             points.length < 3
         ) {
-
             throw new Error(
                 "createExtrusion requires at least three points."
             );
-
         }
-
-
-        const shape =
-            new THREE.Shape();
-
-
+        const shape =new THREE.Shape();
         shape.moveTo(
             points[0][0],
             points[0][1]
         );
-
-
-        for (
-            let i = 1;
-            i < points.length;
-            i++
-        ) {
-
-            shape.lineTo(
-                points[i][0],
+        for (let i = 1;i < points.length;i++) {
+            shape.lineTo(points[i][0],
                 points[i][1]
             );
-
         }
-
-
         shape.closePath();
-
-
         const geometry =
             new THREE.ExtrudeGeometry(
                 shape,
                 {
                     depth,
-
-                    bevelEnabled:
-                        options.bevelEnabled ?? true,
-
-                    bevelSegments:
-                        options.bevelSegments ?? 2,
-
-                    bevelSize:
-                        options.bevelSize ?? 0.3,
-
-                    bevelThickness:
-                        options.bevelThickness ?? 0.3,
-
-                    curveSegments:
-                        options.curveSegments ?? 4
+                    bevelEnabled:options.bevelEnabled ?? true,
+                    bevelSegments:options.bevelSegments ?? 2,
+                    bevelSize:options.bevelSize ?? 0.3,
+                    bevelThickness:options.bevelThickness ?? 0.3,
+                    curveSegments:options.curveSegments ?? 4
                 }
             );
-
-
-        geometry.translate(
-            0,
-            0,
-            -depth / 2
-        );
-
-
-        const mesh =
-            new THREE.Mesh(
-                geometry,
-                material
-            );
-
-
-        mesh.name =
-            options.name ||
-            "Extrusion";
-
-
-        this.applyTransform(
-            mesh,
-            options
-        );
-
-
-        this.enableShadows(
-            mesh,
-            options
-        );
-
-
+        geometry.translate(0,0,-depth / 2);
+        const mesh = new THREE.Mesh(geometry,material);
+        mesh.name = options.name ||"Extrusion";
+        this.applyTransform(mesh,options);
+        this.enableShadows(mesh,options);
         return mesh;
     }
-
-
-    /* ============================================================
-       ROUNDED RECTANGLE SHAPE
-       ============================================================ */
-
+    /* ROUNDED RECTANGLE SHAPE */
     static createRoundedRectangle(
         width,
         height,
@@ -1931,105 +1721,63 @@ export class PrimitiveFactory {
         material,
         options = {}
     ) {
-
-        const halfW =
-            width / 2;
-
-        const halfH =
-            height / 2;
-
+        const halfW =width / 2;
+        const halfH =height / 2;
         const r =
             Math.min(
                 radius,
                 halfW,
-                halfH
-            );
-
-
-        const shape =
-            new THREE.Shape();
-
-
+                halfH);
+        const shape = new THREE.Shape();
         shape.moveTo(
             -halfW + r,
-            -halfH
-        );
-
-
+            -halfH);
         shape.lineTo(
             halfW - r,
-            -halfH
-        );
-
-
+            -halfH);
         shape.quadraticCurveTo(
             halfW,
             -halfH,
             halfW,
-            -halfH + r
-        );
-
-
+            -halfH + r);
         shape.lineTo(
             halfW,
-            halfH - r
-        );
-
-
+            halfH - r);
         shape.quadraticCurveTo(
             halfW,
             halfH,
             halfW - r,
-            halfH
-        );
-
-
-        shape.lineTo(
-            -halfW + r,
-            halfH
-        );
-
-
+            halfH);
+        shape.lineTo(-halfW + r,halfH);
         shape.quadraticCurveTo(
             -halfW,
             halfH,
             -halfW,
             halfH - r
         );
-
-
         shape.lineTo(
             -halfW,
             -halfH + r
         );
-
-
         shape.quadraticCurveTo(
             -halfW,
             -halfH,
             -halfW + r,
             -halfH
         );
-
-
         const geometry =
             new THREE.ExtrudeGeometry(
                 shape,
                 {
                     depth,
-
                     bevelEnabled:
                         options.bevelEnabled ?? true,
-
                     bevelSegments:
                         options.bevelSegments ?? 3,
-
                     bevelSize:
                         options.bevelSize ?? 0.4,
-
                     bevelThickness:
                         options.bevelThickness ?? 0.4,
-
                     curveSegments:
                         options.curveSegments ?? 8
                 }
@@ -2115,7 +1863,6 @@ export class PrimitiveFactory {
                 3 +
                 Math.PI / 6;
 
-
             outerPoints.push([
                 Math.cos(angle) *
                     outerRadius,
@@ -2123,7 +1870,6 @@ export class PrimitiveFactory {
                 Math.sin(angle) *
                     outerRadius
             ]);
-
 
             innerPoints.push([
                 Math.cos(angle) *
@@ -2170,126 +1916,77 @@ export class PrimitiveFactory {
                 shape,
                 {
                     depth: height,
-
                     bevelEnabled:
                         options.bevelEnabled ?? true,
-
                     bevelSegments:
                         options.bevelSegments ?? 2,
-
                     bevelSize:
                         options.bevelSize ?? 0.3,
-
                     bevelThickness:
                         options.bevelThickness ?? 0.3
                 }
             );
-
-
         geometry.translate(
             0,
             0,
             -height / 2
         );
-
-
-        geometry.rotateX(
-            Math.PI / 2
-        );
-
-
+        geometry.rotateX(Math.PI / 2);
         const mesh =
             new THREE.Mesh(
                 geometry,
                 material
             );
-
-
-        mesh.name =
-            options.name ||
-            "HexNut";
-
-
+        mesh.name = options.name || "HexNut";
         this.applyTransform(
             mesh,
-            options
-        );
-
-
+            options);
         this.enableShadows(
             mesh,
-            options
-        );
-
-
+            options);
         return mesh;
     }
 
 
-    /* ============================================================
-       SCREW HEAD
-       ============================================================ */
-
+    /* SCREW HEAD */
     static createScrewHead(
         radius,
         height,
         material,
         options = {}
     ) {
-
-        const group =
-            new THREE.Group();
-
-
+        const group = new THREE.Group();
         group.name =
             options.name ||
             "ScrewHead";
-
-
         const head =
             this.createCylinder(
                 radius,
                 height,
                 material,
                 {
-                    radialSegments:
-                        options.radialSegments ?? 32,
-
-                    name:
-                        "ScrewHeadBody"
+                    radialSegments:options.radialSegments ?? 32,
+                    name:"ScrewHeadBody"
                 }
             );
-
-
         group.add(
             head
         );
-
-
-        /*
-         * Cross-slot insert.
+        /* Cross-slot insert.
          *
          * These are represented as two thin dark
          * rectangular inserts. For this demo they
          * provide the visual appearance of a Phillips
-         * screw without expensive boolean geometry.
-         */
-
+         * screw without expensive boolean geometry. */
         const slotMaterial =
             options.slotMaterial ||
             material;
-
-
         const slotWidth =
             options.slotWidth ??
             radius * 0.12;
-
-
         const slotDepth =
             options.slotDepth ??
             radius * 1.45;
-
-
         const slot1 =
             this.createBox(
                 slotWidth,
@@ -2297,19 +1994,13 @@ export class PrimitiveFactory {
                 slotDepth,
                 slotMaterial,
                 {
-                    name:
-                        "ScrewSlotA",
-
-                    position:
-                        new THREE.Vector3(
+                    name:"ScrewSlotA",
+                    position:new THREE.Vector3(
                             0,
                             height * 0.52,
-                            0
-                        )
+                            0)
                 }
             );
-
-
         const slot2 =
             this.createBox(
                 slotDepth,
@@ -2317,38 +2008,20 @@ export class PrimitiveFactory {
                 slotWidth,
                 slotMaterial,
                 {
-                    name:
-                        "ScrewSlotB",
-
+                    name:"ScrewSlotB",
                     position:
                         new THREE.Vector3(
                             0,
                             height * 0.53,
-                            0
-                        )
+                            0)
                 }
             );
 
-
-        group.add(
-            slot1,
-            slot2
-        );
-
-
-        this.applyTransform(
-            group,
-            options
-        );
-
-
+        group.add(slot1,slot2);
+        this.applyTransform(group,options);
         return group;
     }
-
-
-    /* ============================================================
-       SHAFT
-       ============================================================ */
+    /* SHAFT */
 
     static createShaft(
         radius,
@@ -2356,7 +2029,6 @@ export class PrimitiveFactory {
         material,
         options = {}
     ) {
-
         return this.createCylinder(
             radius,
             length,
