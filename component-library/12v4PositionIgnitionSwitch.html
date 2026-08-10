@@ -5826,356 +5826,161 @@ export class IgnitionSwitch extends THREE.Group {
            -------------------------------------------------------- */
 
         this.dimensions = {
-
             barrelLength:
                 options.barrelLength ??
                 43,
-
             barrelRadius:
                 options.barrelRadius ??
                 15,
-
             bezelRadius:
                 options.bezelRadius ??
                 22,
-
             bezelInnerRadius:
                 options.bezelInnerRadius ??
                 14.2,
-
             rearRadius:
                 options.rearRadius ??
                 17,
-
             rearLength:
                 options.rearLength ??
                 23
-
         };
-
-
-        /* --------------------------------------------------------
-           SELECTOR STATE
-           -------------------------------------------------------- */
-
-        this.state =
-            IGNITION_STATES.OFF;
-
-
-        this.targetState =
-            IGNITION_STATES.OFF;
-
-
-        this.selectorAngle =
-            0;
-
-
-        this.targetSelectorAngle =
-            0;
-
-
-        /* --------------------------------------------------------
-           ANIMATION
-           -------------------------------------------------------- */
-
+        /* SELECTOR STATE */
+        this.state = IGNITION_STATES.OFF;
+        this.targetState = IGNITION_STATES.OFF;
+        this.selectorAngle = 0;
+        this.targetSelectorAngle = 0;
+        /*  ANIMATION */
         this.animation = {
-
             enabled:
                 true,
-
             speed:
                 options.selectorSpeed ??
                 8.0,
-
             springReturn:
                 options.springReturn ??
                 true
-
         };
-
-
-        /* --------------------------------------------------------
-           ELECTRICAL STATE
-           -------------------------------------------------------- */
-
+        /* ELECTRICAL STATE */
         this.electricalState = {
-
-            BAT:
-                true,
-
-            ACC:
-                false,
-
-            IGN:
-                false,
-
-            ST:
-                false
-
+            BAT: true,
+            ACC: false,
+            IGN: false,
+            ST: false
         };
-
-
-        /* --------------------------------------------------------
-           ROOT GROUPS
-           -------------------------------------------------------- */
-
+        /* ROOT GROUPS */
         this.groups = {
-
-            barrel:
-                new THREE.Group(),
-
-            front:
-                new THREE.Group(),
-
-            lock:
-                new THREE.Group(),
-
-            rear:
-                new THREE.Group(),
-
-            terminals:
-                new THREE.Group(),
-
-            mounting:
-                new THREE.Group(),
-
-            selector:
-                new THREE.Group(),
-
-            markings:
-                new THREE.Group()
-
+            barrel:new THREE.Group(),
+            front:new THREE.Group(),
+            lock:new THREE.Group(),
+            rear:new THREE.Group(),
+            terminals:new THREE.Group(),
+            mounting:new THREE.Group(),
+            selector:new THREE.Group(),
+            markings:new THREE.Group()
         };
-
-
-        this.groups.barrel.name =
-            "BarrelAssembly";
-
-        this.groups.front.name =
-            "FrontAssembly";
-
-        this.groups.lock.name =
-            "LockCylinderAssembly";
-
-        this.groups.rear.name =
-            "RearElectricalAssembly";
-
-        this.groups.terminals.name =
-            "TerminalAssembly";
-
-        this.groups.mounting.name =
-            "MountingAssembly";
-
-        this.groups.selector.name =
-            "SelectorMechanism";
-
-        this.groups.markings.name =
-            "SelectorMarkings";
-
-
-        this.add(
-            this.groups.barrel
-        );
-
-        this.add(
-            this.groups.front
-        );
-
-        this.add(
-            this.groups.lock
-        );
-
-        this.add(
-            this.groups.rear
-        );
-
-        this.add(
-            this.groups.terminals
-        );
-
-        this.add(
-            this.groups.mounting
-        );
-
-        this.add(
-            this.groups.selector
-        );
-
-        this.add(
-            this.groups.markings
-        );
-
-
-        /* --------------------------------------------------------
-           BUILD
-           -------------------------------------------------------- */
-
+        
+        this.groups.barrel.name ="BarrelAssembly";
+        this.groups.front.name ="FrontAssembly";
+        this.groups.lock.name ="LockCylinderAssembly";
+        this.groups.rear.name ="RearElectricalAssembly";
+        this.groups.terminals.name ="TerminalAssembly";
+        this.groups.mounting.name ="MountingAssembly";
+        this.groups.selector.name ="SelectorMechanism";
+        this.groups.markings.name ="SelectorMarkings";
+        this.add(this.groups.barrel);
+        this.add(this.groups.front);
+        this.add(this.groups.lock);
+        this.add(this.groups.rear);
+        this.add(this.groups.terminals);
+        this.add(this.groups.mounting);
+        this.add(this.groups.selector);
+        this.add(this.groups.markings);
+        /* BUILD */
         this.buildBarrel();
-
         this.buildFront();
-
         this.buildLockCylinder();
-
         this.buildRearHousing();
-
         this.buildTerminals();
-
         this.buildMountingHardware();
-
         this.buildSelector();
-
         this.buildMarkings();
-
-
         /* --------------------------------------------------------
-           INITIAL STATE
-           -------------------------------------------------------- */
-
+           INITIAL STATE */
         this.setState(
             IGNITION_STATES.OFF,
             true
         );
-
     }
-
-
-    /* ============================================================
-       BUILD BARREL
-       ============================================================ */
-
+    /* BUILD BARREL */
     buildBarrel() {
-
         const barrel =
             MechanicalParts.createThreadedBarrel({
-
-                name:
-                    "MainThreadedBarrel",
-
-                radius:
-                    this.dimensions.barrelRadius,
-
-                length:
-                    this.dimensions.barrelLength,
-
-                threadPitch:
-                    2.0,
-
-                threadLength:
-                    29
-
+                name:"MainThreadedBarrel",
+                radius:this.dimensions.barrelRadius,
+                length: this.dimensions.barrelLength,
+                threadPitch:2.0,
+                threadLength:29
             });
-
-
-        this.groups.barrel.add(
-            barrel
-        );
-
-
-        /*
-         * Rear contact housing.
-         */
+        this.groups.barrel.add(barrel);
+        /* Rear contact housing.*/
 
         const rearCollar =
             PrimitiveFactory.createCylinder(
-
                 this.dimensions.rearRadius,
-
                 5,
-
-                materials.get(
-                    "darkZinc"
-                ),
-
+                materials.get("darkZinc"),
                 {
-
-                    name:
-                        "RearBarrelCollar",
-
-                    radialSegments:
-                        64,
-
+                    name:"RearBarrelCollar",
+                    radialSegments:64,
                     position:
                         new THREE.Vector3(
                             0,
                             -25,
                             0
                         )
-
                 }
-
             );
-
 
         this.groups.barrel.add(
             rearCollar
         );
-
     }
-
-
-    /* ============================================================
-       BUILD FRONT
-       ============================================================ */
-
+    /* BUILD FRONT */
     buildFront() {
-
-        /*
-         * Chrome retaining bezel.
-         */
-
+        /* Chrome retaining bezel.*/
         const bezel =
             MechanicalParts.createBezel({
-
                 name:
                     "FrontChromeBezel",
-
                 outerRadius:
                     this.dimensions.bezelRadius,
-
                 innerRadius:
                     this.dimensions.bezelInnerRadius,
-
                 depth:
                     5
-
             });
-
-
         bezel.position.y =
             this.dimensions.barrelLength / 2;
-
-
         this.groups.front.add(
             bezel
         );
-
-
         /*
          * Secondary black ring.
          */
-
         const blackRing =
             PrimitiveFactory.createRing(
-
                 this.dimensions.bezelInnerRadius + 0.3,
-
                 this.dimensions.bezelInnerRadius - 1.5,
-
                 2.5,
-
                 materials.get(
                     "blackPlastic"
                 ),
-
                 {
-
                     name:
                         "FrontBlackRing"
-
                 }
-
             );
-
 
         blackRing.position.y =
             this.dimensions.barrelLength / 2 +
