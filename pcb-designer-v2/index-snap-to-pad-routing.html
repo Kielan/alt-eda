@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>Alt-EDA PCB</title>
+<style>
+body { margin: 0; overflow: hidden; }
+#ui {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: white;
+}
+</style>
+</head>
+<body>
+<div id="ui">
+Click pads or board to route<br/>
+Double-click = finish trace<br/>
+Press L = switch layer (auto via)
+</div>
+<script type="module">
+import * as THREE from "https://esm.sh/three@0.160.0?bundle";
+import { OrbitControls } from "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+/* === SCENE === */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
+camera.position.set(0, 100, 100);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+const controls = new OrbitControls(camera, renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
+/* === PCB STATE === */
+class Trace {
+  constructor(points, layer, width = 0.6, net = null) {
+    this.points = points.map(p => p.clone());
+    this.layer = layer;
+    this.width = width;
+    this.net = net;
+  }
+}
+class Via {
+  constructor(position, fromLayer, toLayer, net = null, radius = 0.3) {
+    this.position = position.clone();
+    this.fromLayer = fromLayer;
+    this.toLayer = toLayer;
+    this.net = net;
+    this.radius = radius;
+  }
+}
+class PCBState {
+  constructor() {
+    this.traces = [];
+    this.vias = [];
+    this.layers = [
+      { name: "topCopper", z: 1.0, thickness: 0.05, type: "copper" },
+      { name: "core", z: 0.5, thickness: 0.8, type: "dielectric" },
+      { name: "bottomCopper", z: 0.0, thickness: 0.05, type: "copper" }
+    ];
+  }
+  addTrace(t) { this.traces.push(t); }
+  addVia(v) { this.vias.push(v); }
+  getLayer(name) { return this.layers.find(l => l.name === name); }
+}
+const pcbState = new PCBState();
+/* === STACK RENDER === */
+class LayerStackRenderer {
+  constructor(scene, state, w=80, h=60) {
+    this.scene = scene;
+    this.state = state;
+    this.w = w;
+    this.h = h;
+    this.group = new THREE.Group();
+    scene.add(this.group);
+  }
+  build() {
+    this.group.clear();
+    for (const l of this.state.layers) {
+      const geo = new THREE.BoxGeometry(this.w, l.thickness, this.h);
+      const mat = l.type === "copper"
+        ? new THREE.MeshStandardMaterial({ color: 0xffa000, metalness: 0.9 })
+        : new THREE.MeshStandardMaterial({
+            color: 0x224422,
+            transparent: true,
+            opacity: 0.5
+          });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.y = l.z;
+      this.group.add(mesh);
+    }
+  }
+}
+new LayerStackRenderer(scene, pcbState, 85, 56).build();
+/* === NET === */
+class Net {
+  constructor(name) {
+    this.name = name;
+    this.color = Math.random() * 0xffffff;
+  }
+}
+const net = new Net("NET1");
+/* === PADS === */
+class Pad {
+  constructor(pos) {
+    const geo = new THREE.CircleGeometry(1.5, 16);
+    const mat = new THREE.MeshStandardMaterial({ color: net.color });
+    this.mesh = new THREE.Mesh(geo, mat);
+    this.mesh.rotation.x = -Math.PI / 2;
+    this.mesh.position.copy(pos);
+    this.net = net;
+    this.mesh.userData.pad = this;
+  }
+}
+const pads = [
+  new Pad(new THREE.Vector3(-10, 1.05, 0)),
+  new Pad(new THREE.Vector3(10, 1.05, 0))
+];
+pads.forEach(p => scene.add(p.mesh));
+/* === ROUTER === */
+class RoutingEngine {
+  constructor(scene) {
+    this.scene = scene;
+    this.points = [];
+    this.isRouting = false;
+    this.currentLayer = "topCopper";
+    this.currentNet = null;
+    this.group = new THREE.Group();
+    scene.add(this.group);
+    this.mat = new THREE.MeshStandardMaterial({
+      color: 0xffaa00,
+      emissive: 0xff6600
+    });
+  }
+  handleClick(p) {
+    if (!this.isRouting) {
+      this.points = [p.clone()];
+      this.isRouting = true;
+    } else {
+      this.points.push(p.clone());
+    }
+  }
+  handleMove(p) {
+    if (!this.isRouting) return;
+    this.group.clear();
+    const pts = [...this.points, p];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      const geo = new THREE.BoxGeometry(0.6, 0.05, a.distanceTo(b));
+      const mesh = new THREE.Mesh(geo, this.mat);
+      const mid = new THREE.Vector3().addVectors(a,b).multiplyScalar(0.5);
+      mesh.position.copy(mid);
+      mesh.lookAt(b);
+      mesh.rotateX(Math.PI/2);
+      this.group.add(mesh);
+    }
+  }
+  handleFinish() {
+    if (!this.isRouting) return null;
+    const pts = [...this.points];
+    this.points = [];
+    this.group.clear();
+    this.isRouting = false;
+    return pts;
+  }
+  switchLayer(newLayer) {
+    if (!this.isRouting) return;
+    const last = this.points[this.points.length - 1];
+    const via = new Via(last, this.currentLayer, newLayer, this.currentNet);
+    pcbState.addVia(via);
+    renderVia(via);
+    this.currentLayer = newLayer;
+  }
+}
+const router = new RoutingEngine(scene);
+/* === RENDER === */
+function renderTrace(trace) {
+  const layer = pcbState.getLayer(trace.layer);
+  const color = trace.net ? trace.net.color : 0xffa000;
+  for (let i = 0; i < trace.points.length - 1; i++) {
+    const a = trace.points[i];
+    const b = trace.points[i+1];
+    const geo = new THREE.BoxGeometry(trace.width, 0.05, a.distanceTo(b));
+    const mat = new THREE.MeshStandardMaterial({ color });
+    const mesh = new THREE.Mesh(geo, mat);
+    const mid = new THREE.Vector3().addVectors(a,b).multiplyScalar(0.5);
+    mesh.position.set(mid.x, layer.z + layer.thickness/2, mid.z);
+    mesh.lookAt(b);
+    mesh.rotateX(Math.PI/2);
+    scene.add(mesh);
+  }
+}
+function renderVia(via) {
+  const a = pcbState.getLayer(via.fromLayer);
+  const b = pcbState.getLayer(via.toLayer);
+  const geo = new THREE.CylinderGeometry(0.3,0.3, Math.abs(a.z-b.z),16);
+  const mat = new THREE.MeshStandardMaterial({
+    color: via.net?.color || 0xffcc66
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(
+    via.position.x,
+    (a.z + b.z)/2,
+    via.position.z
+  );
+  scene.add(mesh);
+}
+/* === INPUT === */
+const ray = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+function getMouse(e) {
+  mouse.x = (e.clientX/innerWidth)*2-1;
+  mouse.y = -(e.clientY/innerHeight)*2+1;
+  ray.setFromCamera(mouse, camera);
+  const plane = new THREE.Plane(new THREE.Vector3(0,1,0),0);
+  const p = new THREE.Vector3();
+  ray.ray.intersectPlane(plane,p);
+  return p;
+}
+function snapToPad(p) {
+  for (const pad of pads) {
+    if (p.distanceTo(pad.mesh.position) < 2) {
+      return pad.mesh.position.clone();
+    }
+  }
+  return p;
+}
+window.addEventListener("mousedown", e=>{
+  const p = snapToPad(getMouse(e));
+  // detect pad
+  const intersects = ray.intersectObjects(scene.children,true);
+  for (const i of intersects) {
+    if (i.object.userData.pad) {
+      router.currentNet = i.object.userData.pad.net;
+    }
+  }
+  router.handleClick(p);
+});
+window.addEventListener("mousemove", e=>{
+  const p = snapToPad(getMouse(e));
+  router.handleMove(p);
+});
+window.addEventListener("dblclick", ()=>{
+  const pts = router.handleFinish();
+  if (!pts || pts.length<2) return;
+  const trace = new Trace(
+    pts,
+    router.currentLayer,
+    0.6,
+    router.currentNet
+  );
+  pcbState.addTrace(trace);
+  renderTrace(trace);
+});
+window.addEventListener("keydown", e=>{
+  if (e.key.toLowerCase()==="l") {
+    const next = router.currentLayer==="topCopper"
+      ? "bottomCopper"
+      : "topCopper";
+    router.switchLayer(next);
+  }
+});
+/* === LOOP ==== */
+function animate(){
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene,camera);
+}
+animate();
+window.addEventListener("resize", ()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
