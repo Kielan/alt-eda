@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>alt-EDA — FPC Flex Ribbon Feature</title>
+  <style>
+    :root{color-scheme:dark;--bg:#080b10;--panel:#111721;--line:#293447;--text:#edf2f8;--muted:#8f9db0;--cyan:#42d8ff;--amber:#ffb11b;--ok:#46d98b;--bad:#ff6575}
+    *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:13px/1.4 Inter,system-ui,sans-serif}
+    #app{height:100%;display:grid;grid-template-columns:260px 1fr 290px;grid-template-rows:52px 1fr}header{grid-column:1/-1;display:flex;align-items:center;gap:15px;padding:0 17px;background:#0d121a;border-bottom:1px solid var(--line)}header strong{font-size:16px}header span{color:var(--muted)}
+    aside{padding:15px;background:var(--panel);overflow:auto;border-right:1px solid var(--line)}aside.right{border:0;border-left:1px solid var(--line)}#view{position:relative;min-width:0}canvas{display:block}
+    h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#aab7c9;margin:5px 0 11px}.card{padding:11px;margin:0 0 8px;border:1px solid var(--line);border-radius:8px;background:#0b1017}.card b{display:block}.card small,.note{color:var(--muted)}
+    label{display:block;color:var(--muted);margin:12px 0 4px}.readout{float:right;color:var(--text)}input[type=range]{width:100%;accent-color:var(--cyan)}select,button{font:inherit;color:var(--text);background:#172131;border:1px solid #35445b;border-radius:7px;padding:7px 9px}select{width:100%}button{cursor:pointer}button:hover{border-color:var(--cyan)}button.on{border-color:var(--ok);background:#133b29}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px}
+    .row{display:flex;justify-content:space-between;gap:14px;padding:7px 0;border-bottom:1px solid #202a39}.row span:first-child{color:var(--muted)}.pill{padding:2px 7px;border-radius:99px;background:#202b3b}.ok{color:var(--ok)}.bad{color:var(--bad)}
+    #toast{position:absolute;left:15px;bottom:15px;background:#0d141edd;border:1px solid #34435a;border-radius:8px;padding:9px 12px}.pinmap{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.pin{padding:5px;text-align:center;border-radius:5px;background:#1b2533;color:#c9d6e6;font-size:11px}.foot{font-size:11px;color:var(--muted);margin-top:13px}
+    @media(max-width:900px){#app{grid-template-columns:210px 1fr}.right{display:none}}@media(max-width:640px){#app{grid-template-columns:1fr;grid-template-rows:52px 1fr}aside{display:none}}
+  </style>
+  <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.170.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.170.0/examples/jsm/"}}</script>
+</head>
+<body><div id="app">
+  <header><strong>alt‑EDA</strong><span>FPC ribbon + ZIF acceptor feature</span></header>
+  <aside><h2>Component Library</h2><div id="cards"></div><h2>Flex Properties</h2>
+    <label>Pin count <output id="pinsOut" class="readout">20</output></label><input id="pins" type="range" min="4" max="40" step="2" value="20">
+    <label>Contact pitch</label><select id="pitch"><option value="0.5">0.50 mm</option><option value="1">1.00 mm</option></select>
+    <label>Keyboard travel <output id="travelOut" class="readout">0 mm</output></label><input id="travel" type="range" min="0" max="52" step="1" value="0">
+    <label>Loop height <output id="loopOut" class="readout">18 mm</output></label><input id="loop" type="range" min="4" max="35" step="1" value="18">
+    <div class="buttons"><button id="insert" class="on">Inserted</button><button id="latch" class="on">Latch closed</button><button id="explode">Explode</button><button id="validate">Validate</button></div>
+    <p class="foot">All dimensions are illustrative. Select a production connector and its datasheet before footprint fabrication.</p>
+  </aside>
+  <main id="view"><div id="toast">Drag to orbit · scroll to zoom</div></main>
+  <aside class="right"><h2>Inspector</h2><div id="inspector"></div><h2>Pin Mapping</h2><div id="pinmap" class="pinmap"></div></aside>
+</div>
+<script type="module">
+import * as THREE from 'three';import{OrbitControls}from'three/addons/controls/OrbitControls.js';
+const C={pcb:0x155da6,orange:0xe88b0c,copper:0xdba83e,plastic:0xe8e9e7,latch:0x272c34,dark:0x101419,metal:0xc5cbd1};
+const material=(color,metalness=.05,roughness=.58,side=THREE.FrontSide)=>new THREE.MeshStandardMaterial({color,metalness,roughness,side});
+const mesh=(g,m,x=0,y=0,z=0)=>{const o=new THREE.Mesh(g,m);o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;return o};
+class ComponentLibrary{constructor(){this.items=new Map}register(id,definition,factory){this.items.set(id,{definition,factory});return this}create(id,options){const e=this.items.get(id);const o=e.factory(options);o.userData.definition=e.definition;o.userData.libraryId=id;return o}}
+const library=new ComponentLibrary();
+
+function makeSocket({pinCount=20,pitch=.5,label='FPC ZIF Socket'}={}){
+  const root=new THREE.Group();root.name=label;const width=(pinCount-1)*pitch+5;root.add(mesh(new THREE.BoxGeometry(width,2.4,6.5),material(C.plastic),0,1.2,0));
+  const slot=mesh(new THREE.BoxGeometry(width-2,.5,1.25),material(C.dark),0,2.05,-2.3);slot.name='Insertion slot';root.add(slot);
+  const latch=new THREE.Group();latch.name='ZIF latch';latch.position.set(0,2.5,-1.25);latch.add(mesh(new THREE.BoxGeometry(width-1,1,2),material(C.latch)));root.add(latch);
+  const pins=[];const first=-((pinCount-1)*pitch)/2;for(let i=0;i<pinCount;i++){const anchor=new THREE.Object3D();anchor.name=`Pin ${i+1}`;anchor.position.set(first+i*pitch,2.1,-2.7);anchor.userData={pin:i+1};root.add(anchor);pins.push(anchor);const contact=mesh(new THREE.BoxGeometry(Math.max(.22,pitch*.44),.12,2.3),material(C.copper,.75,.3),first+i*pitch,2.18,-2.1);root.add(contact)}
+  root.userData.pins=pins;root.userData.getPin=n=>pins[n-1]??null;root.userData.latch=latch;root.userData.pinCount=pinCount;root.userData.pitch=pitch;root.userData.contactSide='top';return root;
+}
+library.register('fpc-zif-acceptor',{title:'Parametric FPC ZIF Acceptor',category:'Connector',properties:['pinCount','pitch','contactSide','latchState']},makeSocket);
+
+function ribbonSurface(curve,width,samples=70){const pos=[],uv=[],idx=[];for(let i=0;i<=samples;i++){const t=i/samples,p=curve.getPoint(t);for(const side of[-1,1]){pos.push(p.x+side*width/2,p.y,p.z);uv.push((side+1)/2,t)}}for(let i=0;i<samples;i++){const a=i*2,b=a+1,c=a+2,d=a+3;idx.push(a,c,b,b,c,d)}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);g.computeVertexNormals();return g}
+function makeRibbon({pinCount=20,pitch=.5,curve,label='FPC Ribbon'}={}){
+  const root=new THREE.Group();root.name=label;const width=(pinCount-1)*pitch+1;const film=mesh(ribbonSurface(curve,width),material(C.orange,.05,.48,THREE.DoubleSide));film.name='Polyimide carrier';root.add(film);
+  const first=-((pinCount-1)*pitch)/2;const conductors=[];for(let i=0;i<pinCount;i++){const offset=first+i*pitch;const points=curve.getPoints(70).map(p=>new THREE.Vector3(p.x+offset,p.y+.035,p.z));const lineCurve=new THREE.CatmullRomCurve3(points);const trace=mesh(new THREE.TubeGeometry(lineCurve,70,Math.min(.08,pitch*.12),5,false),material(C.copper,.7,.28));trace.name=`Conductor ${i+1}`;root.add(trace);conductors.push(trace)}
+  root.userData={pinCount,pitch,width,curve,conductors,getConductor:n=>conductors[n-1]??null};return root;
+}
+library.register('fpc-flex-ribbon',{title:'Parametric FPC Flex Ribbon',category:'Interconnect',properties:['pinCount','pitch','length','loopHeight','endContacts']},makeRibbon);
+
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x080b10);scene.fog=new THREE.Fog(0x080b10,170,290);const camera=new THREE.PerspectiveCamera(44,1,.1,700);camera.position.set(75,95,115);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;document.querySelector('#view').prepend(renderer.domElement);const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,8,0);controls.enableDamping=true;
+scene.add(new THREE.HemisphereLight(0xd8ebff,0x16202c,2.2));const sun=new THREE.DirectionalLight(0xffffff,2.5);sun.position.set(-55,100,65);sun.castShadow=true;scene.add(sun);const floor=mesh(new THREE.PlaneGeometry(180,160),material(0x0e151f),0,-.2,0);floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);scene.add(new THREE.GridHelper(180,36,0x273a56,0x172336));
+const assembly=new THREE.Group();scene.add(assembly);const fixedBoard=new THREE.Group(),movingBoard=new THREE.Group();fixedBoard.name='Mainboard';movingBoard.name='Sliding keyboard PCB';assembly.add(fixedBoard,movingBoard);
+fixedBoard.add(mesh(new THREE.BoxGeometry(74,1.3,30),material(C.pcb),0,.65,-42));movingBoard.add(mesh(new THREE.BoxGeometry(74,1.3,30),material(C.pcb),0,.65,42));
+let socketA,socketB,ribbon,state={pinCount:20,pitch:.5,travel:0,loop:18,inserted:true,latch:true,exploded:false};
+function disposeTree(o){o?.traverse(x=>{x.geometry?.dispose();if(Array.isArray(x.material))x.material.forEach(m=>m.dispose());else x.material?.dispose()});o?.removeFromParent()}
+function curveForState(){const insertion=state.inserted?0:8;const a=new THREE.Vector3(0,2.25,-29+insertion),b=new THREE.Vector3(0,2.25,29+state.travel-insertion);return new THREE.CatmullRomCurve3([a,new THREE.Vector3(0,state.loop,-12),new THREE.Vector3(0,state.loop,12+state.travel*.5),b],false,'centripetal')}
+function rebuild(){disposeTree(socketA);disposeTree(socketB);disposeTree(ribbon);socketA=library.create('fpc-zif-acceptor',{pinCount:state.pinCount,pitch:state.pitch,label:'J1 Mainboard FPC'});socketA.position.set(0,1.4,-29);fixedBoard.add(socketA);socketB=library.create('fpc-zif-acceptor',{pinCount:state.pinCount,pitch:state.pitch,label:'J2 Keyboard FPC'});socketB.rotation.y=Math.PI;socketB.position.set(0,1.4,29);movingBoard.add(socketB);movingBoard.position.z=state.travel;socketA.userData.latch.rotation.x=state.latch?0:-Math.PI*.28;socketB.userData.latch.rotation.x=state.latch?0:-Math.PI*.28;ribbon=library.create('fpc-flex-ribbon',{pinCount:state.pinCount,pitch:state.pitch,curve:curveForState()});assembly.add(ribbon);applyExplode();refreshInspector()}
+function applyExplode(){fixedBoard.position.x=state.exploded?-28:0;movingBoard.position.x=state.exploded?28:0;ribbon.visible=!state.exploded}
+function minimumRadius(curve){const p=curve.getPoints(80);let min=Infinity;for(let i=1;i<p.length-1;i++){const a=p[i-1],b=p[i],c=p[i+1],ab=a.distanceTo(b),bc=b.distanceTo(c),ca=c.distanceTo(a);const area=new THREE.Vector3().crossVectors(b.clone().sub(a),c.clone().sub(a)).length()/2;if(area>1e-7)min=Math.min(min,ab*bc*ca/(4*area))}return min}
+function validate(){const radius=minimumRadius(ribbon.userData.curve),matching=socketA.userData.pinCount===ribbon.userData.pinCount&&socketB.userData.pitch===ribbon.userData.pitch,engaged=state.inserted&&state.latch;const ok=matching&&engaged&&radius>=3;document.querySelector('#toast').innerHTML=`<span class="${ok?'ok':'bad'}">${ok?'Valid connection':'Check connection'} · ${radius.toFixed(1)} mm minimum bend radius</span>`;return{radius,matching,engaged,ok}}
+function refreshInspector(){const v=validate();document.querySelector('#inspector').innerHTML=`<div class="row"><span>Ribbon</span><b>${state.pinCount}-position</b></div><div class="row"><span>Pitch</span><span>${state.pitch.toFixed(2)} mm</span></div><div class="row"><span>Width</span><span>${ribbon.userData.width.toFixed(2)} mm</span></div><div class="row"><span>Minimum radius</span><span class="${v.radius>=3?'ok':'bad'}">${v.radius.toFixed(2)} mm</span></div><div class="row"><span>Insertion</span><span>${state.inserted?'engaged':'withdrawn'}</span></div><div class="row"><span>ZIF latch</span><span>${state.latch?'closed':'open'}</span></div>`;document.querySelector('#pinmap').innerHTML=Array.from({length:state.pinCount},(_,i)=>`<div class="pin">${i+1} ↔ ${i+1}</div>`).join('')}
+rebuild();
+for(const[id,e]of library.items){const d=document.createElement('div');d.className='card';d.innerHTML=`<b>${e.definition.title}</b><small>${e.definition.category} · ${e.definition.properties.join(' · ')}</small>`;document.querySelector('#cards').append(d)}
+const bindRange=(id,key,out,suffix='',rebuildAll=true)=>document.querySelector(`#${id}`).addEventListener('input',e=>{state[key]=Number(e.target.value);document.querySelector(`#${out}`).value=`${state[key]}${suffix}`;rebuildAll?rebuild():(movingBoard.position.z=state.travel,rebuild())});bindRange('pins','pinCount','pinsOut');bindRange('travel','travel','travelOut',' mm');bindRange('loop','loop','loopOut',' mm');
+document.querySelector('#pitch').onchange=e=>{state.pitch=Number(e.target.value);rebuild()};document.querySelector('#insert').onclick=e=>{state.inserted=!state.inserted;e.target.textContent=state.inserted?'Inserted':'Withdrawn';e.target.classList.toggle('on',state.inserted);rebuild()};document.querySelector('#latch').onclick=e=>{state.latch=!state.latch;e.target.textContent=state.latch?'Latch closed':'Latch open';e.target.classList.toggle('on',state.latch);rebuild()};document.querySelector('#explode').onclick=e=>{state.exploded=!state.exploded;e.target.classList.toggle('on',state.exploded);applyExplode()};document.querySelector('#validate').onclick=validate;
+function resize(){const v=document.querySelector('#view'),w=v.clientWidth,h=v.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera)});
+</script></body></html>
