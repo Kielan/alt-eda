@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>alt-EDA — GC Console Wiring</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0a0d12;--panel:#111722;--line:#273246;--text:#e8edf6;--muted:#8e9bb0;--cyan:#3fd7ff;--green:#46dc85;--warn:#ffbd4a}
+    *{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);font:13px/1.4 Inter,system-ui,sans-serif;color:var(--text)}
+    #app{display:grid;grid-template-columns:250px 1fr 290px;grid-template-rows:52px 1fr;height:100%}
+    header{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:0 18px;background:#0d121b;border-bottom:1px solid var(--line)}
+    header strong{font-size:16px;letter-spacing:.04em}header span{color:var(--muted)}
+    aside{background:var(--panel);padding:15px;border-right:1px solid var(--line);overflow:auto}aside.right{border-right:0;border-left:1px solid var(--line)}
+    #viewport{position:relative;min-width:0}canvas{display:block;width:100%;height:100%}
+    h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#a8b5c9;margin:5px 0 10px}.card{padding:10px;margin:0 0 8px;border:1px solid var(--line);border-radius:8px;background:#0c1119;cursor:pointer}.card:hover,.card.active{border-color:var(--cyan);background:#101b27}.card b{display:block}.card small{color:var(--muted)}
+    button,input{font:inherit}button{border:1px solid #34445d;background:#172131;color:var(--text);border-radius:7px;padding:8px 10px;cursor:pointer}button:hover{border-color:var(--cyan)}button.on{background:#143d2b;border-color:var(--green)}
+    .toolbar{display:flex;gap:7px;margin-left:auto}.toolbar button{padding:6px 10px}.row{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid #202a3a}.row span:first-child{color:var(--muted)}
+    .pill{display:inline-block;padding:2px 7px;border-radius:99px;background:#1d2939;color:#cbd6e5}.ok{color:var(--green)}.warn{color:var(--warn)}
+    #toast{position:absolute;left:16px;bottom:16px;padding:9px 12px;border-radius:8px;background:#101722dd;border:1px solid #33425a;pointer-events:none}.legend{display:grid;grid-template-columns:12px 1fr;gap:7px 8px;color:var(--muted);margin-top:10px}.swatch{height:12px;border-radius:3px}
+    pre{white-space:pre-wrap;color:#b9c6d8;background:#090d13;padding:10px;border-radius:7px;border:1px solid var(--line);font-size:11px}.foot{color:var(--muted);font-size:11px;margin-top:12px}
+    @media(max-width:900px){#app{grid-template-columns:190px 1fr}.right{display:none}}@media(max-width:650px){#app{grid-template-columns:1fr;grid-template-rows:52px 1fr}aside{display:none}}
+  </style>
+  <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.170.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.170.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="app">
+  <header><strong>alt‑EDA</strong><span>GC Console · reference-matched wiring assembly</span><div class="toolbar"><button id="power">Power OFF</button><button id="wires">Wires</button><button id="validate">Validate</button><button id="reset">Reset view</button></div></header>
+  <aside><h2>Component Library</h2><div id="library"></div><h2>Wire colors</h2><div class="legend"><i class="swatch" style="background:#e53935"></i><span>Power</span><i class="swatch" style="background:#111"></i><span>Ground</span><i class="swatch" style="background:#18b957"></i><span>I²C data/clock</span><i class="swatch" style="background:#168be5"></i><span>Button signals</span></div><p class="foot">Dimensions are illustrative layout geometry inferred from the supplied photograph, not fabrication drawings.</p></aside>
+  <main id="viewport"><div id="toast">Click a component or tactile switch</div></main>
+  <aside class="right"><h2>Inspector</h2><div id="inspector"><p class="foot">Nothing selected.</p></div><h2>Netlist</h2><pre id="netlist"></pre></aside>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const COLORS={pcb:0x145ca8,dark:0x14171c,metal:0xb8c0c8,red:0xe53935,black:0x111216,green:0x18b957,blue:0x168be5,gold:0xd7ad39,silver:0xd4d8dc};
+const mat=(color,metalness=0.05,roughness=.6)=>new THREE.MeshStandardMaterial({color,metalness,roughness});
+const box=(x,y,z,color)=>new THREE.Mesh(new THREE.BoxGeometry(x,y,z),mat(color));
+
+class ComponentLibrary {
+  constructor(){this.entries=new Map()}
+  register(id,definition,factory){this.entries.set(id,{definition,factory});return this}
+  create(id,options={}){const e=this.entries.get(id);if(!e)throw Error(`Unknown component: ${id}`);const o=e.factory(options);o.userData.definition=e.definition;o.userData.libraryId=id;return o}
+}
+const components=new ComponentLibrary();
+
+function pin(parent,name,x,z,type='passive'){
+  const a=new THREE.Object3D();a.name=name;a.position.set(x,0,z);a.userData={pin:name,type};parent.add(a);
+  const p=new THREE.Mesh(new THREE.CylinderGeometry(.9,.9,.18,18),mat(COLORS.gold,.65,.3));p.position.set(x,.72,z);parent.add(p);return a;
+}
+function boardBase(name,w,d,color=COLORS.pcb){const g=new THREE.Group();g.name=name;const pcb=box(w,1.2,d,color);pcb.position.y=.6;pcb.name='PCB';g.add(pcb);g.userData.pins={};return g}
+function addChip(g,x,z,w=9,d=9){const c=box(w,1.5,d,COLORS.dark);c.position.set(x,1.65,z);g.add(c);return c}
+function addSmallParts(g,w,d,count=10){for(let i=0;i<count;i++){const c=box(1.3,.7,2.3,i%3?0x30343a:0xc9b16c);c.position.set((Math.random()-.5)*(w-6),1.55,(Math.random()-.5)*(d-6));g.add(c)}}
+
+components.register('arduino-pro-mini',{title:'Arduino Pro Mini',category:'Controller',pins:['VCC','GND','A4/SDA','A5/SCL','D2','D3','D4','D5','D6']},()=>{
+  const g=boardBase('Pro Mini',34,18);addChip(g,2,0,8,8);addSmallParts(g,34,18,13);
+  const specs=[['VCC',-13,7],['GND',-9,7],['A4/SDA',2,7],['A5/SCL',6,7],['D2',-10,-7],['D3',-5,-7],['D4',0,-7],['D5',5,-7],['D6',10,-7]];
+  for(const [n,x,z] of specs)g.userData.pins[n]=pin(g,n,x,z,n.startsWith('D')?'input':'power');return g;
+});
+components.register('oled-i2c-096',{title:'0.96-inch OLED I²C',category:'Display',pins:['VCC','GND','SCL','SDA']},()=>{
+  const g=boardBase('OLED I2C',28,28);const screen=box(23,1.1,14,0x071021);screen.position.set(0,1.4,2);g.add(screen);
+  [['VCC',-6,-12],['GND',-2,-12],['SCL',2,-12],['SDA',6,-12]].forEach(([n,x,z])=>g.userData.pins[n]=pin(g,n,x,z,n));return g;
+});
+components.register('tp4056-protected',{title:'USB LiPo Charger',category:'Power',pins:['B+','B-','OUT+','OUT-','IN+','IN-']},()=>{
+  const g=boardBase('USB LiPo Charger',32,18);addChip(g,2,0,6,8);addSmallParts(g,32,18,10);const usb=box(7,2.8,7,COLORS.silver);usb.position.set(-15,2,-1);g.add(usb);
+  [['B+',13,3],['B-',13,-3],['OUT+',9,7],['OUT-',9,-7],['IN+',-12,7],['IN-',-12,-7]].forEach(([n,x,z])=>g.userData.pins[n]=pin(g,n,x,z,'power'));return g;
+});
+components.register('lipo-503040',{title:'LiPo 503040 · 3.7 V · 550 mAh',category:'Battery',pins:['+','-']},()=>{
+  const g=new THREE.Group();g.name='LiPo';const cell=box(30,5,48,0xb9b9b1);cell.position.y=2.5;g.add(cell);const tape=box(30,1,7,0xc69716);tape.position.set(0,5.4,-20);g.add(tape);g.userData.pins={'+':pin(g,'+',-4,-24,'power'),'-':pin(g,'-',4,-24,'ground')};return g;
+});
+components.register('slide-switch-spdt',{title:'SPDT Slide Power Switch',category:'Control',pins:['IN','ON','NC']},()=>{
+  const g=new THREE.Group();g.name='Power Switch';const b=box(12,5,6,0xd6d8dd);b.position.y=2.5;g.add(b);const s=box(3,5,3,0x22252b);s.position.set(-2,6,0);g.add(s);g.userData.pins={IN:pin(g,'IN',0,0,'power'),ON:pin(g,'ON',4,0,'power'),NC:pin(g,'NC',-4,0)};return g;
+});
+components.register('tactile-6mm',{title:'6 mm Tactile Switch',category:'Control',pins:['SIGNAL','GND']},o=>{
+  const g=new THREE.Group();g.name=o.label||'Button';const b=box(8,2,8,0x9ca4ae);b.position.y=1;g.add(b);const cap=new THREE.Mesh(new THREE.CylinderGeometry(2.3,2.3,2,24),mat(0x252932));cap.position.y=3;g.add(cap);g.userData.pins={SIGNAL:pin(g,'SIGNAL',-3.6,0,'input'),GND:pin(g,'GND',3.6,0,'ground')};g.userData.button=true;return g;
+});
+components.register('aux-power-fc9693',{title:'FC-96-93 Auxiliary Power Module',category:'Power',pins:['BAT+','BAT-','5V','GND','9V']},()=>{
+  const g=boardBase('Aux Power Module',31,17);addChip(g,2,0,6,7);addSmallParts(g,31,17,9);const usb=box(7,2.8,7,COLORS.silver);usb.position.set(-14,2,0);g.add(usb);
+  [['BAT+',-10,7],['BAT-',-6,7],['5V',13,5],['GND',13,0],['9V',13,-5]].forEach(([n,x,z])=>g.userData.pins[n]=pin(g,n,x,z,'power'));return g;
+});
+
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x080b10);scene.fog=new THREE.Fog(0x080b10,150,260);
+const camera=new THREE.PerspectiveCamera(45,1,.1,1000);camera.position.set(0,145,150);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;document.querySelector('#viewport').prepend(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,0,0);controls.enableDamping=true;
+scene.add(new THREE.HemisphereLight(0xcde5ff,0x18202b,2.1));const sun=new THREE.DirectionalLight(0xffffff,2.4);sun.position.set(-60,110,50);sun.castShadow=true;scene.add(sun);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(220,180),new THREE.MeshStandardMaterial({color:0x0d131d,roughness:.92,metalness:.05}));floor.rotation.x=-Math.PI/2;floor.position.y=-.2;floor.receiveShadow=true;scene.add(floor);
+const grid=new THREE.GridHelper(220,44,0x21314a,0x172235);grid.position.y=0;scene.add(grid);
+
+const assembly=new THREE.Group();scene.add(assembly);const instances={};
+function place(key,id,x,z,rot=0,options={}){const o=components.create(id,options);o.position.set(x,0,z);o.rotation.y=rot;o.userData.instanceId=key;assembly.add(o);instances[key]=o;return o}
+place('U1','arduino-pro-mini',28,5,-.05);place('DS1','oled-i2c-096',25,49,0);place('U2','tp4056-protected',-48,18,0);place('BT1','lipo-503040',-48,-27,0);place('SW1','slide-switch-spdt',-31,42,0);place('U3','aux-power-fc9693',-39,-68,0);
+place('UP','tactile-6mm',19,-25,0,{label:'UP'});place('ACT','tactile-6mm',19,-40,0,{label:'ACT'});place('DOWN','tactile-6mm',19,-55,0,{label:'DOWN'});place('LEFT','tactile-6mm',2,-40,0,{label:'LEFT'});place('RIGHT','tactile-6mm',40,-40,0,{label:'RIGHT'});
+
+const NETS=[
+ {id:'BAT+',color:'red',ends:[['BT1','+'],['U2','B+'],['U3','BAT+']]},{id:'BAT-',color:'black',ends:[['BT1','-'],['U2','B-'],['U3','BAT-']]},
+ {id:'CHG_OUT+',color:'red',ends:[['U2','OUT+'],['SW1','IN']]},{id:'SYS_VCC',color:'red',ends:[['SW1','ON'],['U1','VCC'],['DS1','VCC']]},
+ {id:'SYS_GND',color:'black',ends:[['U2','OUT-'],['U1','GND'],['DS1','GND'],['UP','GND'],['ACT','GND'],['DOWN','GND'],['LEFT','GND'],['RIGHT','GND']]},
+ {id:'I2C_SDA',color:'green',ends:[['U1','A4/SDA'],['DS1','SDA']]},{id:'I2C_SCL',color:'green',ends:[['U1','A5/SCL'],['DS1','SCL']]},
+ {id:'BTN_UP',color:'blue',ends:[['U1','D2'],['UP','SIGNAL']]},{id:'BTN_ACT',color:'blue',ends:[['U1','D3'],['ACT','SIGNAL']]},{id:'BTN_DOWN',color:'blue',ends:[['U1','D4'],['DOWN','SIGNAL']]},{id:'BTN_RIGHT',color:'blue',ends:[['U1','D5'],['RIGHT','SIGNAL']]},{id:'BTN_LEFT',color:'blue',ends:[['U1','D6'],['LEFT','SIGNAL']]}
+];
+const wireGroup=new THREE.Group();scene.add(wireGroup);
+function worldPin([device,pinName]){const p=instances[device]?.userData.pins?.[pinName];if(!p)throw Error(`Missing ${device}.${pinName}`);return p.getWorldPosition(new THREE.Vector3())}
+function drawBranch(a,b,color,index){const mid=a.clone().lerp(b,.5);mid.y=7+index*.4;const dir=b.clone().sub(a);const side=new THREE.Vector3(-dir.z,0,dir.x).normalize().multiplyScalar(Math.min(7,dir.length()*.12));mid.add(side);const curve=new THREE.CatmullRomCurve3([a.clone().setY(1),a.clone().lerp(mid,.35).setY(6),mid,b.clone().lerp(mid,.35).setY(6),b.clone().setY(1)]);const tube=new THREE.Mesh(new THREE.TubeGeometry(curve,28,.62,8,false),mat(COLORS[color],.1,.55));tube.userData.net=color;tube.castShadow=true;wireGroup.add(tube)}
+function rebuildWires(){wireGroup.clear();NETS.forEach((net,ni)=>{const root=worldPin(net.ends[0]);net.ends.slice(1).forEach((end,i)=>{const before=wireGroup.children.length;drawBranch(root,worldPin(end),net.color,ni*.12+i*.18);wireGroup.children[before].userData.netId=net.id})})}rebuildWires();
+
+const library=document.querySelector('#library');for(const [id,e] of components.entries){const d=document.createElement('div');d.className='card';d.innerHTML=`<b>${e.definition.title}</b><small>${e.definition.category} · ${e.definition.pins.length} pins</small>`;d.onclick=()=>selectByLibrary(id);library.append(d)}
+const netlist=document.querySelector('#netlist');netlist.textContent=NETS.map(n=>`${n.id}\n  ${n.ends.map(e=>e.join('.')).join(' ↔ ')}`).join('\n\n');
+const inspector=document.querySelector('#inspector'),toast=document.querySelector('#toast');let selected=null,powered=false;
+function inspect(o){selected=o;const d=o.userData.definition;inspector.innerHTML=`<div class="row"><span>Reference</span><b>${o.userData.instanceId}</b></div><div class="row"><span>Component</span><span>${d.title}</span></div><div class="row"><span>Library ID</span><span class="pill">${o.userData.libraryId}</span></div><div class="row"><span>Pins</span><span>${d.pins.join(', ')}</span></div>${o.userData.button?'<div class="row"><span>Input</span><span class="ok">active-low</span></div>':''}`;toast.textContent=`Selected ${o.userData.instanceId}: ${d.title}`}
+function selectByLibrary(id){const o=Object.values(instances).find(v=>v.userData.libraryId===id);if(o)inspect(o)}
+const ray=new THREE.Raycaster(),pointer=new THREE.Vector2();renderer.domElement.addEventListener('pointerdown',e=>{const r=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1);ray.setFromCamera(pointer,camera);const hit=ray.intersectObjects(assembly.children,true)[0];if(!hit)return;let o=hit.object;while(o.parent!==assembly&&o.parent)o=o.parent;inspect(o);if(o.userData.button){toast.textContent=`${o.name} pressed → ${powered?'logic LOW':'console is unpowered'}`;o.scale.y=.82;setTimeout(()=>o.scale.y=1,120)}});
+document.querySelector('#power').onclick=e=>{powered=!powered;e.currentTarget.textContent=`Power ${powered?'ON':'OFF'}`;e.currentTarget.classList.toggle('on',powered);toast.textContent=powered?'System VCC energized in logic preview':'System power disconnected'};
+document.querySelector('#wires').onclick=()=>wireGroup.visible=!wireGroup.visible;
+document.querySelector('#validate').onclick=()=>{const errors=[];for(const n of NETS)for(const e of n.ends){if(!instances[e[0]]?.userData.pins?.[e[1]])errors.push(e.join('.'))}toast.innerHTML=errors.length?`<span class="warn">Missing: ${errors.join(', ')}</span>`:`<span class="ok">Netlist valid: ${NETS.length} nets, ${wireGroup.children.length} branches</span>`};
+document.querySelector('#reset').onclick=()=>{camera.position.set(0,145,150);controls.target.set(0,0,0);controls.update()};
+function resize(){const v=document.querySelector('#viewport'),w=v.clientWidth,h=v.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();
+renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera)});
+</script>
+</body>
+</html>
