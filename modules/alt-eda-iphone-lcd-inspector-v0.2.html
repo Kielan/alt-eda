@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>alt-EDA · iPhone-like LCD / Casing Inspector v0.2</title>
+<style>
+:root{color-scheme:dark;--bg:#080b10;--panel:#111721;--line:#293447;--text:#edf2f8;--muted:#8f9db0;--cyan:#42d8ff;--amber:#ffb11b;--ok:#46d98b;--bad:#ff6575;--sel:#7bdcff}
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:13px/1.4 Inter,system-ui,sans-serif}
+#app{height:100%;display:grid;grid-template-columns:280px minmax(0,1fr) 330px;grid-template-rows:54px minmax(0,1fr)}
+header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:#0d121a;border-bottom:1px solid var(--line)}
+header strong{font-size:16px}header small{color:var(--muted)}
+aside{padding:14px;background:var(--panel);overflow:auto}aside.left{border-right:1px solid var(--line)}aside.right{border-left:1px solid var(--line)}
+#view{position:relative;min-width:0;background:radial-gradient(circle at 50% 35%,#1b2634,#080b10 65%)}#view canvas{display:block;width:100%;height:100%}
+h2{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#aab7c9;margin:5px 0 10px}h3{font-size:13px;margin:10px 0 6px}.muted{color:var(--muted)}
+.card{padding:10px;margin:0 0 8px;border:1px solid var(--line);border-radius:8px;background:#0b1017}.card.selected{border-color:var(--sel);box-shadow:0 0 0 1px #7bdcff33 inset}.card button{width:100%;text-align:left}
+button,select,input[type=number]{font:inherit;color:var(--text);background:#172131;border:1px solid #35445b;border-radius:7px;padding:7px 9px}button{cursor:pointer}button:hover{border-color:var(--cyan)}button.on{border-color:var(--ok);background:#133b29}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:8px 0}
+label{display:block;color:var(--muted);margin:11px 0 4px}.readout{float:right;color:var(--text)}input[type=range]{width:100%;accent-color:var(--cyan)}select{width:100%}
+.row{display:grid;grid-template-columns:1fr auto;gap:10px;padding:7px 0;border-bottom:1px solid #202a39}.row span:first-child{color:var(--muted)}
+.pill{display:inline-block;padding:2px 7px;border-radius:99px;background:#202b3b}.ok{color:var(--ok)}.bad{color:var(--bad)}
+#toast{position:absolute;left:14px;bottom:14px;background:#0d141edd;border:1px solid #34435a;border-radius:8px;padding:9px 12px;max-width:75%}
+#modeBadge{position:absolute;right:14px;top:14px;background:#101722dd;border:1px solid #33445b;border-radius:999px;padding:6px 10px;color:#cfe6ff}
+#screenPreview{width:100%;aspect-ratio:9/19.5;border:8px solid #090b0f;border-radius:28px;overflow:hidden;background:#03060a;position:relative;box-shadow:inset 0 0 0 1px #ffffff16}
+#displayCanvas{width:100%;height:100%;display:block;background:#0b0f16}.screenOverlay{position:absolute;inset:0;pointer-events:none}.notch{position:absolute;left:50%;top:0;transform:translateX(-50%);width:41%;height:26px;border-radius:0 0 17px 17px;background:#050608}.homebar{position:absolute;bottom:7px;left:50%;transform:translateX(-50%);width:36%;height:4px;border-radius:4px;background:#e8edf2aa}
+#subpixelLegend{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:6px;font-size:11px}.sw{height:6px;border-radius:3px;margin-bottom:3px}.r{background:#e05656}.g{background:#55d77e}.b{background:#5590e8}
+#layerList .layerRow{display:flex;justify-content:space-between;gap:8px;padding:6px 7px;border:1px solid #243246;border-radius:6px;margin:5px 0;background:#0d131c}.layerRow.active{border-color:#7bdcff}.layerRow button{padding:2px 7px;width:auto}
+#pinmap{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}.pin{padding:4px;border-radius:5px;background:#1b2533;text-align:center;font-size:10px;color:#c9d6e6}
+#componentCount{font-weight:700}.foot{font-size:11px;color:var(--muted)}
+@media(max-width:1050px){#app{grid-template-columns:250px 1fr}.right{display:none}}
+@media(max-width:700px){#app{grid-template-columns:1fr;grid-template-rows:54px 1fr}.left{display:none}}
+</style>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.170.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.170.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="app">
+<header><div><strong>alt‑EDA · Phone Assembly Lab</strong><small> · iPhone-like casing + LCD inspector</small></div><small>v0.2 · illustrative dimensions · browser Three.js</small></header>
+<aside class="left">
+  <h2>Assembly Controls</h2>
+  <label>Exploded view <output id="explodeOut" class="readout">0%</output></label>
+  <input id="explode" type="range" min="0" max="1" step="0.01" value="0" />
+  <label>Inspection mode</label>
+  <select id="mode"><option value="assembly">Assembly</option><option value="casing">Casing</option><option value="lcd">LCD stack</option><option value="logic">Logic board</option><option value="fpc">FPC / connector</option></select>
+  <div class="buttons"><button id="front">Front</button><button id="rear">Rear</button><button id="side">Side</button><button id="iso">ISO</button></div>
+  <div class="buttons"><button id="ghost">Ghost others</button><button id="labels" class="on">Labels on</button></div>
+  <h2>Components <span id="componentCount"></span></h2>
+  <div id="components"></div>
+  <p class="foot">Reference geometry is inspired by the supplied teardown photo, not reverse-engineered production CAD.</p>
+</aside>
+<main id="view"><div id="modeBadge">Assembly</div><div id="toast">Drag to orbit · wheel to zoom · click a part to inspect</div></main>
+<aside class="right">
+  <h2>Inspector</h2><div id="inspector" class="card">Select a component.</div>
+  <h2>LCD Simulator</h2>
+  <div id="screenPreview"><canvas id="displayCanvas" width="360" height="780"></canvas><div class="screenOverlay"><div class="notch"></div><div class="homebar"></div></div></div>
+  <label>Brightness <output id="brightOut" class="readout">85%</output></label><input id="brightness" type="range" min="10" max="100" value="85" />
+  <label>Refresh <output id="hzOut" class="readout">60 Hz</output></label><input id="hz" type="range" min="24" max="120" value="60" />
+  <label>VCOM inversion</label><select id="vcom"><option value="frame">Frame inversion</option><option value="line">Line inversion</option><option value="dot">Dot inversion</option></select>
+  <label><input id="scan" type="checkbox" checked /> Show scanline</label>
+  <label><input id="subpixels" type="checkbox" /> RGB subpixel overlay</label>
+  <div id="subpixelLegend"><div><div class="sw r"></div>R</div><div><div class="sw g"></div>G</div><div><div class="sw b"></div>B</div></div>
+  <h2>LCD Layer Stack</h2><div id="layerList"></div>
+  <h2>FPC Pin Map</h2><div id="pinmap"></div>
+</aside>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+
+const C={frame:0xc8c1b2,glass:0x121820,lcd:0x162538,polar:0x2c3d4b,tft:0x164f74,lc:0x5d8bb2,filter:0x65495e,backlight:0xe6edf3,battery:0x17191f,pcb:0x245c47,shield:0xc6c7c7,camera:0x111317,speaker:0x26292f,taptic:0x30343a,fpc:0xd98b23,copper:0xd9a63e,metal:0xaab2ba,black:0x0b0d10};
+const MAT=(color,metalness=.15,roughness=.5,transparent=false,opacity=1)=>new THREE.MeshStandardMaterial({color,metalness,roughness,transparent,opacity,side:THREE.DoubleSide});
+const box=(name,size,pos,color,opts={})=>{const m=new THREE.Mesh(new THREE.BoxGeometry(...size),MAT(color,opts.metalness??.15,opts.roughness??.5,opts.transparent??false,opts.opacity??1));m.name=name;m.position.set(...pos);m.castShadow=m.receiveShadow=true;return m};
+const roundedRectShape=(w,h,r)=>{const s=new THREE.Shape();const x=-w/2,y=-h/2;s.moveTo(x+r,y);s.lineTo(x+w-r,y);s.quadraticCurveTo(x+w,y,x+w,y+r);s.lineTo(x+w,y+h-r);s.quadraticCurveTo(x+w,y+h,x+w-r,y+h);s.lineTo(x+r,y+h);s.quadraticCurveTo(x,y+h,x,y+h-r);s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);return s};
+const roundedPlate=(name,w,h,d,r,color)=>{const g=new THREE.ExtrudeGeometry(roundedRectShape(w,h,r),{depth:d,bevelEnabled:false});g.center();const m=new THREE.Mesh(g,MAT(color,.25,.4));m.name=name;m.castShadow=m.receiveShadow=true;return m};
+
+const parts=[]; const meshes=new Map(); const assembly=new THREE.Group();
+function addPart(def,obj,parent=assembly){obj.userData.def=def;parent.add(obj);parts.push(def);meshes.set(def.id,obj);return obj}
+function def(id,name,category,role,size,position,explode=[0,0,0],layer=null){return{id,name,category,role,size,position,explode,layer}}
+
+// PHONE ENVELOPE ~ iPhone 11 Pro Max class, illustrative.
+const rear=roundedPlate('Rear Case',77.8,158,1.4,8,C.frame);rear.rotation.x=Math.PI/2;rear.position.z=-5.2;addPart(def('rear','Rear case','Casing','Metal/glass rear shell proxy',[77.8,158,1.4],[0,0,-5.2],[0,0,-24]),rear);
+const mid=roundedPlate('Mid Frame',77.8,158,5.4,8,0x565b61);mid.rotation.x=Math.PI/2;mid.position.z=-2.2;addPart(def('mid','Mid frame','Casing','Structural perimeter / sidewall proxy',[77.8,158,5.4],[0,0,-2.2],[0,0,-12]),mid);
+const displayCarrier=roundedPlate('Display Carrier',75.5,155,1.0,7,0x1b2229);displayCarrier.rotation.x=Math.PI/2;displayCarrier.position.z=2.2;addPart(def('displayCarrier','Display carrier','Display','Support plate under LCD stack',[75.5,155,1],[0,0,2.2],[0,0,10],'carrier'),displayCarrier);
+
+// LCD stack from rear to front
+const lcdLayers=[
+ ['backlight','Backlight + diffuser',C.backlight,.55,1.0,'Edge/backlight proxy with diffuser'],
+ ['rearPolarizer','Rear polarizer',C.polar,.16,1.5,'Rear polarization film'],
+ ['tft','TFT array glass',C.tft,.35,2.0,'Active-matrix transistor plane'],
+ ['lc','Liquid crystal cell',C.lc,.12,2.4,'Voltage-controlled liquid crystal gap'],
+ ['colorFilter','RGB color filter',C.filter,.22,2.75,'RGB color filter / black matrix proxy'],
+ ['frontPolarizer','Front polarizer',C.polar,.16,3.05,'Front polarization film'],
+ ['touch','Touch sensor / OCA',0x38556b,.16,3.3,'Capacitive touch sensor + optical adhesive proxy'],
+ ['glass','Cover glass',C.glass,.7,3.75,'Front cover glass']
+];
+for(const [id,name,color,d,z,role] of lcdLayers){const p=roundedPlate(name,72.5,151,d,6.5,color);p.rotation.x=Math.PI/2;p.position.z=z;if(id==='touch'){p.material.transparent=true;p.material.opacity=.45;}if(id==='glass'){p.material.transparent=true;p.material.opacity=.82;}addPart(def(id,name,'LCD stack',role,[72.5,151,d],[0,0,z],[0,0,8+z*2],id),p)}
+
+// Internals placed like teardown: battery dominant, top logic, camera cluster, haptic, speaker, bottom board.
+addPart(def('battery','Li-ion battery','Power','Large single-cell Li-ion battery pack proxy',[56,91,4],[1,-19,-.2],[20,-6,-8]),box('Battery',[56,91,4],[1,-19,-.2],C.battery));
+addPart(def('logic','Logic board','PCB','Compact high-density logic board proxy',[31,58,1.3],[-20,43,-.5],[-26,10,-10]),box('Logic Board',[31,58,1.3],[-20,43,-.5],C.pcb));
+addPart(def('shieldA','Logic shield A','Shield','EMI shield can',[24,22,1.3],[-19,54,.5],[-28,8,-12]),box('Logic Shield',[24,22,1.3],[-19,54,.5],C.shield,{metalness:.65,roughness:.25}));
+addPart(def('taptic','Taptic engine','Actuator','Linear haptic actuator proxy',[30,9,6],[-15,-63,-.5],[-24,-14,-9]),box('Taptic Engine',[30,9,6],[-15,-63,-.5],C.taptic));
+addPart(def('speaker','Bottom speaker','Audio','Bottom loudspeaker enclosure proxy',[27,23,5],[20,-61,-.2],[24,-14,-9]),box('Speaker',[27,23,5],[20,-61,-.2],C.speaker));
+addPart(def('dock','Charging port flex','Interconnect','Bottom charging port / microphone flex proxy',[47,12,.8],[0,-73,.2],[0,-22,-6]),box('Dock Flex',[47,12,.8],[0,-73,.2],C.fpc));
+addPart(def('sideFlex','Side-button flex','Interconnect','Long side flex for buttons / sensors proxy',[6,105,.45],[31,2,.4],[24,0,-7]),box('Side Flex',[6,105,.45],[31,2,.4],C.fpc));
+
+const cameraGroup=new THREE.Group();cameraGroup.position.set(21,52,.9);addPart(def('cameras','Triple camera module','Camera','Three rear camera modules + carrier proxy',[28,35,7],[21,52,.9],[26,13,-10]),cameraGroup);
+for(const [x,y] of [[-6,7],[-6,-8],[7,-1]]){const body=box('Camera body',[10,10,5],[x,y,0],C.camera);cameraGroup.add(body);const lens=new THREE.Mesh(new THREE.CylinderGeometry(4.2,4.2,2.2,32),MAT(0x273c59,.25,.22));lens.rotation.x=Math.PI/2;lens.position.set(x,y,3);cameraGroup.add(lens)}
+
+// FPC connector and ribbon inspired by existing alt-EDA flex feature.
+function makeSocket(pinCount=30,pitch=.4){const root=new THREE.Group();const width=(pinCount-1)*pitch+4;root.add(box('Socket body',[width,2.2,5],[0,0,0],0xe8e9e7));const first=-((pinCount-1)*pitch)/2;for(let i=0;i<pinCount;i++){root.add(box('contact',[Math.max(.16,pitch*.45),.13,2.2],[first+i*pitch,1.15,-.7],C.copper,{metalness:.7,roughness:.25}))}root.userData.pinCount=pinCount;root.userData.pitch=pitch;return root}
+const socket=makeSocket();socket.position.set(-18,15,.6);addPart(def('displaySocket','Display FPC socket','Connector','30-position parametric ZIF-like display connector',[15.6,2.2,5],[-18,15,.6],[-26,0,-8]),socket);
+const curve=new THREE.CatmullRomCurve3([new THREE.Vector3(-18,13,1),new THREE.Vector3(-6,2,1.6),new THREE.Vector3(-6,-18,2),new THREE.Vector3(0,-30,2.5)]);
+const tube=new THREE.Mesh(new THREE.TubeGeometry(curve,80,4.4,10,false),MAT(C.fpc,.05,.45));tube.scale.z=.08;tube.name='Display FPC Ribbon';addPart(def('displayFpc','Display FPC ribbon','Interconnect','Illustrative flexible display/touch interconnect',[9,48,.35],[-6,-8,1.7],[-18,0,-6]),tube);
+
+// Scene
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x080b10);scene.fog=new THREE.Fog(0x080b10,240,520);scene.add(assembly);
+const camera=new THREE.PerspectiveCamera(42,1,.1,1200);camera.position.set(150,120,210);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.outputColorSpace=THREE.SRGBColorSpace;document.querySelector('#view').prepend(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,0,0);controls.enableDamping=true;controls.maxDistance=500;controls.minDistance=75;
+scene.add(new THREE.HemisphereLight(0xdcecff,0x111722,2.25));const sun=new THREE.DirectionalLight(0xffffff,3.1);sun.position.set(-100,180,180);sun.castShadow=true;scene.add(sun);const fill=new THREE.DirectionalLight(0x9dc7ff,1.2);fill.position.set(120,-80,100);scene.add(fill);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(360,360),MAT(0x0d141d,.0,.8));floor.rotation.x=-Math.PI/2;floor.position.y=-95;floor.receiveShadow=true;scene.add(floor);scene.add(new THREE.GridHelper(320,32,0x273a56,0x172336));
+
+const labels=[];function rebuildLabels(){for(const l of labels)l.remove();labels.length=0;for(const [id,m] of meshes){const div=document.createElement('div');div.textContent=m.userData.def.name;div.style.cssText='position:absolute;color:#dbeaff;background:#0a111acc;border:1px solid #314258;border-radius:4px;padding:2px 5px;font:10px system-ui;pointer-events:none;white-space:nowrap';document.querySelector('#view').append(div);div.dataset.id=id;labels.push(div)}}rebuildLabels();let showLabels=true;
+
+let selectedId=null,ghost=false;const originalMats=new Map();for(const [id,m] of meshes){originalMats.set(id,m.material)}
+function selectPart(id){selectedId=id;for(const [key,m] of meshes){m.traverse(o=>{if(!o.material)return;if(Array.isArray(o.material))return;o.material.emissive?.setHex(key===id?0x274b58:0x000000);o.material.emissiveIntensity=key===id?.9:0;});}renderInspector();renderComponentCards()}
+function renderInspector(){const root=document.querySelector('#inspector');if(!selectedId){root.textContent='Select a component.';return}const d=meshes.get(selectedId).userData.def;root.innerHTML=`<h3>${d.name}</h3><div class="row"><span>Category</span><b>${d.category}</b></div><div class="row"><span>Size</span><span>${d.size.join(' × ')} mm</span></div><div class="row"><span>Position</span><span>${d.position.map(n=>Number(n).toFixed(1)).join(', ')}</span></div><p class="muted">${d.role}</p>`}
+function renderComponentCards(){const root=document.querySelector('#components');root.innerHTML='';for(const d of parts){const c=document.createElement('div');c.className='card'+(d.id===selectedId?' selected':'');const b=document.createElement('button');b.textContent=d.name;b.onclick=()=>selectPart(d.id);const s=document.createElement('div');s.className='muted';s.textContent=`${d.category} · ${d.size.join('×')} mm`;c.append(b,s);root.append(c)}document.querySelector('#componentCount').textContent=`(${parts.length})`}
+renderComponentCards();
+
+function applyExplode(){const e=Number(document.querySelector('#explode').value);document.querySelector('#explodeOut').value=Math.round(e*100)+'%';for(const [id,m] of meshes){const d=m.userData.def;m.position.set(...d.position);m.position.x+=d.explode[0]*e;m.position.y+=d.explode[1]*e;m.position.z+=d.explode[2]*e}}
+function applyMode(){const mode=document.querySelector('#mode').value;document.querySelector('#modeBadge').textContent=mode==='lcd'?'LCD stack':mode[0].toUpperCase()+mode.slice(1);const allowed={assembly:null,casing:new Set(['rear','mid','displayCarrier','glass']),lcd:new Set(['displayCarrier',...lcdLayers.map(x=>x[0]),'displaySocket','displayFpc']),logic:new Set(['logic','shieldA','battery','cameras','taptic','speaker','dock','sideFlex']),fpc:new Set(['displaySocket','displayFpc','dock','sideFlex'])}[mode];for(const [id,m] of meshes){m.visible=!allowed||allowed.has(id);if(ghost&&m.visible){m.traverse(o=>{if(o.material&&!Array.isArray(o.material)){o.material.transparent=true;o.material.opacity=id===selectedId?1:.15}})}}if(mode==='lcd'){camera.position.set(105,30,180);controls.target.set(0,0,8)} }
+function applyGhost(){ghost=!ghost;document.querySelector('#ghost').classList.toggle('on',ghost);for(const [id,m]of meshes)m.traverse(o=>{if(o.material&&!Array.isArray(o.material)){o.material.transparent=ghost||['touch','glass'].includes(id);o.material.opacity=ghost?(id===selectedId?1:.16):(id==='touch'?.45:id==='glass'?.82:1)}});applyMode()}
+
+// picking
+const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();renderer.domElement.addEventListener('pointerdown',e=>{const r=renderer.domElement.getBoundingClientRect();mouse.x=((e.clientX-r.left)/r.width)*2-1;mouse.y=-((e.clientY-r.top)/r.height)*2+1;ray.setFromCamera(mouse,camera);const hits=ray.intersectObjects([...meshes.values()],true);if(hits.length){let o=hits[0].object;while(o&&!o.userData.def)o=o.parent;if(o?.userData.def)selectPart(o.userData.def.id)}});
+
+// LCD simulator
+const canvas=document.querySelector('#displayCanvas'),ctx=canvas.getContext('2d');let phase=0,last=0;function drawDisplay(ts){const hz=Number(document.querySelector('#hz').value),step=1000/hz;if(ts-last>=step){last=ts;phase++;const w=canvas.width,h=canvas.height,b=Number(document.querySelector('#brightness').value)/100;ctx.save();ctx.clearRect(0,0,w,h);const grad=ctx.createLinearGradient(0,0,0,h);grad.addColorStop(0,`rgba(${Math.round(45*b)},${Math.round(85*b)},${Math.round(130*b)},1)`);grad.addColorStop(1,`rgba(${Math.round(8*b)},${Math.round(16*b)},${Math.round(28*b)},1)`);ctx.fillStyle=grad;ctx.fillRect(0,0,w,h);ctx.fillStyle=`rgba(255,255,255,${.92*b})`;ctx.font='600 26px system-ui';ctx.fillText('alt‑EDA Phone',24,86);ctx.font='14px system-ui';ctx.fillStyle=`rgba(220,235,250,${.9*b})`;ctx.fillText('LCD / touch diagnostic',24,112);const cards=[['TFT','ACTIVE MATRIX'],['VCOM',document.querySelector('#vcom').value.toUpperCase()],['REFRESH',hz+' HZ'],['TOUCH','CAPACITIVE']];cards.forEach((c,i)=>{const x=24+(i%2)*156,y=165+Math.floor(i/2)*92;ctx.fillStyle='rgba(8,14,22,.58)';ctx.fillRect(x,y,140,70);ctx.fillStyle='rgba(225,240,255,.92)';ctx.font='700 14px system-ui';ctx.fillText(c[0],x+12,y+26);ctx.font='12px system-ui';ctx.fillStyle='rgba(150,190,220,.9)';ctx.fillText(c[1],x+12,y+49)});ctx.fillStyle='rgba(255,255,255,.92)';ctx.font='700 44px system-ui';ctx.fillText('09:41',24,430);ctx.font='14px system-ui';ctx.fillText('RGB subpixels · source/gate scan · VCOM inversion',24,468);
+if(document.querySelector('#scan').checked){const y=(phase*7)%h;ctx.fillStyle='rgba(255,255,255,.10)';ctx.fillRect(0,y,w,5)}
+if(document.querySelector('#subpixels').checked){ctx.globalAlpha=.22;for(let x=0;x<w;x+=6){ctx.fillStyle='#ff4d4d';ctx.fillRect(x,0,2,h);ctx.fillStyle='#4dff7b';ctx.fillRect(x+2,0,2,h);ctx.fillStyle='#4d78ff';ctx.fillRect(x+4,0,2,h)}}
+ctx.restore();}requestAnimationFrame(drawDisplay)}requestAnimationFrame(drawDisplay);
+
+const layerList=document.querySelector('#layerList');for(const [id,name,,d] of lcdLayers){const row=document.createElement('div');row.className='layerRow';row.dataset.id=id;const s=document.createElement('span');s.textContent=`${name} · ${d} mm`;const b=document.createElement('button');b.textContent='Inspect';b.onclick=()=>{document.querySelector('#mode').value='lcd';applyMode();selectPart(id);for(const r of layerList.children)r.classList.toggle('active',r.dataset.id===id)};row.append(s,b);layerList.append(row)}
+const pinmap=document.querySelector('#pinmap');for(let i=1;i<=30;i++){const p=document.createElement('div');p.className='pin';p.textContent=`${i}↔${i}`;pinmap.append(p)}
+
+// UI bindings
+document.querySelector('#explode').addEventListener('input',applyExplode);document.querySelector('#mode').addEventListener('change',applyMode);document.querySelector('#ghost').onclick=applyGhost;document.querySelector('#labels').onclick=e=>{showLabels=!showLabels;e.currentTarget.classList.toggle('on',showLabels);e.currentTarget.textContent=showLabels?'Labels on':'Labels off'};
+for(const [id,pos] of Object.entries({front:[0,0,300],rear:[0,0,-300],side:[300,0,0],iso:[150,120,210]}))document.querySelector('#'+id).onclick=()=>{camera.position.set(...pos);controls.target.set(0,0,0)};
+document.querySelector('#brightness').oninput=e=>document.querySelector('#brightOut').value=e.target.value+'%';document.querySelector('#hz').oninput=e=>document.querySelector('#hzOut').value=e.target.value+' Hz';
+
+function updateLabels(){if(!showLabels){for(const l of labels)l.style.display='none';return}const rect=renderer.domElement.getBoundingClientRect();for(const l of labels){const m=meshes.get(l.dataset.id);if(!m?.visible){l.style.display='none';continue}const v=new THREE.Vector3();m.getWorldPosition(v);v.project(camera);if(v.z>1){l.style.display='none';continue}l.style.display='block';l.style.left=((v.x*.5+.5)*rect.width+6)+'px';l.style.top=((-v.y*.5+.5)*rect.height+6)+'px'}}
+function resize(){const v=document.querySelector('#view'),w=v.clientWidth,h=v.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();applyExplode();applyMode();selectPart('glass');
+renderer.setAnimationLoop(()=>{controls.update();updateLabels();renderer.render(scene,camera)});
+</script>
+</body>
+</html>
