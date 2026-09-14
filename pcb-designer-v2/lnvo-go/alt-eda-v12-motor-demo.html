@@ -1,0 +1,1786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>Alt-Electronic-Designer-App — Experimental Router V11 / Contact Snap Routing</title>
+<style>
+  :root{
+    --panel:#2b2b2b; --panel2:#252525; --panel3:#1f1f1f; --line:#444;
+    --text:#ddd; --muted:#929aa3; --accent:#62aaff; --green:#74d99f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#111;font-family:Segoe UI,Arial,sans-serif;color:var(--text)}
+  canvas{display:block}
+  #edaCanvas{cursor:default}
+  #edaCanvas.cursor-grab{cursor:grab}
+  #edaCanvas.cursor-grabbing{cursor:grabbing}
+  #edaCanvas.cursor-crosshair{cursor:crosshair}
+  #edaCanvas{position:absolute;top:0;left:340px;z-index:1;outline:none}
+  #leftDock{position:absolute;left:0;top:0;bottom:0;width:340px;z-index:40;background:#171b20;border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;box-shadow:8px 0 24px #0005}
+  #leftDock.hidden{display:none}
+  #leftDockTop{height:38px;flex:0 0 38px;display:flex;align-items:center;gap:6px;padding:5px 7px;background:#111419;border-bottom:1px solid var(--line)}
+  #leftDockTitle{font-weight:700;font-size:12px;flex:1;color:#dbe6f0}
+  #leftDockScroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:7px}
+  #showLeftDock{position:absolute;left:8px;top:8px;z-index:45;display:none;background:#1d2630;border-color:#49647f}
+  body.leftDockHidden #showLeftDock{display:block}
+  .dockPanel{position:relative!important;left:auto!important;top:auto!important;width:100%!important;height:auto!important;min-width:0;min-height:0;resize:none;overflow:hidden;background:var(--panel);color:var(--text);border:1px solid var(--line);z-index:auto;box-shadow:none;margin:0 0 7px;border-radius:5px}
+  .dockPanel.collapsed .panelTabs,.dockPanel.collapsed .panelContent{display:none!important}
+  .panelHeader{height:30px;line-height:30px;padding:0 7px;background:var(--panel2);border-bottom:1px solid var(--line);cursor:pointer;user-select:none;font-weight:600;font-size:13px;display:flex;align-items:center;gap:7px}
+  .panelHeaderTitle{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .panelCollapse{width:22px;height:22px;margin:0;padding:0;display:grid;place-items:center;background:#171b20;border:1px solid #46505a}
+  .dockPanel.collapsed .panelCollapse{transform:rotate(-90deg)}
+  .panelTabs{height:30px;display:flex;background:var(--panel3);border-bottom:1px solid var(--line)}
+  .tab{padding:7px 10px;cursor:pointer;border-right:1px solid var(--line);font-size:12px;user-select:none}
+  .tab.active{background:#39414b;color:#fff}
+  .panelContent{height:auto;max-height:430px;overflow:auto;font-size:12px}
+  .tabPage{display:none;padding:7px}.tabPage.active{display:block}
+  .sectionTitle{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#9da8b5;padding:7px 4px 4px}
+  .libraryItem{padding:7px 8px;border:1px solid transparent;border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .libraryItem:hover{background:#39414b;border-color:#4b5663}
+  .libraryItem .kind{color:#9ba6b2;font-size:10px}
+  .row{display:flex;align-items:center;gap:6px;padding:5px 3px;border-bottom:1px solid #343a42}
+  .row label{flex:1;color:#aeb6bf}.row input,.row select{width:116px;background:#15181c;color:#dbe1e8;border:1px solid #4b525b;padding:4px}
+  button{background:#3b424b;color:#fff;border:1px solid #555e69;padding:6px 8px;margin:3px;cursor:pointer;border-radius:3px}
+  button:hover{background:#4b5561}.btnRow{display:flex;flex-wrap:wrap;padding:4px 0}
+  .badge{padding:2px 5px;border-radius:10px;background:#20252b;color:#aeb7c2;font-size:10px}
+  #status{position:absolute;left:352px;bottom:12px;background:#0b0e12dd;color:#82f2ad;border:1px solid #2b5138;padding:7px 10px;z-index:40;font:12px Consolas,monospace;pointer-events:none}
+  #help{position:absolute;right:12px;bottom:12px;background:#0b0e12cc;color:#bcc5cf;border:1px solid #30363f;padding:7px 10px;z-index:10;font-size:11px;line-height:1.5;pointer-events:none}
+  .netItem,.drcItem{padding:6px;border-bottom:1px solid #3a4048}.netItem{cursor:pointer}.netItem:hover{background:#39414b}
+  .ok{color:#83dda4}.warn{color:#ffc36c}.muted{color:var(--muted)}
+  .mini{font-size:10px;color:#9ba5b0}
+
+  /* Runtime Debug Console — same Alt-EDA dock language, not a floating foreign theme */
+  #runtimeDebugWindow{background:var(--panel);border-color:var(--line);color:var(--text);font-family:Consolas,Monaco,monospace;font-size:11px}
+  #runtimeDebugWindow .panelHeader{background:var(--panel2)}
+  #runtimeDebugWindow .panelHeaderTitle{color:#e3e7eb}
+  #debugMeta{display:flex;align-items:center;gap:7px;padding:5px 7px;background:#1b1e22;border-bottom:1px solid #3b4046;color:#9da7b1;font:10px Consolas,monospace}
+  #debugLamp{width:8px;height:8px;border-radius:50%;background:#62d98b;box-shadow:0 0 7px #62d98b88}
+  #debugCount{margin-left:auto;color:#bcc5ce}
+  #runtimeDebugBody{height:230px;overflow:auto;padding:7px 9px;white-space:pre-wrap;word-break:break-word;background:#15181b}
+  .debugLine{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.035)}
+  .debugLine.info{color:#c5cbd2}.debugLine.boot{color:#75d49a}.debugLine.warn{color:#ffc36c}.debugLine.error{color:#ff8585}.debugLine.scene{color:#9dbfff}.debugLine.drc{color:#78d5d1}
+
+  /* V7 — floating connector count editor, inspired by CAD confirmation popovers */
+  #connectorConfigWindow{position:absolute;left:352px;top:10px;width:286px;z-index:65;background:#262a2f;border:1px solid #59616a;border-radius:5px;box-shadow:0 12px 28px #0007;overflow:hidden;color:#e3e7eb;font-size:12px}
+  body.leftDockHidden #connectorConfigWindow{left:10px}
+  #connectorConfigWindow.hidden{display:none}
+  #connectorConfigHeader{height:34px;display:flex;align-items:center;gap:7px;padding:0 7px;background:#1c2025;border-bottom:1px solid #464d55}
+  #connectorConfigHeader strong{flex:1;font-size:12px;color:#f0f4f7}
+  .configIconBtn{width:27px;height:27px;margin:0;padding:0;display:grid;place-items:center;font-size:17px;font-weight:800;border-radius:3px}
+  #connectorConfigConfirm{background:#239447;border-color:#35bd60;color:white}
+  #connectorConfigConfirm:hover{background:#2eaa55}
+  #connectorConfigCancel{background:#413238;border-color:#73515c;color:#ffd6dc}
+  #connectorConfigCancel:hover{background:#573a43}
+  #connectorConfigBody{padding:9px}
+  #connectorConfigType{padding:2px 2px 8px;color:#aeb8c2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .connectorCountRow{display:grid;grid-template-columns:42px 1fr 42px;gap:7px;align-items:center}
+  .connectorCountRow button{height:36px;margin:0;font-size:20px;line-height:1;padding:0}
+  #connectorConfigCount{height:36px;display:grid;place-items:center;background:#15191d;border:1px solid #505861;border-radius:3px;font:700 17px Consolas,monospace;color:#fff}
+  #connectorConfigHint{padding-top:8px;color:#8f9aa5;font-size:10px;line-height:1.4}
+
+  /* V9 — PCB board selection / dimensions / stack editor */
+#edaCanvas.cursor-trace{cursor:crosshair;}
+  #edaCanvas.cursor-board-resize{cursor:grabbing}
+  #boardConfigWindow{position:absolute;left:352px;top:10px;width:340px;z-index:66;background:#262a2f;border:1px solid #59616a;border-radius:5px;box-shadow:0 12px 28px #0007;overflow:hidden;color:#e3e7eb;font-size:12px}
+  body.leftDockHidden #boardConfigWindow{left:10px}
+  #boardConfigWindow.hidden{display:none}
+  #boardConfigHeader{height:34px;display:flex;align-items:center;gap:7px;padding:0 7px;background:#1c2025;border-bottom:1px solid #464d55}
+  #boardConfigHeader strong{flex:1;font-size:12px;color:#f0f4f7}
+  #boardConfigConfirm{background:#239447;border-color:#35bd60;color:#fff}
+  #boardConfigConfirm:hover{background:#2eaa55}
+  #boardConfigCancel{background:#413238;border-color:#73515c;color:#ffd6dc}
+  #boardConfigCancel:hover{background:#573a43}
+  #boardConfigTabs{display:grid;grid-template-columns:repeat(3,1fr);background:#1d2126;border-bottom:1px solid #464d55}
+  .boardConfigTab{margin:0;border:0;border-right:1px solid #3f454c;border-radius:0;background:#22272c;color:#9da8b3;padding:7px 4px}
+  .boardConfigTab.active{background:#39414b;color:#fff;box-shadow:inset 0 -2px #62aaff}
+  #boardConfigBody{max-height:520px;overflow:auto}
+  .boardConfigPage{display:none;padding:9px}.boardConfigPage.active{display:block}
+  .boardField{display:grid;grid-template-columns:1fr 116px;gap:8px;align-items:center;padding:5px 2px;border-bottom:1px solid #393f46}
+  .boardField label{color:#b4bdc6}.boardField input,.boardField select{width:100%;background:#15181c;color:#e0e6eb;border:1px solid #4d555e;padding:5px}
+  #layerStackList{border:1px solid #414850;background:#171a1e;max-height:240px;overflow:auto}
+  .stackItem{display:grid;grid-template-columns:12px 1fr auto;gap:7px;align-items:center;padding:6px 7px;border-bottom:1px solid #343a41;cursor:pointer}
+  .stackItem:hover{background:#30363d}.stackItem.active{background:#24425c;outline:1px solid #4f96cf}
+  .stackSwatch{width:10px;height:10px;border-radius:2px}.stackSwatch.copper{background:#c78528}.stackSwatch.plane{background:#aaa13b}.stackSwatch.diel{background:#2f6c46}
+  .stackKind{font-size:9px;color:#8f99a3;text-transform:uppercase}.stackValue{font:10px Consolas,monospace;color:#c7d0d8}
+  .boardHint{padding:7px 2px 2px;color:#8f9aa5;font-size:10px;line-height:1.45}
+  #boardSelectionBadge{color:#77c9ff}
+</style>
+</head>
+<body>
+
+<button id="showLeftDock">Show Tools</button>
+<aside id="leftDock">
+  <div id="leftDockTop"><span id="leftDockTitle">Alt-EDA Tools</span><button id="collapseAll">Collapse All</button><button id="hideLeftDock">Hide</button></div>
+  <div id="leftDockScroll">
+<div id="componentsPanel" class="dockPanel">
+  <div class="panelHeader">Components / Nets / DRC</div>
+  <div class="panelTabs">
+    <div class="tab active" data-tab="library">Components</div>
+    <div class="tab" data-tab="nets">Nets</div>
+    <div class="tab" data-tab="drc">DRC</div>
+  </div>
+  <div class="panelContent">
+    <div class="tabPage active" data-page="library">
+      <div class="sectionTitle">Passives</div>
+      <div class="libraryItem" data-type="cap"><span>C_0603_1uF</span><span class="kind">CAP</span></div>
+      <div class="libraryItem" data-type="res"><span>R_0603_10K</span><span class="kind">RES</span></div>
+      <div class="libraryItem" data-type="dip"><span>DIP8_ATMEGA</span><span class="kind">IC</span></div>
+
+      <div class="sectionTitle">Lenovo Legion Go — Main Board Side 1</div>
+      <div class="libraryItem" data-type="amd-z1-extreme"><span>AMD 100-000001278 — Ryzen Z1 Extreme</span><span class="kind">APU</span></div>
+      <div class="libraryItem" data-type="samsung-k3kl3l30cm"><span>Samsung K3KL3L30CM-BGCT — 8 GB LPDDR5X</span><span class="kind">MEM</span></div>
+      <div class="libraryItem" data-type="winbond-w25r256jw"><span>Winbond W25R256JW — 32 MB Serial NOR</span><span class="kind">FLASH</span></div>
+      <div class="libraryItem" data-type="lontium-lt7911uxc"><span>Lontium LT7911UXC_U3 — USB-C/DP → MIPI/LVDS</span><span class="kind">BRIDGE</span></div>
+      <div class="libraryItem" data-type="lenovo-it8218vg"><span>Likely Lenovo IT8218VG-256 — Embedded Controller</span><span class="kind">EC</span></div>
+      <div class="libraryItem" data-type="kinetic-ktz8866"><span>Kinetic Technologies KTZ8866 — LED Backlight Driver</span><span class="kind">LED</span></div>
+      <div class="libraryItem" data-type="mps-mp86901f"><span>Likely MPS MP86901F — DC-DC Converter</span><span class="kind">POWER</span></div>
+
+      <div class="sectionTitle">Switches / Inputs</div>
+      <div class="libraryItem" data-type="tact-switch"><span>PCB Tactile Push Button 6 × 6 mm</span><span class="kind">SW</span></div>
+
+      <div class="libraryGroup">Power / Drivers</div>
+      <div class="libraryItem" data-type="irlz44"><span>IRLZ44 — Logic-Level N-Channel MOSFET</span><span class="kind">MOSFET</span></div>
+      <div class="libraryItem" data-type="mur120g"><span>MUR120G — Ultrafast Flyback Diode</span><span class="kind">DIODE</span></div>
+      <div class="libraryItem" data-type="ir2101"><span>IR2101 — High/Low-Side MOSFET Driver</span><span class="kind">DRIVER</span></div>
+      <div class="libraryItem" data-type="lm7805"><span>LM7805 — 5 V Linear Regulator</span><span class="kind">REG</span></div>
+      <div class="libraryItem" data-type="lm317"><span>LM317 — Adjustable Driver-Supply Regulator</span><span class="kind">REG</span></div>
+
+      <div class="sectionTitle">Connectors</div>
+      <div class="libraryItem" data-type="picoblade-female"><span>Molex PicoBlade — PCB Socket</span><span class="kind">FEMALE</span></div>
+      <div class="libraryItem" data-type="picoblade-male"><span>Molex PicoBlade — Cable Plug</span><span class="kind">MALE</span></div>
+      <div class="libraryItem" data-type="usb-a"><span>USB Type-A Receptacle</span><span class="kind">USB</span></div>
+      <div class="libraryItem" data-type="usb-c"><span>USB Type-C Receptacle</span><span class="kind">USB-C</span></div>
+      <div class="libraryItem" data-type="terminal-block-horizontal"><span>Horizontal Screw Terminal Block — configurable</span><span class="kind">TERM</span></div>
+
+      <div class="sectionTitle">Power / Harness</div>
+      <div class="libraryItem" data-type="battery"><span>Battery Pack 60 × 25 mm</span><span class="kind">POWER</span></div>
+      <div class="libraryItem" data-type="wire"><span>Wire / Harness Segment</span><span class="kind">WIRE</span></div>
+      <div class="libraryItem" data-type="pcb-trace"><span>PCB Trace Router</span><span class="kind">TRACE</span></div>
+    </div>
+
+    <div class="tabPage" data-page="nets">
+      <div class="row"><label>Net count</label><span id="netCount" class="badge">0</span></div>
+      <div class="btnRow"><button id="generateNetlist">Generate / Refresh</button><button id="clearNets">Clear Wires</button></div>
+      <div class="mini" style="padding:3px 4px 8px">Wire placement creates a named net. Click a listed net to highlight its route.</div>
+      <div id="netsList"></div>
+    </div>
+
+    <div class="tabPage" data-page="drc">
+      <div class="row"><label>Grid</label><span id="drcGrid" class="badge">5 mm</span></div>
+      <div class="row"><label>Board boundary</label><span id="drcBoardBoundary" class="badge">220 × 180 mm</span></div>
+      <div class="btnRow"><button id="runDRC">Run DRC</button></div>
+      <div id="drcSummary" class="drcItem muted">Not run.</div>
+      <div id="drcList"></div>
+    </div>
+  </div>
+</div>
+
+<div id="boardPanel" class="dockPanel">
+  <div class="panelHeader">PCB Board / Layer Stack</div>
+  <div class="panelContent">
+    <div class="tabPage active">
+      <div class="row"><label>Board size</label><span id="boardSizeReadout" class="badge">220 × 180 mm</span></div>
+      <div class="row"><label>Stack thickness</label><span id="boardThicknessReadout" class="badge">—</span></div>
+      <div class="row"><label>Top surface</label><span class="badge ok">Green solder mask</span></div>
+      <div class="btnRow"><button id="editBoardStack">Edit Board / Stack</button></div>
+      <div class="mini" style="padding:6px 4px 8px">Click bare PCB to select it. Four corner handles appear. Drag a corner to resize with the opposite corner anchored, then use the ✓ confirmation window.</div>
+    </div>
+  </div>
+</div>
+
+<div id="settingsPanel" class="dockPanel">
+  <div class="panelHeader">Placement Settings</div>
+  <div class="panelTabs">
+    <div class="tab active" data-tab="placement">Placement</div>
+    <div class="tab" data-tab="connector">Connector</div>
+  </div>
+  <div class="panelContent">
+    <div class="tabPage active" data-page="placement">
+      <div class="row"><label>Grid snap</label><select id="gridSize"><option value="1">1 mm</option><option value="2.5">2.5 mm</option><option value="5" selected>5 mm</option><option value="10">10 mm</option></select></div>
+      <div class="row"><label>Placement rotation</label><span id="rotationReadout" class="badge">0°</span></div>
+      <div class="row"><label>Selected</label><span id="selectedReadout" class="badge">none</span></div>
+      <div class="btnRow"><button id="rotateBtn">Rotate 90°</button><button id="deleteBtn">Delete</button><button id="cancelBtn">Cancel</button></div>
+      <div class="mini" style="padding:8px 4px">Components snap to the PCB grid. Click + drag a placed component to reposition it; the cursor changes to grab / grabbing. R rotates the selected or placement ghost. Delete removes the selected component. Esc cancels placement.</div>
+    </div>
+    <div class="tabPage" data-page="connector">
+      <div class="row"><label>PicoBlade pitch</label><span class="badge">1.25 mm</span></div>
+      <div class="row"><label>Pin count</label><input id="picoPins" type="number" min="2" max="12" step="1" value="2"></div>
+      <div class="sectionTitle">Horizontal Screw Terminal Block</div>
+      <div class="row"><label>Socket count</label><input id="terminalSockets" type="number" min="2" max="16" step="1" value="2"></div>
+      <div class="btnRow"><button id="terminalMinus">− Socket</button><button id="terminalPlus">+ Socket</button></div>
+      <div class="mini" style="padding:6px 4px 8px">Changes the active terminal-block placement ghost, or the selected terminal block after placement. Otherwise it sets the socket count for the next terminal block.</div>
+      <div class="row"><label>Wire radius</label><input id="wireRadius" type="number" min="0.1" max="2" step="0.1" value="0.45"></div>
+      <div class="row"><label>Wire color</label><select id="wireColor"><option value="0x111111">Black</option><option value="0xff0000">Red</option><option value="0x0066ff">Blue</option><option value="0x00aa44">Green</option><option value="0xffff00">Yellow</option></select></div>
+      <div class="mini" style="padding:8px 4px">Pin count is applied to newly placed PicoBlade plug/socket objects and to a live placement ghost.</div>
+    </div>
+  </div>
+</div>
+
+<div id="routingPanel" class="dockPanel">
+  <div class="panelHeader">PCB Trace Routing</div>
+  <div class="panelContent">
+    <div class="tabPage active">
+      <div class="row"><label>Trace width</label><input id="traceWidth" type="number" min="0.15" max="8" step="0.05" value="1.00"></div>
+      <div class="row"><label>Active layer</label><select id="traceLayerSelect"></select></div>
+      <div class="row"><label>Layer</label><span id="traceLayerBadge" class="badge">Top</span></div>
+      <div class="row"><label>Routing state</label><span id="traceRouteState" class="badge">idle</span></div>
+      <div class="row"><label>Via diameter</label><input id="viaDiameter" type="number" min="0.5" max="6" step="0.1" value="1.8"></div>
+      <div class="row"><label>Via drill</label><input id="viaDrill" type="number" min="0.2" max="4" step="0.1" value="0.8"></div>
+      <div class="btnRow"><button id="startTraceBtn">Start Trace</button><button id="finishTraceBtn">Finish</button><button id="cancelTraceBtn">Cancel</button></div>
+      <div class="mini" style="padding:7px 4px 3px">Click to start, then click successive bend/end points. Mouse movement shows the live preview.</div>
+      <div class="mini" style="padding:3px 4px 8px"><b>2</b> = via + one copper layer down · <b>+</b> = via + layer up · <b>−</b> = via + layer down · <b>Enter</b> = finish · <b>Backspace</b> = undo last segment · <b>Esc</b> = cancel current route.</div>
+    </div>
+  </div>
+</div>
+
+<div id="previewPanel" class="dockPanel">
+  <div class="panelHeader">Selection / Preview</div>
+  <div class="panelTabs"><div class="tab active" data-tab="preview">Preview</div></div>
+  <div class="panelContent">
+    <div class="tabPage active" data-page="preview">
+      <div id="previewBox" style="height:105px;background:#14171b;border:1px solid #424851;margin-bottom:8px;display:flex;align-items:center;justify-content:center;color:#727c87">3D placement preview</div>
+      <div id="previewText">Select a component from the library.</div>
+      <div id="previewCoords" class="mini" style="margin-top:7px">X — / Z —</div>
+    </div>
+  </div>
+</div>
+
+<div id="runtimeDebugWindow" class="dockPanel">
+  <div class="panelHeader"><span class="panelHeaderTitle">Runtime Debug</span><button id="runtimeDebugClear">Clear</button></div>
+  <div class="panelContent">
+    <div id="debugMeta"><span id="debugLamp"></span><span>Capture ON</span><span id="debugCount">0 lines</span></div>
+    <div id="runtimeDebugBody"><div class="debugLine boot">[preboot] Waiting for Three.js module…</div></div>
+  </div>
+</div>
+
+  </div>
+</aside>
+
+
+<div id="connectorConfigWindow" class="hidden" aria-label="Connector socket count editor">
+  <div id="connectorConfigHeader">
+    <strong>Connector Socket Count</strong>
+    <button id="connectorConfigConfirm" class="configIconBtn" title="Confirm socket count">✓</button>
+    <button id="connectorConfigCancel" class="configIconBtn" title="Cancel changes">×</button>
+  </div>
+  <div id="connectorConfigBody">
+    <div id="connectorConfigType">No connector selected</div>
+    <div class="connectorCountRow">
+      <button id="connectorConfigMinus" title="Subtract one socket">−</button>
+      <div id="connectorConfigCount">2</div>
+      <button id="connectorConfigPlus" title="Add one socket">+</button>
+    </div>
+    <div id="connectorConfigHint">Use − / + to preview the count. Press ✓ to confirm, or × to restore the previous count.</div>
+  </div>
+</div>
+
+<div id="boardConfigWindow" class="hidden" aria-label="PCB board dimensions and layer stack editor">
+  <div id="boardConfigHeader">
+    <strong>PCB Board / Layer Stack</strong>
+    <button id="boardConfigConfirm" class="configIconBtn" title="Confirm board and stack changes">✓</button>
+    <button id="boardConfigCancel" class="configIconBtn" title="Cancel and restore board / stack">×</button>
+  </div>
+  <div id="boardConfigTabs">
+    <button class="boardConfigTab active" data-board-tab="board">Board</button>
+    <button class="boardConfigTab" data-board-tab="stack">Layer Stack</button>
+    <button class="boardConfigTab" data-board-tab="properties">Layer Properties</button>
+  </div>
+  <div id="boardConfigBody">
+    <div class="boardConfigPage active" data-board-page="board">
+      <div class="boardField"><label>Width X (mm)</label><input id="boardWidthInput" type="number" min="20" max="600" step="1" value="220"></div>
+      <div class="boardField"><label>Depth Z (mm)</label><input id="boardDepthInput" type="number" min="20" max="600" step="1" value="180"></div>
+      <div class="boardField"><label>Stack thickness</label><input id="boardThicknessInput" type="text" readonly></div>
+      <div class="boardField"><label>Board center X</label><input id="boardCenterXInput" type="text" readonly></div>
+      <div class="boardField"><label>Board center Z</label><input id="boardCenterZInput" type="text" readonly></div>
+      <div class="boardHint"><b id="boardSelectionBadge">4-corner resize mode</b> · Drag a blue corner handle in the viewport. The opposite corner stays fixed, similar to scaling a Blender object from a corner. Width/depth inputs resize about the current center.</div>
+    </div>
+    <div class="boardConfigPage" data-board-page="stack">
+      <div id="layerStackList"></div>
+      <div class="btnRow"><button id="addStackLayer">+ Copper Layer</button><button id="addStackDielectric">+ Dielectric</button><button id="deleteStackItem">Delete Selected</button></div>
+      <div class="boardHint">The stack is based on the earlier LegionGo2_8Layer prototype. Editing thickness immediately rebuilds the physical PCB thickness while the top solder-mask surface remains green.</div>
+    </div>
+    <div class="boardConfigPage" data-board-page="properties">
+      <div id="layerPropertyEmpty" class="boardHint">Select an item in Layer Stack.</div>
+      <div id="layerPropertyFields">
+        <div class="boardField"><label>Name</label><input id="stackPropName"></div>
+        <div class="boardField"><label>Kind</label><input id="stackPropKind" readonly></div>
+        <div class="boardField"><label>Layer type</label><select id="stackPropType"><option>Signal</option><option>Plane</option><option>Dielectric</option></select></div>
+        <div class="boardField"><label>Thickness (mm)</label><input id="stackPropThickness" type="number" min="0.005" max="5" step="0.001"></div>
+        <div class="boardField"><label>Copper weight</label><input id="stackPropWeight"></div>
+        <div class="boardField"><label>Dk</label><input id="stackPropDk" type="number" min="1" max="20" step="0.1"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="status">Ready — select a library component.</div>
+<div id="help">Left click: component/PCB select · Drag component: move · PCB corners: resize · Wire: start/end<br>Right drag: orbit · Wheel: zoom · R: rotate · Del: delete · Esc: cancel</div>
+
+<script>
+/* Early error queue: catches failures before the ES module/runtime logger is installed. */
+window.__ALTEDA_EARLY_DEBUG__=[];
+window.addEventListener('error',function(e){
+  window.__ALTEDA_EARLY_DEBUG__.push({tag:'ERROR',args:[e.message||'Early script/module error',e.filename?`${e.filename}:${e.lineno}:${e.colno}`:'']});
+});
+window.addEventListener('unhandledrejection',function(e){
+  window.__ALTEDA_EARLY_DEBUG__.push({tag:'ERROR',args:['Early unhandled rejection',String(e.reason||'')]});
+});
+</script>
+
+<script type="module">
+import * as THREE from "https://esm.sh/three@0.165.0";
+import { OrbitControls } from "https://esm.sh/three@0.165.0/examples/jsm/controls/OrbitControls.js";
+
+/* =========================================================
+   MODULE 1 — SCENE / CAMERA / BOARD
+========================================================= */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111111);
+scene.fog = null;
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 5000);
+camera.position.set(0,180,180);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.domElement.id='edaCanvas';
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+renderer.domElement.style.position='absolute';
+renderer.domElement.style.top='0';
+renderer.domElement.style.zIndex='1';
+function viewportMetrics(){
+  const dock=document.getElementById('leftDock');
+  const visible=dock && !dock.classList.contains('hidden');
+  const left=visible?dock.offsetWidth:0;
+  return {left,width:Math.max(240,innerWidth-left),height:innerHeight};
+}
+function resizeViewport(){
+  const v=viewportMetrics();
+  renderer.domElement.style.left=`${v.left}px`;
+  renderer.setSize(v.width,v.height,false);
+  camera.aspect=v.width/v.height;
+  camera.updateProjectionMatrix();
+  const status=document.getElementById('status'); if(status)status.style.left=`${v.left+12}px`;
+}
+resizeViewport();
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0,0,0);
+controls.enableDamping = true;
+controls.update();
+controls.mouseButtons.LEFT = null;
+controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+controls.mouseButtons.MIDDLE = THREE.MOUSE.DOLLY;
+
+scene.add(new THREE.HemisphereLight(0xe6f3ff,0x25301f,1.55));
+const keyLight = new THREE.DirectionalLight(0xffffff,1.25);
+keyLight.position.set(80,140,90);
+keyLight.castShadow = true;
+scene.add(keyLight);
+
+/* V9 board model + layer stack state. The top cap is always green solder mask. */
+const altiumStackupConfig = {
+  stackupName:'LegionGo2_8Layer',
+  layers:[
+    {name:'Top',type:'Signal',thickness:'0.035mm',weight:'1oz',dk:3.6},
+    {name:'L1_Signal',type:'Signal',thickness:'0.018mm',weight:'1/2oz',dk:3.6},
+    {name:'L2_Ground',type:'Plane',thickness:'0.018mm',weight:'1/2oz',dk:3.6},
+    {name:'L3_Signal',type:'Signal',thickness:'0.018mm',weight:'1/2oz',dk:3.6},
+    {name:'L4_Power',type:'Plane',thickness:'0.018mm',weight:'1/2oz',dk:3.6},
+    {name:'L5_Signal',type:'Signal',thickness:'0.018mm',weight:'1/2oz',dk:3.6},
+    {name:'L6_Ground',type:'Plane',thickness:'0.018mm',weight:'1/2oz',dk:3.6},
+    {name:'Bottom',type:'Signal',thickness:'0.035mm',weight:'1oz',dk:3.6}
+  ],
+  dielectricSections:[
+    {name:'Prepreg1',type:'Dielectric',thickness:'0.10mm',dk:3.8},
+    {name:'Core1',type:'Dielectric',thickness:'0.12mm',dk:3.6},
+    {name:'Prepreg2',type:'Dielectric',thickness:'0.10mm',dk:3.8},
+    {name:'Core2',type:'Dielectric',thickness:'0.12mm',dk:3.6},
+    {name:'Prepreg3',type:'Dielectric',thickness:'0.10mm',dk:3.8},
+    {name:'Core3',type:'Dielectric',thickness:'0.12mm',dk:3.6}
+  ]
+};
+class StackupStore{
+  constructor(config){this.config=JSON.parse(JSON.stringify(config));this.listeners=[];this.selectedIndex=0;}
+  subscribe(fn){this.listeners.push(fn);}
+  notify(){this.listeners.forEach(fn=>fn());}
+  get items(){
+    const items=[];
+    for(let i=0;i<this.config.layers.length;i++){
+      items.push({kind:'layer',index:i,data:this.config.layers[i]});
+      if(i<this.config.dielectricSections.length)items.push({kind:'dielectric',index:i,data:this.config.dielectricSections[i]});
+    }
+    return items;
+  }
+  select(i){this.selectedIndex=THREE.MathUtils.clamp(i,0,Math.max(0,this.items.length-1));this.notify();}
+  updateSelected(key,val){const item=this.items[this.selectedIndex];if(!item)return;item.data[key]=val;this.notify();}
+  addLayer(){this.config.layers.push({name:`L${this.config.layers.length}_Signal`,type:'Signal',thickness:'0.018mm',weight:'1/2oz',dk:3.6});this.selectedIndex=this.items.length-1;this.notify();}
+  addDielectric(){this.config.dielectricSections.push({name:`Dielectric${this.config.dielectricSections.length+1}`,type:'Dielectric',thickness:'0.10mm',dk:3.7});this.selectedIndex=Math.min(this.items.length-1,this.config.dielectricSections.length*2-1);this.notify();}
+  deleteSelected(){const item=this.items[this.selectedIndex];if(!item)return;if(item.kind==='layer'&&this.config.layers.length>1)this.config.layers.splice(item.index,1);if(item.kind==='dielectric'&&this.config.dielectricSections.length>0)this.config.dielectricSections.splice(item.index,1);this.selectedIndex=Math.min(this.selectedIndex,Math.max(0,this.items.length-1));this.notify();}
+  snapshot(){return JSON.parse(JSON.stringify(this.config));}
+  restore(config,selectedIndex=0){this.config=JSON.parse(JSON.stringify(config));this.selectedIndex=Math.min(selectedIndex,Math.max(0,this.items.length-1));this.notify();}
+}
+const stackStore=new StackupStore(altiumStackupConfig);
+function thicknessMM(v){const n=parseFloat(String(v).replace('mm',''));return Number.isFinite(n)?n:0;}
+function getStackThickness(){return Math.max(.35,stackStore.items.reduce((sum,item)=>sum+Math.max(0,thicknessMM(item.data.thickness)),0));}
+const BOARD_H = 2; // legacy compatibility only; live placement uses boardTopY().
+const boardState={width:220,depth:180,centerX:0,centerZ:0,selected:false};
+function boardTopY(){return getStackThickness()/2;}
+
+const board = new THREE.Mesh(
+  new THREE.BoxGeometry(boardState.width,getStackThickness(),boardState.depth),
+  new THREE.MeshStandardMaterial({color:0x153f2c,roughness:.8,metalness:.02})
+);
+board.position.set(boardState.centerX,0,boardState.centerZ);
+board.receiveShadow=true; board.userData.kind='board'; scene.add(board);
+const boardTop = new THREE.Mesh(
+  new THREE.BoxGeometry(boardState.width,.10,boardState.depth),
+  new THREE.MeshStandardMaterial({color:0x0b6b3f,roughness:.72,metalness:.01})
+);
+boardTop.position.set(boardState.centerX,boardTopY()+.05,boardState.centerZ); boardTop.userData.kind='boardTop'; scene.add(boardTop);
+const boardEdge = new THREE.LineSegments(new THREE.EdgesGeometry(board.geometry),new THREE.LineBasicMaterial({color:0x90b9a8}));
+boardEdge.position.copy(board.position);scene.add(boardEdge);
+let grid = new THREE.GridHelper(Math.max(boardState.width,boardState.depth),Math.max(4,Math.round(Math.max(boardState.width,boardState.depth)/5)),0x5f7f87,0x29434a);
+grid.position.set(boardState.centerX,boardTopY()+.13,boardState.centerZ);scene.add(grid);
+const originMark=new THREE.Mesh(new THREE.CylinderGeometry(1.5,1.5,.25,20),new THREE.MeshStandardMaterial({color:0xd7a32c,metalness:.45,roughness:.35}));
+originMark.position.set(boardState.centerX,boardTopY()+.18,boardState.centerZ);scene.add(originMark);
+
+const boardHandleGroup=new THREE.Group();scene.add(boardHandleGroup);boardHandleGroup.visible=false;
+const boardHandles=[];
+for(const [name,sx,sz] of [['NW',-1,-1],['NE',1,-1],['SE',1,1],['SW',-1,1]]){
+  const h=new THREE.Mesh(new THREE.BoxGeometry(4.2,1.2,4.2),new THREE.MeshStandardMaterial({color:0x4aa7ff,emissive:0x123a5a,emissiveIntensity:.55,roughness:.35}));
+  h.userData.boardHandle={name,sx,sz}; h.castShadow=true; boardHandleGroup.add(h);boardHandles.push(h);
+}
+function updateBoardHandles(){
+  const y=boardTopY()+1.0;
+  for(const h of boardHandles){const {sx,sz}=h.userData.boardHandle;h.position.set(boardState.centerX+sx*boardState.width/2,y,boardState.centerZ+sz*boardState.depth/2);}
+}
+function updateBoardGeometry({updateInputs=true}={}){
+  const t=getStackThickness();
+  board.geometry.dispose();board.geometry=new THREE.BoxGeometry(boardState.width,t,boardState.depth);board.position.set(boardState.centerX,0,boardState.centerZ);
+  boardTop.geometry.dispose();boardTop.geometry=new THREE.BoxGeometry(boardState.width,.10,boardState.depth);boardTop.position.set(boardState.centerX,t/2+.05,boardState.centerZ);
+  boardEdge.geometry.dispose();boardEdge.geometry=new THREE.EdgesGeometry(board.geometry);boardEdge.position.copy(board.position);
+  scene.remove(grid);grid.geometry?.dispose();grid.material?.dispose();
+  const gridSpan=Math.max(boardState.width,boardState.depth);grid=new THREE.GridHelper(gridSpan,Math.max(4,Math.round(gridSpan/5)),0x5f7f87,0x29434a);grid.position.set(boardState.centerX,t/2+.13,boardState.centerZ);scene.add(grid);
+  originMark.position.set(boardState.centerX,t/2+.18,boardState.centerZ);
+  updateBoardHandles();
+  for(const c of state?.components||[])c.group.position.y=boardTopY();
+  if(state?.placing?.group)state.placing.group.position.y=boardTopY();
+  if(typeof repositionTraceVisuals==='function')repositionTraceVisuals();
+  if(updateInputs)refreshBoardEditorUI();
+  refreshBoardReadouts();
+}
+updateBoardHandles();
+
+/* =========================================================
+   MODULE 2 — STATE / HELPERS
+========================================================= */
+const state = {
+  grid:5,
+  placing:null,
+  selected:null,
+  components:[],
+  wires:[],
+  wireStart:null,
+  wireStartContact:null,
+  wireGhost:null,
+  activeContactSnap:null,
+  traces:[],
+  vias:[],
+  traceRoute:null,
+  tracePreview:null,
+  traceCursor:null,
+  traceWidth:1.0,
+  viaDiameter:1.8,
+  viaDrill:0.8,
+  traceCopperLayer:0,
+  netCounter:1,
+  placementRotation:0,
+  picoPins:2,
+  terminalSockets:2,
+  wireRadius:.45,
+  wireColor:0x111111,
+  dragging:null,
+  dragStart:null,
+  dragMoved:false,
+  connectorEditor:null,
+  boardSelected:false,
+  boardResize:null,
+  boardEditor:null
+};
+
+const statusEl = document.getElementById('status');
+const previewText = document.getElementById('previewText');
+const previewCoords = document.getElementById('previewCoords');
+const selectedReadout = document.getElementById('selectedReadout');
+const rotationReadout = document.getElementById('rotationReadout');
+const netCount = document.getElementById('netCount');
+const netsList = document.getElementById('netsList');
+
+function setStatus(text){ statusEl.textContent = text; }
+function snap(v){ return Math.round(v/state.grid)*state.grid; }
+function snapPoint(p){ return new THREE.Vector3(snap(p.x), boardTopY(), snap(p.z)); }
+function isInsideBoard(p, margin=0){ return Math.abs(p.x-boardState.centerX)<=boardState.width/2-margin && Math.abs(p.z-boardState.centerZ)<=boardState.depth/2-margin; }
+function material(color, metalness=.05, roughness=.65){ return new THREE.MeshStandardMaterial({color,metalness,roughness}); }
+function markPickable(group, component){ group.traverse(o=>{ o.userData.component = component; }); }
+function bindContactPads(component){
+  if(!component?.pads)return;
+  component.pads.forEach((pad,index)=>{
+    pad.userData.component=component;
+    pad.userData.isContactPad=true;
+    pad.userData.contactIndex=index;
+    pad.userData.contactName=`P${index+1}`;
+  });
+}
+function contactLabel(contact){
+  if(!contact)return '';
+  return `${contact.component.id || contact.component.label}:${contact.name}`;
+}
+function disposeObject(obj){
+  obj.traverse(o=>{
+    if(o.geometry) o.geometry.dispose();
+    if(o.material){ if(Array.isArray(o.material)) o.material.forEach(m=>m.dispose()); else o.material.dispose(); }
+  });
+}
+
+/* =========================================================
+   MODULE 3 — COMPONENT BUILDERS
+========================================================= */
+const PicoBladeSpec = {
+  pitch:1.25,
+  housing:{height:3.6,depth:4.5,wall:.5},
+  features:{latchWidth:.8,latchHeight:1.2,topRidgeHeight:.6,cavityDepth:2.8,cavityWidth:.7,cavityHeight:1.6},
+  metal:{pinWidth:.3,pinHeight:1.2,pinDepth:3.0}
+};
+
+function baseComponent(type,label,group,pads=[]){
+  const c={id:`C${state.components.length+1}`,type,label,group,pads,rotation:state.placementRotation};
+  group.userData.isComponentRoot = true;
+  group.rotation.y = c.rotation;
+  markPickable(group,c);
+  bindContactPads(c);
+  return c;
+}
+
+function createCapacitor(){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(8,2.1,4),material(0xd8d8d2)); body.position.y=2.05; g.add(body);
+  const pads=[];
+  for(const x of [-5,5]){ const p=new THREE.Mesh(new THREE.BoxGeometry(2.2,.22,4.4),material(0xd79b32,.7,.3)); p.position.set(x,1.12,0); g.add(p); pads.push(p); }
+  return baseComponent('cap','C_0603_1uF',g,pads);
+}
+function createResistor(){
+  const g=new THREE.Group();
+  const b=new THREE.Mesh(new THREE.BoxGeometry(10,2.2,3.4),material(0x9d7547)); b.position.y=2.1; g.add(b);
+  const pads=[]; for(const x of [-6,6]){const p=new THREE.Mesh(new THREE.BoxGeometry(2.3,.22,3.8),material(0xd79b32,.7,.3));p.position.set(x,1.12,0);g.add(p);pads.push(p);}
+  return baseComponent('res','R_0603_10K',g,pads);
+}
+function createDIP8(){
+  const g=new THREE.Group(); const b=new THREE.Mesh(new THREE.BoxGeometry(13,4,21),material(0x202226)); b.position.y=3; g.add(b);
+  const pads=[]; for(let i=0;i<4;i++) for(const x of [-8,8]){const z=-7.5+i*5; const p=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.2,.25,18),material(0xd79b32,.8,.25));p.position.set(x,1.15,z);g.add(p);pads.push(p);}
+  return baseComponent('dip','DIP8_ATMEGA',g,pads);
+}
+function buildPicoBlade(pinCount, gender){
+  const g=new THREE.Group(); const totalWidth=pinCount*PicoBladeSpec.pitch+PicoBladeSpec.housing.wall*2;
+  const bodyMat=material(gender==='male'?0xf2ead8:0xf6f0dd,0,.75);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(totalWidth,PicoBladeSpec.housing.height,PicoBladeSpec.housing.depth),bodyMat); body.position.y=2.8; g.add(body);
+  const ridge=new THREE.Mesh(new THREE.BoxGeometry(totalWidth*.7,.6,1.2),bodyMat); ridge.position.set(0,4.9,-.6); g.add(ridge);
+  const pads=[];
+  for(let i=0;i<pinCount;i++){
+    const x=-totalWidth/2+PicoBladeSpec.housing.wall+PicoBladeSpec.pitch/2+i*PicoBladeSpec.pitch;
+    const cavity=new THREE.Mesh(new THREE.BoxGeometry(.7,1.6,2.8),material(0x151515)); cavity.position.set(x,2.75,.65); g.add(cavity);
+    const pin=new THREE.Mesh(new THREE.BoxGeometry(.3,1.2,3),material(0xd4af37,1,.25)); pin.position.set(x,2.3,gender==='male'?-.75:-.15); g.add(pin);
+    const pad=new THREE.Mesh(new THREE.BoxGeometry(.65,.2,1.8),material(0xd79b32,.8,.25)); pad.position.set(x,1.1,-2.45); g.add(pad); pads.push(pad);
+  }
+  if(gender==='female'){
+    for(const s of [-1,1]){const latch=new THREE.Mesh(new THREE.BoxGeometry(.8,1.2,1.5),bodyMat);latch.position.set(s*(totalWidth/2+.4),2.8,-1);g.add(latch);}
+  } else {
+    const tail=new THREE.Mesh(new THREE.BoxGeometry(totalWidth*.86,2.4,3),material(0xddd5c3)); tail.position.set(0,2.8,3.5); g.add(tail);
+  }
+  return {group:g,pads};
+}
+function createPicoBlade(gender,pinCount=state.picoPins){
+  const count=THREE.MathUtils.clamp(Math.round(Number(pinCount))||2,2,12);
+  const {group,pads}=buildPicoBlade(count,gender);
+  const c=baseComponent(`picoblade-${gender}`,`PicoBlade ${count}-pin ${gender==='male'?'Cable Plug':'PCB Socket'}`,group,pads);
+  c.pinCount=count;
+  c.gender=gender;
+  c.pitch=PicoBladeSpec.pitch;
+  return c;
+}
+function createBattery(){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.BoxGeometry(60,4,25),material(0x151719,0,.85)); body.position.y=3; body.castShadow=true; g.add(body);
+  const label=new THREE.Mesh(new THREE.BoxGeometry(52,.18,17),material(0x2f3338)); label.position.y=5.1; g.add(label);
+  const terminal1=new THREE.Mesh(new THREE.BoxGeometry(4,.3,3),material(0xc43131,.4,.35)); terminal1.position.set(25,5.25,-5);g.add(terminal1);
+  const terminal2=terminal1.clone(); terminal2.material=material(0x191919); terminal2.position.z=5;g.add(terminal2);
+  return baseComponent('battery','Battery Pack 60 × 25 mm',g,[terminal1,terminal2]);
+}
+function createUSBA(){
+  const g=new THREE.Group();
+  const shell=new THREE.Mesh(new THREE.BoxGeometry(18,7,14),material(0xaeb5bd,.8,.3)); shell.position.y=4.6;g.add(shell);
+  const mouth=new THREE.Mesh(new THREE.BoxGeometry(14.5,4.2,.8),material(0x17191c)); mouth.position.set(0,4.6,-7.2);g.add(mouth);
+  const tongue=new THREE.Mesh(new THREE.BoxGeometry(12,1.5,6),material(0x315b8f)); tongue.position.set(0,4.1,-3.8);g.add(tongue);
+  const pads=[]; for(let i=0;i<4;i++){const p=new THREE.Mesh(new THREE.BoxGeometry(1,.2,3),material(0xd79b32,.8,.25));p.position.set((i-1.5)*2.5,1.12,5.5);g.add(p);pads.push(p);}
+  return baseComponent('usb-a','USB Type-A Receptacle',g,pads);
+}
+function createUSBC(){
+  const g=new THREE.Group();
+  const shell=new THREE.Mesh(new THREE.BoxGeometry(12,4.2,8),material(0xb9bec5,.85,.25)); shell.position.y=3.2;g.add(shell);
+  const opening=new THREE.Mesh(new THREE.BoxGeometry(9.5,2.4,.7),material(0x15171a)); opening.position.set(0,3.2,-4.2);g.add(opening);
+  const tongue=new THREE.Mesh(new THREE.BoxGeometry(7.5,.7,3.2),material(0x2a3038)); tongue.position.set(0,3.15,-2);g.add(tongue);
+  const pads=[]; for(let i=0;i<8;i++){const p=new THREE.Mesh(new THREE.BoxGeometry(.65,.18,2.4),material(0xd79b32,.8,.25));p.position.set((i-3.5)*1.15,1.1,4.6);g.add(p);pads.push(p);}
+  return baseComponent('usb-c','USB Type-C Receptacle',g,pads);
+}
+function createHorizontalTerminalBlock(socketCount=state.terminalSockets){
+  // Generic horizontal-entry PCB screw terminal block visual proxy.
+  // 5.08 mm pitch is a common family spacing; replace with an exact manufacturer
+  // footprint before using this object for fabrication output.
+  const count=THREE.MathUtils.clamp(Math.round(socketCount)||2,2,16);
+  const pitch=5.08;
+  const width=count*pitch;
+  const g=new THREE.Group();
+  const green=material(0x218c43,.03,.72);
+  const greenDark=material(0x176b33,.03,.76);
+  const steel=material(0xc9cdd0,.82,.25);
+  const copper=material(0xd79b32,.72,.28);
+  const cavityMat=material(0x15271c,.05,.85);
+
+  // Main horizontal-entry housing.
+  const body=new THREE.Mesh(new THREE.BoxGeometry(width,7.6,8.4),green);
+  body.position.y=4.9; g.add(body);
+
+  // Raised rear wall / screw tower band.
+  const rear=new THREE.Mesh(new THREE.BoxGeometry(width,2.0,2.1),greenDark);
+  rear.position.set(0,8.1,2.6); g.add(rear);
+
+  const pads=[];
+  for(let i=0;i<count;i++){
+    const x=(i-(count-1)/2)*pitch;
+
+    // Front conductor entry opening.
+    const mouth=new THREE.Mesh(new THREE.BoxGeometry(3.1,2.65,.75),cavityMat);
+    mouth.position.set(x,4.45,-4.22); g.add(mouth);
+    const clamp=new THREE.Mesh(new THREE.BoxGeometry(2.35,1.05,.22),steel);
+    clamp.position.set(x,4.35,-4.64); g.add(clamp);
+
+    // Top screw recess + slotted screw head.
+    const well=new THREE.Mesh(new THREE.CylinderGeometry(1.48,1.48,.38,24),cavityMat);
+    well.rotation.x=Math.PI/2; // ring detail seen from above
+    well.rotation.x=0;
+    well.position.set(x,8.88,0.35); g.add(well);
+    const screw=new THREE.Mesh(new THREE.CylinderGeometry(1.06,1.06,.32,24),steel);
+    screw.position.set(x,9.08,.35); g.add(screw);
+    const slot=new THREE.Mesh(new THREE.BoxGeometry(1.45,.12,.28),cavityMat);
+    slot.position.set(x,9.27,.35); g.add(slot);
+
+    // Through-hole lead and annular pad.
+    const lead=new THREE.Mesh(new THREE.BoxGeometry(.72,2.4,.72),steel);
+    lead.position.set(x,.65,1.85); g.add(lead);
+    const pad=new THREE.Mesh(new THREE.CylinderGeometry(1.05,1.05,.18,24),copper);
+    pad.position.set(x,1.12,1.85); g.add(pad); pads.push(pad);
+
+    // Subtle separator rib between sockets.
+    if(i<count-1){
+      const rib=new THREE.Mesh(new THREE.BoxGeometry(.28,7.0,7.7),greenDark);
+      rib.position.set(x+pitch/2,5.0,0); g.add(rib);
+    }
+  }
+
+  const c=baseComponent('terminal-block-horizontal',`Horizontal Screw Terminal Block — ${count} socket${count===1?'':'s'}`,g,pads);
+  c.socketCount=count;
+  c.pitch=5.08;
+  c.userData={family:'horizontal screw terminal block',footprintStatus:'visual proxy — verify pitch and land pattern against chosen manufacturer'};
+  return c;
+}
+
+function createTactSwitch(){
+  // Generic 6 × 6 mm through-hole tactile switch, modeled from the supplied reference photo.
+  // The FS Circuits source describes this class as a momentary PCB button; exact package
+  // dimensions vary by manufacturer, so this prototype keeps the body dimensions explicit here.
+  const g=new THREE.Group();
+  const black=material(0x151719,.05,.72);
+  const steel=material(0xc8ccd0,.72,.26);
+  const dark=material(0x202327,.08,.65);
+  const leadMat=material(0xbfc4c8,.9,.22);
+
+  const base=new THREE.Mesh(new THREE.BoxGeometry(6.2,3.5,6.2),black);
+  base.position.y=2.75; g.add(base);
+
+  const capPlate=new THREE.Mesh(new THREE.BoxGeometry(5.7,.45,5.7),steel);
+  capPlate.position.y=4.7; g.add(capPlate);
+
+  const actuator=new THREE.Mesh(new THREE.CylinderGeometry(1.75,1.75,2.7,28),dark);
+  actuator.position.y=6.25; g.add(actuator);
+
+  const actuatorTop=new THREE.Mesh(new THREE.CylinderGeometry(1.8,1.8,.22,28),material(0x0d0f11,.04,.8));
+  actuatorTop.position.y=7.7; g.add(actuatorTop);
+
+  // Four corner dimples/rivets on the metal top plate.
+  for(const x of [-2.15,2.15]) for(const z of [-2.15,2.15]){
+    const rivet=new THREE.Mesh(new THREE.CylinderGeometry(.35,.35,.18,16),dark);
+    rivet.position.set(x,4.98,z); g.add(rivet);
+  }
+
+  // Typical four-lead tactile footprint: the two pins on each side are internally common.
+  const pads=[];
+  for(const x of [-3.75,3.75]) for(const z of [-1.8,1.8]){
+    const pad=new THREE.Mesh(new THREE.CylinderGeometry(.72,.72,.18,18),material(0xd79b32,.78,.28));
+    pad.position.set(x,1.12,z); g.add(pad); pads.push(pad);
+    const lead=new THREE.Mesh(new THREE.BoxGeometry(.45,2.2,.55),leadMat);
+    lead.position.set(x,1.0,z); g.add(lead);
+  }
+
+  const c=baseComponent('tact-switch','PCB Tactile Push Button 6 × 6 mm',g,pads);
+  c.userData={momentary:true,normallyOpen:true,package:'generic-6x6-tht'};
+  return c;
+}
+
+// Power / MOSFET / driver component library.
+// Package geometry is intentionally isolated as a visual-proxy layer.  Verify the
+// exact ordering, package variant, hole diameter, and manufacturer land pattern
+// before using these parts for fabrication output.
+function createTO220PowerPart(type,label,bodyColor=0x202226){
+  const g=new THREE.Group();
+  const pads=[];
+  const bodyMat=material(bodyColor,.08,.7);
+  const metalMat=material(0xc4c9ce,.9,.22);
+  const copper=material(0xd79b32,.8,.25);
+
+  // Molded package body + metal tab with mounting hole.
+  const body=new THREE.Mesh(new THREE.BoxGeometry(10.2,9.2,4.4),bodyMat);
+  body.position.set(0,7.1,0); g.add(body);
+  const tab=new THREE.Mesh(new THREE.BoxGeometry(10.2,5.2,1.0),metalMat);
+  tab.position.set(0,12.5,.25); g.add(tab);
+  const hole=new THREE.Mesh(new THREE.CylinderGeometry(1.35,1.35,1.18,24),material(0x111315,.05,.9));
+  hole.rotation.x=Math.PI/2; hole.position.set(0,12.7,.3); g.add(hole);
+
+  // Three leads on 2.54 mm centers, with through-hole pads.
+  for(let i=0;i<3;i++){
+    const x=(i-1)*2.54;
+    const lead=new THREE.Mesh(new THREE.BoxGeometry(.72,5.2,.55),metalMat);
+    lead.position.set(x,2.7,0); g.add(lead);
+    const pad=new THREE.Mesh(new THREE.CylinderGeometry(1.05,1.05,.18,22),copper);
+    pad.position.set(x,1.12,0); g.add(pad); pads.push(pad);
+  }
+  const c=baseComponent(type,label,g,pads);
+  c.userData={family:'power semiconductor',packageProxy:'TO-220 visual proxy',pinCount:3,footprintStatus:'visual proxy — verify manufacturer package / pinout before fabrication'};
+  return c;
+}
+
+function createAxialDiode(type,label){
+  const g=new THREE.Group();
+  const pads=[];
+  const bodyMat=material(0x202327,.08,.55);
+  const metalMat=material(0xc9cdd0,.9,.22);
+  const copper=material(0xd79b32,.8,.25);
+  const bandMat=material(0xd7d7d7,.45,.38);
+
+  // Horizontal axial body aligned along X.
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(2.0,2.0,8.0,24),bodyMat);
+  body.rotation.z=Math.PI/2; body.position.y=3.4; g.add(body);
+  const band=new THREE.Mesh(new THREE.CylinderGeometry(2.05,2.05,.9,24),bandMat);
+  band.rotation.z=Math.PI/2; band.position.set(2.35,3.4,0); g.add(band);
+
+  for(const x of [-7,7]){
+    const lead=new THREE.Mesh(new THREE.BoxGeometry(5.8,.5,.5),metalMat);
+    lead.position.set(x>0?5.0:-5.0,3.4,0); g.add(lead);
+    const leg=new THREE.Mesh(new THREE.BoxGeometry(.5,4.7,.5),metalMat);
+    leg.position.set(x,2.2,0); g.add(leg);
+    const pad=new THREE.Mesh(new THREE.CylinderGeometry(1.05,1.05,.18,22),copper);
+    pad.position.set(x,1.12,0); g.add(pad); pads.push(pad);
+  }
+  const c=baseComponent(type,label,g,pads);
+  c.userData={family:'flyback diode',packageProxy:'axial DO-41-style visual proxy',pinCount:2,footprintStatus:'visual proxy — verify manufacturer package / lead spacing before fabrication'};
+  return c;
+}
+
+function createDIP8Driver(type,label){
+  const g=new THREE.Group();
+  const pads=[];
+  const bodyMat=material(0x1d2024,.08,.66);
+  const metalMat=material(0xc8cdd1,.9,.22);
+  const copper=material(0xd79b32,.8,.25);
+  const body=new THREE.Mesh(new THREE.BoxGeometry(10.2,4.5,10.4),bodyMat);
+  body.position.y=4.4; g.add(body);
+  const notch=new THREE.Mesh(new THREE.CylinderGeometry(1.25,1.25,.3,18,1,false,0,Math.PI),material(0x0e1012,.05,.88));
+  notch.rotation.x=Math.PI/2; notch.position.set(0,6.75,-5.05); g.add(notch);
+  for(const side of [-1,1]) for(let i=0;i<4;i++){
+    const z=(i-1.5)*2.54;
+    const lead=new THREE.Mesh(new THREE.BoxGeometry(2.9,.48,.55),metalMat);
+    lead.position.set(side*5.9,2.7,z); g.add(lead);
+    const leg=new THREE.Mesh(new THREE.BoxGeometry(.48,2.7,.48),metalMat);
+    leg.position.set(side*7.05,1.8,z); g.add(leg);
+    const pad=new THREE.Mesh(new THREE.CylinderGeometry(.95,.95,.18,20),copper);
+    pad.position.set(side*7.05,1.12,z); g.add(pad); pads.push(pad);
+  }
+  const dot=new THREE.Mesh(new THREE.CylinderGeometry(.38,.38,.16,16),material(0xbfc6cd,.18,.45));
+  dot.position.set(-3.1,6.75,-3.25); g.add(dot);
+  const c=baseComponent(type,label,g,pads);
+  c.userData={family:'MOSFET gate driver',packageProxy:'DIP-8 visual proxy',pinCount:8,footprintStatus:'visual proxy — verify selected IR2101 package variant and pinout before fabrication'};
+  return c;
+}
+
+function createIRLZ44(){
+  return createTO220PowerPart('irlz44','IRLZ44 — Logic-Level N-Channel MOSFET',0x181a1d);
+}
+function createMUR120G(){
+  return createAxialDiode('mur120g','MUR120G — Ultrafast Flyback Diode');
+}
+function createIR2101(){
+  return createDIP8Driver('ir2101','IR2101 — High/Low-Side MOSFET Driver');
+}
+function createLM7805(){
+  const c=createTO220PowerPart('lm7805','LM7805 — 5 V Linear Regulator',0x22252a);
+  c.userData.family='5 V linear regulator';
+  return c;
+}
+function createLM317(){
+  const c=createTO220PowerPart('lm317','LM317 — Adjustable Driver-Supply Regulator',0x25282d);
+  c.userData.family='adjustable linear regulator';
+  return c;
+}
+
+// Lenovo Legion Go Main Board Side 1 chip models.
+// IMPORTANT: these are visual/prototyping package proxies derived from the chip IDs in the
+// supplied iFixit reference. They are NOT manufacturer-certified land patterns. Each preset's
+// size/pad layout is isolated here so a datasheet footprint can replace it later without
+// changing placement, dragging, DRC, or library logic.
+const LegionGoChipPresets = {
+  'amd-z1-extreme': {
+    label:'AMD 100-000001278 — Ryzen Z1 Extreme', family:'APU', package:'BGA proxy',
+    w:28,d:28,h:2.2, body:0x25282d, top:0x343940, padMode:'bga', gridX:11,gridZ:11,padPitch:2.15,
+    source:'iFixit Main Board Side 1'
+  },
+  'samsung-k3kl3l30cm': {
+    label:'Samsung K3KL3L30CM-BGCT — 8 GB LPDDR5X', family:'Memory', package:'BGA proxy',
+    w:14,d:14,h:1.35, body:0x17191c, top:0x252a30, padMode:'bga', gridX:8,gridZ:8,padPitch:1.45,
+    source:'iFixit Main Board Side 1'
+  },
+  'winbond-w25r256jw': {
+    label:'Winbond W25R256JW — 32 MB Serial NOR', family:'Flash', package:'WSON/SO proxy',
+    w:8,d:6,h:1.2, body:0x1b1d20, top:0x2b2e33, padMode:'dual', pinsPerSide:4,padPitch:1.27,
+    source:'iFixit Main Board Side 1'
+  },
+  'lontium-lt7911uxc': {
+    label:'Lontium LT7911UXC_U3 — USB-C/DisplayPort to MIPI/LVDS', family:'Bridge', package:'QFN/BGA proxy',
+    w:10,d:10,h:1.35, body:0x1b1f24, top:0x27313a, padMode:'quad', pinsPerSide:8,padPitch:1.0,
+    source:'iFixit Main Board Side 1'
+  },
+  'lenovo-it8218vg': {
+    label:'Likely Lenovo IT8218VG-256 — Embedded Controller', family:'Embedded Controller', package:'QFP proxy',
+    w:12,d:12,h:1.6, body:0x181b1f, top:0x2c3239, padMode:'quad', pinsPerSide:10,padPitch:1.0,
+    source:'iFixit Main Board Side 1', identificationConfidence:'likely'
+  },
+  'kinetic-ktz8866': {
+    label:'Kinetic Technologies KTZ8866 — 6-ch LED Backlight Driver', family:'Display Power', package:'QFN/WLCSP proxy',
+    w:5,d:5,h:1.0, body:0x191c20, top:0x293038, padMode:'quad', pinsPerSide:5,padPitch:.75,
+    source:'iFixit Main Board Side 1'
+  },
+  'mps-mp86901f': {
+    label:'Likely Monolithic Power Systems MP86901F — DC-DC Converter', family:'Power', package:'Power QFN proxy',
+    w:6,d:6,h:1.25, body:0x1c1f23, top:0x30343a, padMode:'quad', pinsPerSide:5,padPitch:.9, exposedPad:true,
+    source:'iFixit Main Board Side 1', identificationConfidence:'likely'
+  }
+};
+
+function createLegionChip(type){
+  const p=LegionGoChipPresets[type];
+  if(!p)return null;
+  const g=new THREE.Group();
+  const pads=[];
+  const copper=material(0xd79b32,.82,.24);
+  const chipMat=material(p.body,.12,.62);
+  const topMat=material(p.top,.16,.52);
+
+  const body=new THREE.Mesh(new THREE.BoxGeometry(p.w,p.h,p.d),chipMat);
+  body.position.y=1.15+p.h/2;
+  body.castShadow=true;
+  g.add(body);
+
+  // Slightly inset upper package/marking plate makes these parts readable from an oblique PCB view.
+  const topPlate=new THREE.Mesh(new THREE.BoxGeometry(p.w*.84,.16,p.d*.84),topMat);
+  topPlate.position.y=1.18+p.h+.08;
+  g.add(topPlate);
+
+  // Pin-1/orientation dot.
+  const dot=new THREE.Mesh(new THREE.CylinderGeometry(Math.max(.22,Math.min(p.w,p.d)*.035),Math.max(.22,Math.min(p.w,p.d)*.035),.12,16),material(0xbfc8d2,.15,.45));
+  dot.position.set(-p.w*.32,1.31+p.h,p.d*.32);
+  g.add(dot);
+
+  if(p.padMode==='bga'){
+    const gx=p.gridX||8, gz=p.gridZ||8;
+    const px=p.padPitch||1.2;
+    const radius=Math.max(.18,Math.min(.45,px*.23));
+    for(let iz=0;iz<gz;iz++)for(let ix=0;ix<gx;ix++){
+      // Leave a sparse center cross so the pad field remains legible at this prototype scale.
+      if(gx>9 && gz>9 && (ix===Math.floor(gx/2) || iz===Math.floor(gz/2)) && ((ix+iz)%2===0))continue;
+      const pad=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,.12,12),copper);
+      pad.position.set((ix-(gx-1)/2)*px,1.08,(iz-(gz-1)/2)*px);
+      g.add(pad); pads.push(pad);
+    }
+  }else if(p.padMode==='dual'){
+    const n=p.pinsPerSide||4, pitch=p.padPitch||1.27;
+    for(const side of [-1,1])for(let i=0;i<n;i++){
+      const pad=new THREE.Mesh(new THREE.BoxGeometry(1.45,.14,.65),copper);
+      pad.position.set(side*(p.w/2+.55),1.08,(i-(n-1)/2)*pitch);
+      g.add(pad); pads.push(pad);
+    }
+  }else{
+    const n=p.pinsPerSide||6, pitch=p.padPitch||1;
+    for(const side of [-1,1])for(let i=0;i<n;i++){
+      const padX=new THREE.Mesh(new THREE.BoxGeometry(1.15,.14,.5),copper);
+      padX.position.set(side*(p.w/2+.42),1.08,(i-(n-1)/2)*pitch); g.add(padX); pads.push(padX);
+      const padZ=new THREE.Mesh(new THREE.BoxGeometry(.5,.14,1.15),copper);
+      padZ.position.set((i-(n-1)/2)*pitch,1.08,side*(p.d/2+.42)); g.add(padZ); pads.push(padZ);
+    }
+  }
+
+  if(p.exposedPad){
+    const ep=new THREE.Mesh(new THREE.BoxGeometry(p.w*.46,.15,p.d*.46),copper);
+    ep.position.y=1.08; g.add(ep); pads.push(ep);
+  }
+
+  const c=baseComponent(type,p.label,g,pads);
+  c.userData={
+    family:p.family,
+    packageProxy:p.package,
+    source:p.source,
+    identificationConfidence:p.identificationConfidence||'identified',
+    footprintStatus:'visual proxy — replace with datasheet land pattern before manufacturing'
+  };
+  return c;
+}
+
+function buildComponent(type){
+  if(type==='cap') return createCapacitor();
+  if(type==='res') return createResistor();
+  if(type==='dip') return createDIP8();
+  if(type==='picoblade-male') return createPicoBlade('male');
+  if(type==='picoblade-female') return createPicoBlade('female');
+  if(type==='battery') return createBattery();
+  if(type==='usb-a') return createUSBA();
+  if(type==='usb-c') return createUSBC();
+  if(type==='terminal-block-horizontal') return createHorizontalTerminalBlock(state.terminalSockets);
+  if(type==='tact-switch') return createTactSwitch();
+  if(type==='irlz44') return createIRLZ44();
+  if(type==='mur120g') return createMUR120G();
+  if(type==='ir2101') return createIR2101();
+  if(type==='lm7805') return createLM7805();
+  if(type==='lm317') return createLM317();
+  if(LegionGoChipPresets[type]) return createLegionChip(type);
+  return null;
+}
+
+/* =========================================================
+   MODULE 4 — WIRE / NET ROUTING
+========================================================= */
+const wireGroup=new THREE.Group(); scene.add(wireGroup);
+function createWireMesh(a,b,color=state.wireColor,radius=state.wireRadius,ghost=false){
+  const lift=Math.max(1.0,radius*1.6);
+  const p0=a.clone().setY(boardTopY()+lift);
+  const p3=b.clone().setY(boardTopY()+lift);
+  const mid=p0.clone().lerp(p3,.5);
+  const dx=Math.abs(p3.x-p0.x), dz=Math.abs(p3.z-p0.z);
+  const p1=dx>dz?new THREE.Vector3(mid.x,p0.y,p0.z):new THREE.Vector3(p0.x,p0.y,mid.z);
+  const p2=dx>dz?new THREE.Vector3(mid.x,p0.y,p3.z):new THREE.Vector3(p3.x,p0.y,mid.z);
+  const curve=new THREE.CatmullRomCurve3([p0,p1,p2,p3],false,'catmullrom',.05);
+  const geo=new THREE.TubeGeometry(curve,32,radius,8,false);
+  const mat=new THREE.MeshStandardMaterial({color,transparent:ghost,opacity:ghost ? .48 : 1,roughness:.55});
+  return new THREE.Mesh(geo,mat);
+}
+function beginWire(){
+  cancelPlacement(); state.placing={type:'wire'}; state.wireStart=null; state.wireStartContact=null; setStatus('Wire placement — click a PCB point or component contact pad.');
+  previewText.textContent='Wire / Harness Segment — contact pads snap magnetically';
+}
+function finishWire(end,endContact=null){
+  const netId=`NET_${String(state.netCounter++).padStart(3,'0')}`;
+  const mesh=createWireMesh(state.wireStart,end); mesh.userData.netId=netId; mesh.userData.kind='wire'; wireGroup.add(mesh);
+  const record={id:netId,a:state.wireStart.clone(),b:end.clone(),mesh,color:state.wireColor,radius:state.wireRadius,startContact:state.wireStartContact,endContact};
+  state.wires.push(record);
+  state.wireStart=null; state.wireStartContact=null; refreshNetsUI();
+  debugLog('SNAP',`${netId} wire placed`,{from:contactLabel(record.startContact)||record.a.toArray(),to:contactLabel(record.endContact)||record.b.toArray()});
+  setStatus(`${netId} placed${record.endContact?` → snapped ${contactLabel(record.endContact)}`:''} — click another start point or Esc to finish.`);
+}
+function updateWireGhost(end){
+  if(state.wireGhost){ wireGroup.remove(state.wireGhost); disposeObject(state.wireGhost); state.wireGhost=null; }
+  if(state.wireStart){ state.wireGhost=createWireMesh(state.wireStart,end,state.wireColor,state.wireRadius,true); state.wireGhost.userData.isGhost=true; wireGroup.add(state.wireGhost); }
+}
+function refreshNetsUI(){
+  const total=state.wires.length+state.traces.length;netCount.textContent=total;netsList.innerHTML='';
+  state.wires.forEach(n=>{const d=document.createElement('div');d.className='netItem';const a=n.startContact?contactLabel(n.startContact):`(${n.a.x}, ${n.a.z})`;const b=n.endContact?contactLabel(n.endContact):`(${n.b.x}, ${n.b.z})`;d.innerHTML=`<b>${n.id}</b> <span class="kind">WIRE</span><div class="mini">${a} → ${b}</div>`;d.onclick=()=>highlightNet(n.id);netsList.appendChild(d);});
+  state.traces.forEach(t=>{const d=document.createElement('div');d.className='netItem';d.innerHTML=`<b>${t.id}</b> <span class="kind">TRACE</span><div class="mini">${t.segments.length} segment(s) · ${t.vias.length} via(s)</div>`;d.onclick=()=>highlightNet(t.id);netsList.appendChild(d);});
+}
+function highlightNet(id){
+  state.wires.forEach(n=>{ n.mesh.material.emissive=new THREE.Color(n.id===id?0x7a5b00:0x000000); n.mesh.material.emissiveIntensity=n.id===id?.85:0; });
+  state.traces.forEach(t=>t.segments.forEach(seg=>{seg.mesh.material.emissive=new THREE.Color(t.id===id?0x6e4c00:0x000000);seg.mesh.material.emissiveIntensity=t.id===id?.9:0;}));
+  setStatus(`Highlighted ${id}`);
+}
+function clearWires(){ state.wires.forEach(n=>{wireGroup.remove(n.mesh);disposeObject(n.mesh)});state.wires=[];clearTraces();state.netCounter=1;refreshNetsUI();setStatus('All wire / trace nets cleared.'); }
+
+/* =========================================================
+   MODULE 4.5 — PCB COPPER TRACE ROUTER + STACK VIAS
+   V10: separate from harness wire placement.
+========================================================= */
+const traceGroup=new THREE.Group();scene.add(traceGroup);
+const viaGroup=new THREE.Group();scene.add(viaGroup);
+
+function copperLayers(){
+  return stackStore.config.layers.map((layer,index)=>({layer,index}));
+}
+function clampTraceLayer(index){
+  const layers=copperLayers();
+  return THREE.MathUtils.clamp(Math.round(index)||0,0,Math.max(0,layers.length-1));
+}
+function traceLayerName(index=state.traceCopperLayer){
+  return copperLayers()[clampTraceLayer(index)]?.layer?.name||'Top';
+}
+function traceDisplayY(index=state.traceCopperLayer){
+  // V10 uses a deliberately lifted X-ray visualization for inner copper layers.
+  // This keeps every routed layer readable while board stack editing is still evolving.
+  const i=clampTraceLayer(index);
+  return boardTopY()+.20+i*.055;
+}
+function traceLayerColor(index=state.traceCopperLayer){
+  const colors=[0xd6a43a,0x78a9c4,0x7399c7,0x72b5a6,0xb18bc8,0x7fb2c1,0xa78cbf,0xc98970];
+  return colors[clampTraceLayer(index)%colors.length];
+}
+function refreshTraceLayerUI(){
+  const sel=document.getElementById('traceLayerSelect');
+  if(sel){
+    const old=clampTraceLayer(state.traceCopperLayer);
+    sel.innerHTML='';
+    copperLayers().forEach(({layer,index})=>{const o=document.createElement('option');o.value=index;o.textContent=`${index}: ${layer.name} · ${layer.type}`;sel.appendChild(o);});
+    state.traceCopperLayer=clampTraceLayer(old);sel.value=String(state.traceCopperLayer);
+  }
+  const badge=document.getElementById('traceLayerBadge');if(badge)badge.textContent=`${state.traceCopperLayer}: ${traceLayerName()}`;
+  const route=document.getElementById('traceRouteState');if(route)route.textContent=state.traceRoute?`routing ${state.traceRoute.id}`:'idle';
+}
+function makeTraceSegment(a,b,layerIndex,width=state.traceWidth,{ghost=false,netId=''}={}){
+  const dx=b.x-a.x,dz=b.z-a.z,len=Math.hypot(dx,dz);if(len<.001)return null;
+  const geo=new THREE.BoxGeometry(len,.055,width);
+  const mat=new THREE.MeshStandardMaterial({color:traceLayerColor(layerIndex),metalness:.65,roughness:.34,transparent:ghost,opacity:ghost?.45:1,depthTest:true});
+  const m=new THREE.Mesh(geo,mat);
+  m.position.set((a.x+b.x)/2,traceDisplayY(layerIndex),(a.z+b.z)/2);
+  m.rotation.y=-Math.atan2(dz,dx);
+  m.userData={kind:'pcbTrace',netId,layerIndex,ghost};
+  traceGroup.add(m);return m;
+}
+function removeTracePreview(){if(state.tracePreview){traceGroup.remove(state.tracePreview);disposeObject(state.tracePreview);state.tracePreview=null;}}
+function updateTracePreview(p){
+  state.traceCursor=p.clone();removeTracePreview();
+  if(!state.traceRoute?.anchor)return;
+  state.tracePreview=makeTraceSegment(state.traceRoute.anchor,p,state.traceCopperLayer,state.traceWidth,{ghost:true,netId:state.traceRoute.id});
+}
+function beginTraceRouting(){
+  cancelPlacement();
+  state.traceRoute={id:`TRACE_${String(state.netCounter++).padStart(3,'0')}`,anchor:null,segments:[],vias:[],points:[],startLayer:state.traceCopperLayer};
+  state.traceCursor=null;refreshTraceLayerUI();
+  renderer.domElement.className='cursor-trace';
+  setStatus(`Trace routing ${state.traceRoute.id} — click a start point on ${traceLayerName()}.`);
+  debugLog('ROUTE','Trace routing started',{id:state.traceRoute.id,layer:traceLayerName(),width:state.traceWidth});
+}
+function routeClickPoint(p,contact=null){
+  if(!state.traceRoute)beginTraceRouting();
+  const r=state.traceRoute;
+  if(!r.anchor){r.anchor=p.clone();r.startContact=contact;r.points.push({p:p.clone(),layer:state.traceCopperLayer,contact});setStatus(`${r.id} start ${contact?`snapped ${contactLabel(contact)}`:`at X ${p.x}, Z ${p.z}`} · ${traceLayerName()}`);return;}
+  const mesh=makeTraceSegment(r.anchor,p,state.traceCopperLayer,state.traceWidth,{netId:r.id});
+  if(mesh){const seg={a:r.anchor.clone(),b:p.clone(),layerIndex:state.traceCopperLayer,width:state.traceWidth,mesh,startContact:r.points.at(-1)?.contact||null,endContact:contact};r.segments.push(seg);r.points.push({p:p.clone(),layer:state.traceCopperLayer,contact});}
+  r.anchor=p.clone();removeTracePreview();
+  debugLog(contact?'SNAP':'ROUTE','Trace segment',{id:r.id,layer:traceLayerName(),x:p.x,z:p.z,contact:contactLabel(contact)||null,segments:r.segments.length});
+  setStatus(`${r.id}: ${r.segments.length} segment(s) · ${traceLayerName()} · 2/+/- inserts via.`);
+}
+function createViaAt(p,fromLayer,toLayer,netId){
+  const d=Math.max(.5,state.viaDiameter),drill=Math.min(Math.max(.2,state.viaDrill),d*.8);
+  const h=.55+Math.abs(toLayer-fromLayer)*.08;
+  const copper=new THREE.Mesh(new THREE.CylinderGeometry(d/2,d/2,h,24),new THREE.MeshStandardMaterial({color:0xd1a13a,metalness:.8,roughness:.28}));
+  copper.position.set(p.x,boardTopY()+.28,p.z);copper.userData={kind:'via',netId,fromLayer,toLayer};viaGroup.add(copper);
+  const hole=new THREE.Mesh(new THREE.CylinderGeometry(drill/2,drill/2,h+.12,20),new THREE.MeshStandardMaterial({color:0x111820,metalness:.2,roughness:.55}));
+  hole.position.copy(copper.position);hole.userData={kind:'viaDrill',netId};viaGroup.add(hole);
+  return {p:p.clone(),fromLayer,toLayer,netId,copper,hole,diameter:d,drill};
+}
+function switchTraceLayer(direction,{placeVia=true}={}){
+  if(!state.traceRoute?.anchor){setStatus('Start a trace first; a via needs an active route point.');return false;}
+  const from=state.traceCopperLayer,to=clampTraceLayer(from+direction);
+  if(to===from){setStatus(direction<0?'Already at the top copper layer.':'Already at the bottom copper layer.');return false;}
+  const p=(state.traceCursor||state.traceRoute.anchor).clone();
+  // If the cursor moved beyond the anchor, commit that final segment before dropping the via.
+  if(p.distanceTo(state.traceRoute.anchor)>.001)routeClickPoint(p);
+  if(placeVia){const v=createViaAt(p,from,to,state.traceRoute.id);state.traceRoute.vias.push(v);}
+  state.traceCopperLayer=to;state.traceRoute.anchor=p.clone();refreshTraceLayerUI();updateTracePreview(p);
+  debugLog('ROUTE','Via + layer change',{id:state.traceRoute.id,from:traceLayerName(from),to:traceLayerName(to),x:p.x,z:p.z});
+  setStatus(`${state.traceRoute.id}: via ${traceLayerName(from)} → ${traceLayerName(to)} at X ${p.x}, Z ${p.z}`);
+  return true;
+}
+function undoTraceStep(){
+  const r=state.traceRoute;if(!r)return;
+  removeTracePreview();
+  if(r.vias.length){const v=r.vias.pop();viaGroup.remove(v.copper);viaGroup.remove(v.hole);disposeObject(v.copper);disposeObject(v.hole);state.traceCopperLayer=v.fromLayer;r.anchor=v.p.clone();refreshTraceLayerUI();setStatus(`${r.id}: removed last via.`);return;}
+  const seg=r.segments.pop();if(seg){traceGroup.remove(seg.mesh);disposeObject(seg.mesh);r.anchor=seg.a.clone();r.points.pop();setStatus(`${r.id}: removed last trace segment.`);}
+}
+function finishTraceRouting(){
+  const r=state.traceRoute;if(!r)return;
+  removeTracePreview();
+  if(!r.segments.length&&!r.vias.length){state.netCounter=Math.max(1,state.netCounter-1);state.traceRoute=null;refreshTraceLayerUI();renderer.domElement.className='';setStatus('Empty trace cancelled.');return;}
+  const rec={id:r.id,type:'trace',segments:r.segments.slice(),vias:r.vias.slice(),points:r.points.slice(),startLayer:r.startLayer};
+  state.traces.push(rec);state.vias.push(...r.vias);state.traceRoute=null;state.traceCursor=null;refreshTraceLayerUI();refreshNetsUI();renderer.domElement.className='';
+  debugLog('ROUTE','Trace committed',{id:rec.id,segments:rec.segments.length,vias:rec.vias.length});setStatus(`${rec.id} committed: ${rec.segments.length} segment(s), ${rec.vias.length} via(s).`);
+}
+function cancelTraceRouting(){
+  const r=state.traceRoute;if(!r)return;
+  removeTracePreview();r.segments.forEach(seg=>{traceGroup.remove(seg.mesh);disposeObject(seg.mesh)});r.vias.forEach(v=>{viaGroup.remove(v.copper);viaGroup.remove(v.hole);disposeObject(v.copper);disposeObject(v.hole)});
+  state.netCounter=Math.max(1,state.netCounter-1);debugLog('ROUTE','Trace cancelled',{id:r.id});state.traceRoute=null;state.traceCursor=null;refreshTraceLayerUI();renderer.domElement.className='';setStatus('Trace routing cancelled.');
+}
+function repositionTraceVisuals(){
+  for(const t of state.traces){
+    for(const seg of t.segments){
+      const dx=seg.b.x-seg.a.x,dz=seg.b.z-seg.a.z;
+      seg.mesh.position.set((seg.a.x+seg.b.x)/2,traceDisplayY(seg.layerIndex),(seg.a.z+seg.b.z)/2);
+      seg.mesh.rotation.y=-Math.atan2(dz,dx);
+    }
+    for(const v of t.vias){
+      const y=boardTopY()+.28;v.copper.position.y=y;v.hole.position.y=y;
+    }
+  }
+  if(state.traceRoute){
+    for(const seg of state.traceRoute.segments){
+      const dx=seg.b.x-seg.a.x,dz=seg.b.z-seg.a.z;
+      seg.mesh.position.set((seg.a.x+seg.b.x)/2,traceDisplayY(seg.layerIndex),(seg.a.z+seg.b.z)/2);
+      seg.mesh.rotation.y=-Math.atan2(dz,dx);
+    }
+    for(const v of state.traceRoute.vias){const y=boardTopY()+.28;v.copper.position.y=y;v.hole.position.y=y;}
+    if(state.traceCursor)updateTracePreview(state.traceCursor);
+  }
+}
+function clearTraces(){
+  cancelTraceRouting();
+  state.traces.forEach(t=>{t.segments.forEach(seg=>{traceGroup.remove(seg.mesh);disposeObject(seg.mesh)});t.vias.forEach(v=>{viaGroup.remove(v.copper);viaGroup.remove(v.hole);disposeObject(v.copper);disposeObject(v.hole)})});
+  state.traces=[];state.vias=[];refreshTraceLayerUI();
+}
+
+
+/* =========================================================
+   MODULE 5 — PLACEMENT / SELECTION / GRID SNAP
+========================================================= */
+const raycaster=new THREE.Raycaster(); const pointer=new THREE.Vector2();
+function pointerFromEvent(e){ const r=renderer.domElement.getBoundingClientRect(); pointer.x=((e.clientX-r.left)/r.width)*2-1; pointer.y=-((e.clientY-r.top)/r.height)*2+1; raycaster.setFromCamera(pointer,camera); }
+function getBoardPoint(e){ pointerFromEvent(e); const hit=raycaster.intersectObject(boardTop,false)[0]||raycaster.intersectObject(board,false)[0]; return hit?snapPoint(hit.point):null; }
+function getBoardPlanePoint(e,{snapToGrid=true}={}){pointerFromEvent(e);const plane=new THREE.Plane(new THREE.Vector3(0,1,0),-boardTopY());const p=new THREE.Vector3();if(!raycaster.ray.intersectPlane(plane,p))return null;return snapToGrid?snapPoint(p):p;}
+
+// V11 CONTACT-PAD SNAP: use the unsnapped cursor location to find the nearest
+// real component pad first; fall back to the ordinary PCB grid only when no
+// contact lies inside the magnetic capture radius.
+const contactSnapIndicator=new THREE.Mesh(
+  new THREE.RingGeometry(1.35,2.05,28),
+  new THREE.MeshBasicMaterial({color:0xffd34d,side:THREE.DoubleSide,depthTest:false,transparent:true,opacity:.95})
+);
+contactSnapIndicator.rotation.x=-Math.PI/2;contactSnapIndicator.visible=false;contactSnapIndicator.renderOrder=999;scene.add(contactSnapIndicator);
+function nearestContactPad(rawPoint,maxDistance=4.5){
+  let best=null,bestD=maxDistance;
+  const wp=new THREE.Vector3();
+  for(const c of state.components){
+    for(let i=0;i<(c.pads?.length||0);i++){
+      const pad=c.pads[i];if(!pad?.parent)continue;
+      pad.getWorldPosition(wp);
+      const d=Math.hypot(wp.x-rawPoint.x,wp.z-rawPoint.z);
+      if(d<bestD){bestD=d;best={component:c,pad,index:i,name:pad.userData.contactName||`P${i+1}`,point:new THREE.Vector3(wp.x,boardTopY(),wp.z),distance:d};}
+    }
+  }
+  return best;
+}
+function showContactSnap(contact){
+  state.activeContactSnap=contact||null;
+  if(!contact){contactSnapIndicator.visible=false;return;}
+  const wp=new THREE.Vector3();contact.pad.getWorldPosition(wp);
+  contactSnapIndicator.position.set(wp.x,wp.y+.3,wp.z);contactSnapIndicator.visible=true;
+}
+function getRoutingPoint(e){
+  const raw=getBoardPlanePoint(e,{snapToGrid:false});if(!raw)return null;
+  const contact=nearestContactPad(raw,Math.max(3.25,Math.min(6,state.grid*.85)));
+  if(contact){showContactSnap(contact);return {point:contact.point.clone(),contact};}
+  showContactSnap(null);return {point:snapPoint(raw),contact:null};
+}
+function boardHandleUnderPointer(e){pointerFromEvent(e);const hit=raycaster.intersectObjects(boardHandles,false)[0];return hit?hit.object:null;}
+function isUIEvent(e){ return !!e.target.closest('.dockPanel,#leftDock,#showLeftDock,#connectorConfigWindow,#boardConfigWindow'); }
+function startPlacement(type,label){
+  cancelPlacement();
+  if(type==='wire'){beginWire();return;}
+  if(type==='pcb-trace'){beginTraceRouting();return;}
+  const c=buildComponent(type); if(!c)return;
+  state.placing=c; scene.add(c.group); c.group.traverse(o=>{if(o.material){o.material=o.material.clone();o.material.transparent=true;o.material.opacity=.64;}});
+  previewText.textContent=label || c.label; setStatus(`Placement mode: ${c.label}`);
+  if(connectorKind(c))openConnectorConfig(c);
+}
+function cancelPlacement(){
+  if(state.traceRoute)cancelTraceRouting();
+  closeConnectorConfig(false);
+  if(state.placing && state.placing.type!=='wire' && state.placing.group){scene.remove(state.placing.group);disposeObject(state.placing.group);}
+  if(state.wireGhost){wireGroup.remove(state.wireGhost);disposeObject(state.wireGhost);state.wireGhost=null;}
+  state.placing=null; state.wireStart=null; state.wireStartContact=null; showContactSnap(null); renderer.domElement.className=''; setStatus('Placement cancelled / ready.');
+}
+function commitComponent(c){
+  c.group.traverse(o=>{if(o.material){o.material.transparent=false;o.material.opacity=1;}});
+  c.id=`C${state.components.length+1}`; state.components.push(c); state.placing=null; selectComponent(c); debugLog('SCENE','Component placed',{id:c.id,type:c.type,x:c.group.position.x,z:c.group.position.z}); setStatus(`Placed ${c.label} at X ${c.group.position.x}, Z ${c.group.position.z}`);
+}
+function selectComponent(c){
+  if(c)deselectBoard(true);
+  state.selected=c; selectedReadout.textContent=c?`${c.id} ${c.label}`:'none';
+  if(c){
+    previewText.textContent=`${c.id} — ${c.label}`;
+    rotationReadout.textContent=`${Math.round(THREE.MathUtils.radToDeg(c.rotation)%360)}°`;
+    if(c.type==='terminal-block-horizontal'){
+      state.terminalSockets=c.socketCount||2;
+      const input=document.getElementById('terminalSockets'); if(input)input.value=state.terminalSockets;
+      openConnectorConfig(c);
+    } else if(c.type?.startsWith('picoblade-')){
+      state.picoPins=c.pinCount||2;
+      const input=document.getElementById('picoPins'); if(input)input.value=state.picoPins;
+      openConnectorConfig(c);
+    } else {
+      closeConnectorConfig(false);
+    }
+  } else {
+    closeConnectorConfig(false);
+  }
+}
+
+function rebuildPicoBladeComponent(c,newCount,{ghost=false}={}){
+  if(!c || !c.type?.startsWith('picoblade-'))return c;
+  const count=THREE.MathUtils.clamp(Math.round(Number(newCount))||2,2,12);
+  const pos=c.group.position.clone();
+  const rot=c.rotation;
+  const id=c.id;
+  const oldGroup=c.group;
+  const gender=c.gender || (c.type.endsWith('male')?'male':'female');
+  const built=createPicoBlade(gender,count);
+  scene.remove(oldGroup);
+  disposeObject(oldGroup);
+  c.group=built.group; c.pads=built.pads; c.pinCount=count; c.gender=gender; c.pitch=built.pitch;
+  c.label=built.label; c.id=id; c.rotation=rot;
+  c.group.rotation.y=rot; c.group.position.copy(pos); c.group.userData.isComponentRoot=true;
+  markPickable(c.group,c);
+  bindContactPads(c);
+  if(ghost)c.group.traverse(o=>{if(o.material){o.material=o.material.clone();o.material.transparent=true;o.material.opacity=.64;}});
+  scene.add(c.group);
+  selectedReadout.textContent=state.selected===c?`${c.id} ${c.label}`:selectedReadout.textContent;
+  previewText.textContent=state.selected===c?`${c.id} — ${c.label}`:previewText.textContent;
+  return c;
+}
+
+function connectorKind(c){
+  if(c?.type==='terminal-block-horizontal')return 'terminal';
+  if(c?.type?.startsWith('picoblade-'))return 'pico';
+  return null;
+}
+function connectorCount(c){return connectorKind(c)==='terminal'?(c.socketCount||2):(c?.pinCount||2);}
+function connectorBounds(c){return connectorKind(c)==='terminal'?[2,16]:[2,12];}
+function refreshConnectorConfigUI(){
+  const ed=state.connectorEditor, win=document.getElementById('connectorConfigWindow');
+  if(!ed||!win)return;
+  document.getElementById('connectorConfigCount').textContent=String(ed.stagedCount);
+  const kind=connectorKind(ed.target);
+  document.getElementById('connectorConfigType').textContent=kind==='terminal'
+    ? `Horizontal Screw Terminal Block · 5.08 mm pitch`
+    : `${ed.target.gender==='male'?'PicoBlade Cable Plug':'PicoBlade PCB Socket'} · 1.25 mm pitch`;
+}
+function openConnectorConfig(c){
+  closeBoardConfig(false);
+  const kind=connectorKind(c); if(!kind)return;
+  const count=connectorCount(c);
+  state.connectorEditor={target:c,originalCount:count,stagedCount:count,kind,confirmed:false};
+  document.getElementById('connectorConfigWindow')?.classList.remove('hidden');
+  refreshConnectorConfigUI();
+  debugLog('INFO','Connector count editor opened',{id:c.id||'placement',type:c.type,count});
+}
+function previewConnectorCount(value){
+  const ed=state.connectorEditor; if(!ed)return;
+  const [min,max]=connectorBounds(ed.target);
+  const count=THREE.MathUtils.clamp(Math.round(Number(value))||min,min,max);
+  ed.stagedCount=count;
+  if(ed.kind==='terminal'){
+    rebuildTerminalComponent(ed.target,count,{ghost:state.placing===ed.target});
+  }else{
+    rebuildPicoBladeComponent(ed.target,count,{ghost:state.placing===ed.target});
+  }
+  refreshConnectorConfigUI();
+}
+function confirmConnectorConfig(){
+  const ed=state.connectorEditor;if(!ed)return;
+  ed.confirmed=true;
+  if(ed.kind==='terminal'){
+    state.terminalSockets=ed.stagedCount; const i=document.getElementById('terminalSockets');if(i)i.value=ed.stagedCount;
+  }else{
+    state.picoPins=ed.stagedCount; const i=document.getElementById('picoPins');if(i)i.value=ed.stagedCount;
+  }
+  debugLog('SCENE','Connector socket count confirmed',{id:ed.target.id||'placement',type:ed.target.type,count:ed.stagedCount});
+  setStatus(`Confirmed ${ed.stagedCount} ${ed.kind==='terminal'?'terminal sockets':'PicoBlade pins'}.`);
+  document.getElementById('connectorConfigWindow')?.classList.add('hidden');
+  state.connectorEditor=null;
+}
+function closeConnectorConfig(revert=true){
+  const ed=state.connectorEditor;
+  if(ed && revert && !ed.confirmed && ed.target?.group){
+    if(ed.kind==='terminal')rebuildTerminalComponent(ed.target,ed.originalCount,{ghost:state.placing===ed.target});
+    else rebuildPicoBladeComponent(ed.target,ed.originalCount,{ghost:state.placing===ed.target});
+    debugLog('INFO','Connector count edit cancelled',{type:ed.target.type,count:ed.originalCount});
+  }
+  document.getElementById('connectorConfigWindow')?.classList.add('hidden');
+  state.connectorEditor=null;
+}
+
+function refreshBoardReadouts(){
+  const size=document.getElementById('boardSizeReadout');if(size)size.textContent=`${boardState.width.toFixed(1)} × ${boardState.depth.toFixed(1)} mm`;
+  const thick=document.getElementById('boardThicknessReadout');if(thick)thick.textContent=`${getStackThickness().toFixed(3)} mm`;
+  const drc=document.getElementById('drcBoardBoundary');if(drc)drc.textContent=`${boardState.width.toFixed(1)} × ${boardState.depth.toFixed(1)} mm`;
+}
+function refreshBoardEditorUI(){
+  const w=document.getElementById('boardWidthInput');if(!w)return;
+  w.value=boardState.width.toFixed(1);document.getElementById('boardDepthInput').value=boardState.depth.toFixed(1);
+  document.getElementById('boardThicknessInput').value=`${getStackThickness().toFixed(3)} mm`;
+  document.getElementById('boardCenterXInput').value=boardState.centerX.toFixed(1);
+  document.getElementById('boardCenterZInput').value=boardState.centerZ.toFixed(1);
+  renderLayerStack();renderLayerProperties();
+}
+function renderLayerStack(){
+  const root=document.getElementById('layerStackList');if(!root)return;root.innerHTML='';
+  stackStore.items.forEach((item,i)=>{
+    const d=document.createElement('div');d.className='stackItem'+(i===stackStore.selectedIndex?' active':'');
+    const sw=item.kind==='dielectric'?'diel':(item.data.type==='Plane'?'plane':'copper');
+    d.innerHTML=`<span class="stackSwatch ${sw}"></span><span><b>${item.data.name}</b><br><span class="stackKind">${item.kind==='dielectric'?'dielectric':item.data.type}</span></span><span class="stackValue">${thicknessMM(item.data.thickness).toFixed(3)} mm</span>`;
+    d.onclick=()=>{stackStore.select(i);showBoardConfigPage('properties');};root.appendChild(d);
+  });
+}
+function renderLayerProperties(){
+  const item=stackStore.items[stackStore.selectedIndex];const fields=document.getElementById('layerPropertyFields');const empty=document.getElementById('layerPropertyEmpty');if(!fields||!empty)return;
+  fields.style.display=item?'block':'none';empty.style.display=item?'none':'block';if(!item)return;
+  document.getElementById('stackPropName').value=item.data.name||'';
+  document.getElementById('stackPropKind').value=item.kind;
+  const type=document.getElementById('stackPropType');type.value=item.kind==='dielectric'?'Dielectric':(item.data.type||'Signal');type.disabled=item.kind==='dielectric';
+  document.getElementById('stackPropThickness').value=thicknessMM(item.data.thickness).toFixed(3);
+  const weight=document.getElementById('stackPropWeight');weight.value=item.data.weight||'';weight.disabled=item.kind==='dielectric';
+  document.getElementById('stackPropDk').value=Number(item.data.dk??3.6).toFixed(1);
+}
+function showBoardConfigPage(name){
+  document.querySelectorAll('.boardConfigTab').forEach(b=>b.classList.toggle('active',b.dataset.boardTab===name));
+  document.querySelectorAll('.boardConfigPage').forEach(p=>p.classList.toggle('active',p.dataset.boardPage===name));
+}
+function openBoardConfig(){
+  closeConnectorConfig(false);
+  if(!state.boardEditor)state.boardEditor={originalBoard:{...boardState},originalStack:stackStore.snapshot(),originalStackIndex:stackStore.selectedIndex,confirmed:false};
+  document.getElementById('boardConfigWindow')?.classList.remove('hidden');refreshBoardEditorUI();
+  debugLog('INFO','PCB board editor opened',{width:boardState.width,depth:boardState.depth,thickness:getStackThickness()});
+}
+function closeBoardConfig(revert=true){
+  const ed=state.boardEditor;
+  if(ed&&revert&&!ed.confirmed){
+    Object.assign(boardState,ed.originalBoard);stackStore.restore(ed.originalStack,ed.originalStackIndex);updateBoardGeometry();
+    debugLog('INFO','PCB board / stack edit cancelled — restored snapshot');
+  }
+  document.getElementById('boardConfigWindow')?.classList.add('hidden');state.boardEditor=null;
+}
+function confirmBoardConfig(){
+  if(state.boardEditor)state.boardEditor.confirmed=true;
+  debugLog('SCENE','PCB board / stack confirmed',{width:boardState.width,depth:boardState.depth,centerX:boardState.centerX,centerZ:boardState.centerZ,thickness:getStackThickness()});
+  setStatus(`PCB confirmed: ${boardState.width.toFixed(1)} × ${boardState.depth.toFixed(1)} mm · ${getStackThickness().toFixed(3)} mm stack.`);
+  document.getElementById('boardConfigWindow')?.classList.add('hidden');state.boardEditor=null;
+}
+function selectBoard(){
+  if(state.selected)selectComponent(null);state.boardSelected=true;boardState.selected=true;boardHandleGroup.visible=true;openBoardConfig();
+  setStatus('PCB selected — drag a blue corner handle or edit dimensions / stack in the top-left window.');
+}
+function deselectBoard(closeEditor=true){state.boardSelected=false;boardState.selected=false;boardHandleGroup.visible=false;if(closeEditor)closeBoardConfig(false);}
+function setBoardDimensions(width,depth){
+  boardState.width=THREE.MathUtils.clamp(Number(width)||boardState.width,20,600);boardState.depth=THREE.MathUtils.clamp(Number(depth)||boardState.depth,20,600);updateBoardGeometry();
+  debugLog('SCENE','PCB dimensions preview',{width:boardState.width,depth:boardState.depth,centerX:boardState.centerX,centerZ:boardState.centerZ});
+}
+function beginBoardResize(handle,e){
+  if(!state.boardEditor)openBoardConfig();
+  const {sx,sz,name}=handle.userData.boardHandle;
+  const anchorX=boardState.centerX-sx*boardState.width/2,anchorZ=boardState.centerZ-sz*boardState.depth/2;
+  state.boardResize={sx,sz,name,anchorX,anchorZ};controls.enabled=false;renderer.domElement.setPointerCapture?.(e.pointerId);renderer.domElement.className='cursor-board-resize';
+  debugLog('SCENE','PCB corner resize begin',{corner:name,anchorX,anchorZ});setStatus(`PCB ${name} corner grabbed — opposite corner anchored.`);
+}
+function updateBoardResize(e){
+  const r=state.boardResize;if(!r)return false;const p=getBoardPlanePoint(e,{snapToGrid:true});if(!p)return true;
+  const min=20;
+  const cx=r.sx>0?Math.max(r.anchorX+min,p.x):Math.min(r.anchorX-min,p.x);
+  const cz=r.sz>0?Math.max(r.anchorZ+min,p.z):Math.min(r.anchorZ-min,p.z);
+  boardState.width=Math.abs(cx-r.anchorX);boardState.depth=Math.abs(cz-r.anchorZ);boardState.centerX=(cx+r.anchorX)/2;boardState.centerZ=(cz+r.anchorZ)/2;updateBoardGeometry();
+  return true;
+}
+function endBoardResize(e){
+  if(!state.boardResize)return false;const r=state.boardResize;state.boardResize=null;controls.enabled=true;renderer.domElement.releasePointerCapture?.(e.pointerId);renderer.domElement.className='';
+  debugLog('SCENE','PCB corner resize preview complete',{corner:r.name,width:boardState.width,depth:boardState.depth,centerX:boardState.centerX,centerZ:boardState.centerZ});
+  setStatus(`PCB preview ${boardState.width.toFixed(1)} × ${boardState.depth.toFixed(1)} mm — press ✓ to confirm or × to restore.`);return true;
+}
+
+function rebuildTerminalComponent(c,newCount,{ghost=false}={}){
+  if(!c || c.type!=='terminal-block-horizontal')return c;
+  const count=THREE.MathUtils.clamp(Math.round(newCount)||2,2,16);
+  const pos=c.group.position.clone();
+  const rot=c.rotation;
+  const oldGroup=c.group;
+  const built=createHorizontalTerminalBlock(count);
+  scene.remove(oldGroup);
+  disposeObject(oldGroup);
+  c.group=built.group;
+  c.pads=built.pads;
+  c.socketCount=count;
+  c.pitch=built.pitch;
+  c.label=`Horizontal Screw Terminal Block — ${count} sockets`;
+  c.rotation=rot;
+  c.group.rotation.y=rot;
+  c.group.position.copy(pos);
+  c.group.userData.isComponentRoot=true;
+  markPickable(c.group,c);
+  bindContactPads(c);
+  if(ghost)c.group.traverse(o=>{if(o.material){o.material=o.material.clone();o.material.transparent=true;o.material.opacity=.64;}});
+  scene.add(c.group);
+  if(state.selected===c)selectComponent(c);
+  return c;
+}
+
+function setTerminalSocketCount(value){
+  const count=THREE.MathUtils.clamp(Math.round(Number(value))||2,2,16);
+  state.terminalSockets=count;
+  const input=document.getElementById('terminalSockets'); if(input)input.value=count;
+  if(state.placing?.type==='terminal-block-horizontal'){
+    rebuildTerminalComponent(state.placing,count,{ghost:true});
+    previewText.textContent=`Horizontal Screw Terminal Block — ${count} sockets`;
+    setStatus(`Terminal placement socket count: ${count}`);
+    debugLog('SCENE','Terminal placement resized',{sockets:count});
+    return;
+  }
+  if(state.selected?.type==='terminal-block-horizontal'){
+    rebuildTerminalComponent(state.selected,count);
+    setStatus(`Updated ${state.selected.id} to ${count} terminal sockets.`);
+    debugLog('SCENE','Terminal block edited',{id:state.selected.id,sockets:count});
+    return;
+  }
+  setStatus(`Next horizontal terminal block: ${count} sockets.`);
+}
+function deleteSelected(){ if(!state.selected)return; if(state.dragging===state.selected){state.dragging=null;controls.enabled=true;} scene.remove(state.selected.group);disposeObject(state.selected.group);const i=state.components.indexOf(state.selected);if(i>=0)state.components.splice(i,1);selectComponent(null);setStatus('Selected component deleted.'); }
+function rotateActive(){
+  if(state.placing && state.placing.type!=='wire'){state.placing.rotation+=Math.PI/2;state.placing.group.rotation.y=state.placing.rotation;state.placementRotation=state.placing.rotation;rotationReadout.textContent=`${Math.round(THREE.MathUtils.radToDeg(state.placing.rotation)%360)}°`;return;}
+  if(state.selected){state.selected.rotation+=Math.PI/2;state.selected.group.rotation.y=state.selected.rotation;rotationReadout.textContent=`${Math.round(THREE.MathUtils.radToDeg(state.selected.rotation)%360)}°`;setStatus(`Rotated ${state.selected.id}`);}
+}
+
+function componentUnderPointer(e){
+  pointerFromEvent(e);
+  const hits=raycaster.intersectObjects(state.components.map(c=>c.group),true);
+  return hits.length ? hits[0].object.userData.component || null : null;
+}
+function updateCanvasCursor(e){
+  if(state.boardResize||state.dragging){ renderer.domElement.className='cursor-grabbing'; return; }
+  if(state.placing){ renderer.domElement.className='cursor-crosshair'; return; }
+  if(state.boardSelected&&boardHandleUnderPointer(e)){renderer.domElement.className='cursor-grab';return;}
+  const c=componentUnderPointer(e);
+  renderer.domElement.className=c?'cursor-grab':'';
+}
+function beginComponentDrag(c,e,p){
+  state.dragging=c;
+  state.dragStart={pointer:p.clone(),position:c.group.position.clone()};
+  state.dragMoved=false;
+  controls.enabled=false;
+  selectComponent(c);
+  renderer.domElement.setPointerCapture?.(e.pointerId);
+  renderer.domElement.className='cursor-grabbing';
+  setStatus(`Grabbed ${c.id} — drag to reposition on ${state.grid} mm grid.`);
+  debugLog('SCENE','Drag begin',{id:c.id,x:c.group.position.x,z:c.group.position.z});
+}
+function endComponentDrag(e){
+  const c=state.dragging; if(!c)return;
+  renderer.domElement.releasePointerCapture?.(e.pointerId);
+  controls.enabled=true;
+  state.dragging=null;
+  renderer.domElement.className='cursor-grab';
+  if(state.dragMoved){
+    debugLog('SCENE','Component moved',{id:c.id,x:c.group.position.x,z:c.group.position.z});
+    setStatus(`Moved ${c.id} to X ${c.group.position.x}, Z ${c.group.position.z}`);
+  } else {
+    setStatus(`Selected ${c.id}: ${c.label}`);
+  }
+}
+
+renderer.domElement.addEventListener('pointermove',e=>{
+  if(state.boardResize){updateBoardResize(e);return;}
+  if(state.traceRoute || state.placing?.type==='wire'){
+    const routed=getRoutingPoint(e);
+    if(routed){
+      const p=routed.point;const snapText=routed.contact?`CONTACT ${contactLabel(routed.contact)}`:`grid ${state.grid} mm`;
+      previewCoords.textContent=`X ${p.x.toFixed(2)} / Z ${p.z.toFixed(2)} — ${state.traceRoute?traceLayerName():'WIRE'} — ${snapText}`;
+      if(state.traceRoute)updateTracePreview(p);
+      if(state.placing?.type==='wire' && state.wireStart)updateWireGhost(p);
+      renderer.domElement.className=state.traceRoute?'cursor-trace':'cursor-crosshair';return;
+    }
+  }
+  showContactSnap(null);
+  const p=getBoardPoint(e);
+  if(p){
+    previewCoords.textContent=`X ${p.x.toFixed(1)} / Z ${p.z.toFixed(1)} — snap ${state.grid} mm`;
+    if(state.dragging){
+      if(isInsideBoard(p,2)){
+        if(state.dragging.group.position.x!==p.x || state.dragging.group.position.z!==p.z) state.dragMoved=true;
+        state.dragging.group.position.set(p.x,boardTopY(),p.z);
+      }
+      return;
+    }
+    if(state.placing && state.placing.type!=='wire') state.placing.group.position.set(p.x,boardTopY(),p.z);
+  }
+  updateCanvasCursor(e);
+});
+
+renderer.domElement.addEventListener('pointerleave',()=>{
+  showContactSnap(null);
+  if(!state.boardResize && !state.dragging && !state.placing) renderer.domElement.className='';
+});
+
+renderer.domElement.addEventListener('pointerdown',e=>{
+  if(e.button!==0 || isUIEvent(e))return;
+  if(state.traceRoute){const routed=getRoutingPoint(e);if(routed)routeClickPoint(routed.point,routed.contact);return;}
+  if(!state.placing&&state.boardSelected){const handle=boardHandleUnderPointer(e);if(handle){beginBoardResize(handle,e);return;}}
+  const p=getBoardPoint(e); if(!p)return;
+  if(state.placing?.type==='wire'){
+    const routed=getRoutingPoint(e);if(!routed)return;
+    if(!state.wireStart){state.wireStart=routed.point.clone();state.wireStartContact=routed.contact;setStatus(routed.contact?`Wire start snapped to ${contactLabel(routed.contact)} — click end contact.`:`Wire start: ${routed.point.x}, ${routed.point.z} — click end point.`);}else{finishWire(routed.point,routed.contact);} return;
+  }
+  if(state.placing){ if(!isInsideBoard(p,2)){setStatus('Placement rejected: outside PCB boundary.');return;} commitComponent(state.placing); return; }
+  const c=componentUnderPointer(e);
+  if(c){ beginComponentDrag(c,e,p); } else { selectBoard(); renderer.domElement.className=''; }
+});
+renderer.domElement.addEventListener('dblclick',e=>{if(state.traceRoute&&!isUIEvent(e)){e.preventDefault();finishTraceRouting();}});
+renderer.domElement.addEventListener('pointerup',e=>{if(!endBoardResize(e))endComponentDrag(e);});
+renderer.domElement.addEventListener('pointercancel',e=>{if(!endBoardResize(e))endComponentDrag(e);});
+
+/* =========================================================
+   MODULE 6 — DRC
+========================================================= */
+function runDRC(){
+  const issues=[];
+  for(const c of state.components){ const p=c.group.position; if(!isInsideBoard(p,1)) issues.push(`${c.id}: origin outside board.`); }
+  for(let i=0;i<state.components.length;i++) for(let j=i+1;j<state.components.length;j++){
+    const a=new THREE.Box3().setFromObject(state.components[i].group), b=new THREE.Box3().setFromObject(state.components[j].group);
+    if(a.intersectsBox(b)) issues.push(`${state.components[i].id} overlaps ${state.components[j].id}.`);
+  }
+  for(const w of state.wires){ if(!isInsideBoard(w.a)||!isInsideBoard(w.b)) issues.push(`${w.id}: endpoint outside board.`); }
+  for(const t of state.traces){for(const seg of t.segments){if(!isInsideBoard(seg.a)||!isInsideBoard(seg.b))issues.push(`${t.id}: trace segment outside board.`);}for(const v of t.vias){if(!isInsideBoard(v.p))issues.push(`${t.id}: via outside board.`);}}
+  document.getElementById('drcSummary').innerHTML=issues.length?`<span class="warn">${issues.length} issue(s)</span>`:`<span class="ok">0 issues in prototype checks</span>`;
+  document.getElementById('drcList').innerHTML=issues.map(x=>`<div class="drcItem warn">${x}</div>`).join('') || '<div class="drcItem muted">Boundary + component AABB overlap checks passed.</div>';
+  debugLog('DRC',`DRC complete: ${issues.length} issue(s)`,issues); setStatus(`DRC complete: ${issues.length} issue(s).`);
+}
+
+/* =========================================================
+   MODULE 6.5 — RUNTIME DEBUG CONSOLE
+   Adapted from HeroicRTS V10.27 debug console.
+========================================================= */
+const runtimeDebugState={lines:[],maxLines:350,visible:true};
+function debugFormatValue(v){
+  if(v instanceof Error)return `${v.name}: ${v.message}\n${v.stack||''}`;
+  if(typeof v==='string')return v;
+  try{return JSON.stringify(v,(k,val)=>{
+    if(val?.isObject3D)return `[Object3D ${val.name||val.type}]`;
+    if(val?.isBufferGeometry)return '[BufferGeometry]';
+    if(val?.isMaterial)return `[Material ${val.type}]`;
+    return val;
+  });}catch{return String(v);}
+}
+function debugRender(){
+  const body=document.getElementById('runtimeDebugBody'); if(!body)return; body.innerHTML='';
+  for(const line of runtimeDebugState.lines){const d=document.createElement('div');d.className=`debugLine ${line.level}`;d.textContent=`${line.time} [${line.tag}] ${line.text}`;body.appendChild(d);} body.scrollTop=body.scrollHeight; const count=document.getElementById('debugCount'); if(count)count.textContent=`${runtimeDebugState.lines.length} line${runtimeDebugState.lines.length===1?'':'s'}`;
+}
+function debugLog(tag,...args){
+  const level=tag==='ERROR'?'error':tag==='WARN'?'warn':tag==='BOOT'?'boot':tag==='SCENE'?'scene':tag==='DRC'?'drc':'info';
+  runtimeDebugState.lines.push({time:new Date().toLocaleTimeString(),tag,level,text:args.map(debugFormatValue).join(' ')});
+  if(runtimeDebugState.lines.length>runtimeDebugState.maxLines)runtimeDebugState.lines.splice(0,runtimeDebugState.lines.length-runtimeDebugState.maxLines);
+  debugRender();
+}
+function toggleRuntimeDebug(force){
+  const win=document.getElementById('runtimeDebugWindow');if(!win)return;
+  const collapsed=typeof force==='boolean'?!force:!win.classList.contains('collapsed');
+  win.classList.toggle('collapsed',collapsed);
+  const b=win.querySelector('.panelCollapse');if(b)b.textContent=collapsed?'▶':'▼';
+}
+function installRuntimeDebug(){
+  document.getElementById('runtimeDebugClear')?.addEventListener('click',e=>{e.stopPropagation();runtimeDebugState.lines.length=0;debugRender();});
+  window.addEventListener('error',event=>debugLog('ERROR',event.message||'Uncaught error',event.filename?`${event.filename}:${event.lineno}:${event.colno}`:'',event.error||''));
+  window.addEventListener('unhandledrejection',event=>debugLog('ERROR','Unhandled promise rejection:',event.reason));
+  for(const method of ['log','info','warn','error']){const original=console[method].bind(console);console[method]=(...args)=>{original(...args);debugLog(method==='error'?'ERROR':method==='warn'?'WARN':'INFO',...args);};}
+  debugLog('BOOT','Alt-EDA runtime debug console installed');
+  const early=window.__ALTEDA_EARLY_DEBUG__||[];
+  if(early.length){ for(const entry of early) debugLog(entry.tag,...entry.args); }
+  else debugLog('BOOT','No pre-module errors captured');
+  debugLog('BOOT',`THREE r${THREE.REVISION} / OrbitControls ready`);
+  debugLog('SCENE',`Board ${boardState.width} × ${boardState.depth} × ${getStackThickness().toFixed(3)} mm stack`,`camera=${camera.position.toArray().map(v=>v.toFixed(1)).join(',')}`);
+  debugLog('BOOT','Component drag interaction ready: hover=grab, drag=grabbing, grid-snapped repositioning');
+  debugLog('BOOT','Library component ready: generic 6 × 6 mm momentary tactile PCB push button');
+  debugLog('BOOT','Power library ready: IRLZ44, MUR120G, IR2101, LM7805, LM317');
+  debugLog('BOOT','Library component ready: configurable 2–16 socket horizontal screw terminal block');
+  debugLog('BOOT','V7 connector-count popover ready: PicoBlade 2–12 pins / terminal block 2–16 sockets');
+  debugLog('BOOT','V11 contact snapping ready: wires + traces magnetically capture component pads (PicoBlade / terminal blocks included)');
+  debugLog('BOOT',`Legion Go Side-1 chip library ready: ${Object.keys(LegionGoChipPresets).length} identified/probable devices`);
+  debugLog('SCENE',`Canvas ${renderer.domElement.clientWidth}×${renderer.domElement.clientHeight}; dock=${document.getElementById('leftDock')?.offsetWidth||0}px`);
+  requestAnimationFrame(()=>{
+    debugLog('SCENE',`Scene children=${scene.children.length}; board visible=${board.visible}; board worldY=${board.getWorldPosition(new THREE.Vector3()).y.toFixed(2)}`);
+  });
+}
+installRuntimeDebug();
+setStatus('PCB ready — choose PCB Trace Router for copper routing; 2/+/- drops a via and changes copper layers.');
+
+/* =========================================================
+   MODULE 7 — UI BINDINGS / DOCKABLE PANELS
+========================================================= */
+document.querySelectorAll('.libraryItem[data-type]').forEach(el=>el.onclick=()=>{debugLog('INFO','Library select',el.dataset.type);startPlacement(el.dataset.type,el.querySelector('span').textContent);});
+
+document.querySelectorAll('.panelTabs').forEach(tabBar=>{
+  const panel=tabBar.closest('.dockPanel'); const tabs=[...tabBar.querySelectorAll('.tab')];
+  tabs.forEach(tab=>tab.addEventListener('click',()=>{
+    tabs.forEach(t=>t.classList.remove('active')); tab.classList.add('active');
+    panel.querySelectorAll('.tabPage').forEach(p=>p.classList.toggle('active',p.dataset.page===tab.dataset.tab));
+  }));
+});
+
+function installCollapsibleDockPanel(panel){
+  const header=panel.querySelector(':scope > .panelHeader'); if(!header)return;
+  let title=header.querySelector('.panelHeaderTitle');
+  if(!title){
+    title=document.createElement('span'); title.className='panelHeaderTitle';
+    const text=[...header.childNodes].filter(n=>n.nodeType===Node.TEXT_NODE).map(n=>n.textContent).join('').trim();
+    title.textContent=text||panel.id;
+    [...header.childNodes].filter(n=>n.nodeType===Node.TEXT_NODE).forEach(n=>n.remove());
+    header.prepend(title);
+  }
+  let toggle=header.querySelector('.panelCollapse');
+  if(!toggle){ toggle=document.createElement('button'); toggle.className='panelCollapse'; toggle.textContent='▼'; toggle.title='Collapse / expand'; header.appendChild(toggle); }
+  const setCollapsed=v=>{panel.classList.toggle('collapsed',v);toggle.textContent=v?'▶':'▼';};
+  header.addEventListener('click',e=>{ if(e.target.closest('button') && e.target!==toggle)return; setCollapsed(!panel.classList.contains('collapsed')); });
+  toggle.addEventListener('click',e=>{e.stopPropagation();setCollapsed(!panel.classList.contains('collapsed'));});
+}
+document.querySelectorAll('.dockPanel').forEach(installCollapsibleDockPanel);
+
+const leftDock=document.getElementById('leftDock');
+document.getElementById('hideLeftDock').onclick=()=>{leftDock.classList.add('hidden');document.body.classList.add('leftDockHidden');resizeViewport();debugLog('SCENE','Left dock hidden; viewport expanded');};
+document.getElementById('showLeftDock').onclick=()=>{leftDock.classList.remove('hidden');document.body.classList.remove('leftDockHidden');resizeViewport();debugLog('SCENE','Left dock shown; viewport resized');};
+document.getElementById('collapseAll').onclick=()=>{document.querySelectorAll('#leftDock .dockPanel').forEach(p=>p.classList.add('collapsed'));debugLog('INFO','Collapsed all left-dock panels');};
+
+document.getElementById('gridSize').onchange=e=>{state.grid=parseFloat(e.target.value);document.getElementById('drcGrid').textContent=`${state.grid} mm`;setStatus(`Grid snap: ${state.grid} mm`);};
+document.getElementById('picoPins').oninput=e=>{const count=THREE.MathUtils.clamp(parseInt(e.target.value)||2,2,12);state.picoPins=count;e.target.value=count;if(state.placing?.type?.startsWith('picoblade-'))rebuildPicoBladeComponent(state.placing,count,{ghost:true});else if(state.selected?.type?.startsWith('picoblade-'))rebuildPicoBladeComponent(state.selected,count);setStatus(`PicoBlade pin count: ${count}`);};
+document.getElementById('terminalSockets').oninput=e=>setTerminalSocketCount(e.target.value);
+document.getElementById('terminalMinus').onclick=()=>setTerminalSocketCount(state.terminalSockets-1);
+document.getElementById('terminalPlus').onclick=()=>setTerminalSocketCount(state.terminalSockets+1);
+document.getElementById('connectorConfigMinus').onclick=()=>{const ed=state.connectorEditor;if(ed)previewConnectorCount(ed.stagedCount-1);};
+document.getElementById('connectorConfigPlus').onclick=()=>{const ed=state.connectorEditor;if(ed)previewConnectorCount(ed.stagedCount+1);};
+document.getElementById('connectorConfigConfirm').onclick=confirmConnectorConfig;
+document.getElementById('connectorConfigCancel').onclick=()=>closeConnectorConfig(true);
+
+// V9 PCB / layer-stack workflow
+refreshBoardReadouts();stackStore.subscribe(()=>{updateBoardGeometry({updateInputs:false});refreshBoardEditorUI();refreshTraceLayerUI();debugLog('SCENE','Layer stack changed',{thickness:getStackThickness(),items:stackStore.items.length});});
+document.getElementById('editBoardStack').onclick=()=>{selectBoard();showBoardConfigPage('board');};
+document.querySelectorAll('.boardConfigTab').forEach(b=>b.onclick=()=>showBoardConfigPage(b.dataset.boardTab));
+document.getElementById('boardConfigConfirm').onclick=confirmBoardConfig;
+document.getElementById('boardConfigCancel').onclick=()=>closeBoardConfig(true);
+document.getElementById('boardWidthInput').oninput=e=>setBoardDimensions(e.target.value,boardState.depth);
+document.getElementById('boardDepthInput').oninput=e=>setBoardDimensions(boardState.width,e.target.value);
+document.getElementById('addStackLayer').onclick=()=>stackStore.addLayer();
+document.getElementById('addStackDielectric').onclick=()=>stackStore.addDielectric();
+document.getElementById('deleteStackItem').onclick=()=>stackStore.deleteSelected();
+document.getElementById('stackPropName').oninput=e=>stackStore.updateSelected('name',e.target.value);
+document.getElementById('stackPropType').onchange=e=>stackStore.updateSelected('type',e.target.value);
+document.getElementById('stackPropThickness').oninput=e=>stackStore.updateSelected('thickness',`${Math.max(.005,Number(e.target.value)||.005)}mm`);
+document.getElementById('stackPropWeight').oninput=e=>stackStore.updateSelected('weight',e.target.value);
+document.getElementById('stackPropDk').oninput=e=>stackStore.updateSelected('dk',Math.max(1,Number(e.target.value)||1));
+
+
+refreshTraceLayerUI();
+document.getElementById('traceWidth').oninput=e=>state.traceWidth=THREE.MathUtils.clamp(parseFloat(e.target.value)||1,.15,8);
+document.getElementById('viaDiameter').oninput=e=>state.viaDiameter=THREE.MathUtils.clamp(parseFloat(e.target.value)||1.8,.5,6);
+document.getElementById('viaDrill').oninput=e=>state.viaDrill=THREE.MathUtils.clamp(parseFloat(e.target.value)||.8,.2,4);
+document.getElementById('traceLayerSelect').onchange=e=>{const next=clampTraceLayer(Number(e.target.value));if(state.traceRoute?.anchor&&next!==state.traceCopperLayer){const dir=next>state.traceCopperLayer?1:-1;while(state.traceCopperLayer!==next)switchTraceLayer(dir);}else{state.traceCopperLayer=next;refreshTraceLayerUI();}};
+document.getElementById('startTraceBtn').onclick=beginTraceRouting;
+document.getElementById('finishTraceBtn').onclick=finishTraceRouting;
+document.getElementById('cancelTraceBtn').onclick=cancelTraceRouting;
+
+document.getElementById('wireRadius').oninput=e=>state.wireRadius=parseFloat(e.target.value)||.45;
+document.getElementById('wireColor').onchange=e=>state.wireColor=Number(e.target.value);
+document.getElementById('rotateBtn').onclick=rotateActive;
+document.getElementById('deleteBtn').onclick=deleteSelected;
+document.getElementById('cancelBtn').onclick=cancelPlacement;
+document.getElementById('runDRC').onclick=runDRC;
+document.getElementById('clearNets').onclick=clearWires;
+document.getElementById('generateNetlist').onclick=()=>{refreshNetsUI();setStatus(`Netlist refreshed: ${state.wires.length} routed net(s).`);};
+
+window.addEventListener('keydown',e=>{
+  const tag=(e.target?.tagName||'').toLowerCase();const editing=tag==='input'||tag==='select'||tag==='textarea';
+  if((e.ctrlKey||e.metaKey)&&(e.key==='/'||e.key==='?')){e.preventDefault();toggleRuntimeDebug();return;}
+  if(state.traceRoute && !editing){
+    if(e.key==='2'){e.preventDefault();switchTraceLayer(1);return;}
+    if(e.key==='+'||e.key==='='){e.preventDefault();switchTraceLayer(-1);return;}
+    if(e.key==='-'||e.key==='_'){e.preventDefault();switchTraceLayer(1);return;}
+    if(e.key==='Enter'){e.preventDefault();finishTraceRouting();return;}
+    if(e.key==='Backspace'){e.preventDefault();undoTraceStep();return;}
+    if(e.key==='Escape'){e.preventDefault();cancelTraceRouting();return;}
+  }
+  if(editing)return;
+  if(e.key.toLowerCase()==='r'){e.preventDefault();rotateActive();}
+  if(e.key==='Delete'){e.preventDefault();deleteSelected();}
+  if(e.key==='Escape'){e.preventDefault();if(state.boardEditor){closeBoardConfig(true);deselectBoard(false);}else cancelPlacement();}
+  if(!state.selected || state.placing)return;
+  const d=state.grid;if(e.key==='ArrowUp')state.selected.group.position.z-=d;if(e.key==='ArrowDown')state.selected.group.position.z+=d;if(e.key==='ArrowLeft')state.selected.group.position.x-=d;if(e.key==='ArrowRight')state.selected.group.position.x+=d;
+});
+
+window.addEventListener('contextmenu' ,e=>{if(e.target===renderer.domElement)e.preventDefault();});
+window.addEventListener('resize',resizeViewport);
+
+/* =========================================================
+   MODULE 8 — ANIMATION
+========================================================= */
+// Photo-inspired behavioral demo, NOT an identified IC model or hardware schematic.
+const motorDemo={forward:false,reverse:false,rpm:0,lastTime:performance.now(),project:null};
+const demoPanel=document.createElement('div');
+demoPanel.className='dockPanel';
+demoPanel.innerHTML='<div class="panelContent"><h3>DC motor scene · v12</h3><p>3.7 V battery · conceptual H-bridge · two momentary buttons. Simulation only; photo IC unidentified.</p><button id="demoLoad">Load photo scene</button> <label>Import scene JSON <input id="demoImport" type="file" accept=".json"></label><p><button id="demoForward">Hold FORWARD</button> <button id="demoReverse">Hold REVERSE</button></p><output id="demoStatus">Stopped</output><p>Neither or both pressed = stop. Direction reverses through zero speed. Drag components with existing editor tools.</p></div>';
+document.getElementById('leftDock').prepend(demoPanel);
+function makeDemoMotor(){
+  const g=new THREE.Group();
+  const add=(geo,color,x,y,z)=>{const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color,metalness:.65,roughness:.35}));m.position.set(x,y,z);g.add(m);return m;};
+  add(new THREE.BoxGeometry(12,10,22),0xc8ced5,0,6,0);
+  add(new THREE.BoxGeometry(13,11,10),0xb49750,0,6,-16);
+  const shaft=add(new THREE.CylinderGeometry(1,1,12,12),0xdde3e8,0,6,-27);shaft.rotation.x=Math.PI/2;
+  const rotor=new THREE.Group();rotor.position.set(0,6,-33);g.add(rotor);
+  const flag=new THREE.Mesh(new THREE.BoxGeometry(7,3,1),new THREE.MeshStandardMaterial({color:0x168aff}));flag.position.x=3;rotor.add(flag);
+  const c=baseComponent('dc-motor','Geared DC motor (visual proxy)',g,[]);c.demoRotor=rotor;return c;
+}
+function validateMotorProject(p){
+  if(p?.format!=='alt-eda.motor-scene' || p.version!==1 || !Array.isArray(p.components) || !Array.isArray(p.connections))throw new Error('Expected alt-eda.motor-scene version 1');
+  if(p.components.length!==5 || p.connections.length>20)throw new Error('Demo requires five components');
+  const ids=new Set();const allowed=new Set(['battery','dip','tact-switch','dc-motor']);
+  for(const c of p.components){if(!allowed.has(c.type)||typeof c.id!=='string'||ids.has(c.id)||!Array.isArray(c.position)||c.position.length!==2||!c.position.every(v=>Number.isFinite(v)&&Math.abs(v)<=100))throw new Error('Invalid component');ids.add(c.id);}
+  for(const role of ['battery','driver','motor','forward','reverse'])if(!ids.has(p.roles?.[role]))throw new Error('Missing role '+role);
+  const expected={battery:'battery',driver:'dip',motor:'dc-motor',forward:'tact-switch',reverse:'tact-switch'};
+  if(new Set(Object.values(p.roles)).size!==5)throw new Error('Roles must be distinct');
+  for(const [role,type] of Object.entries(expected))if(p.components.find(c=>c.id===p.roles[role]).type!==type)throw new Error('Wrong role type');
+  for(const w of p.connections)if(!ids.has(w.from)||!ids.has(w.to)||typeof w.net!=='string'||!/^#[0-9a-f]{6}$/i.test(w.color))throw new Error('Invalid connection');
+  return p;
+}
+const defaultMotorProject={format:'alt-eda.motor-scene',version:1,units:'mm',description:'Photo-inspired behavioral H-bridge; wires are logical links, not physical IC pin assignments.',roles:{battery:'BAT1',driver:'U1',motor:'M1',forward:'SW1',reverse:'SW2'},components:[{id:'BAT1',type:'battery',position:[-45,0]},{id:'M1',type:'dc-motor',position:[30,-30]},{id:'U1',type:'dip',position:[30,10]},{id:'SW1',type:'tact-switch',position:[20,35]},{id:'SW2',type:'tact-switch',position:[40,35]}],connections:[{from:'BAT1',to:'U1',net:'VBAT_3V7',color:'#ee3434'},{from:'BAT1',to:'U1',net:'GND',color:'#222222'},{from:'U1',to:'M1',net:'MOTOR_A',color:'#ee3434'},{from:'U1',to:'M1',net:'MOTOR_B',color:'#222222'},{from:'SW1',to:'U1',net:'IN_FORWARD',color:'#e4d655'},{from:'SW2',to:'U1',net:'IN_REVERSE',color:'#58ccff'}]};
+function loadMotorProject(raw){
+  const p=validateMotorProject(raw);cancelPlacement();
+  motorDemo.forward=motorDemo.reverse=false;motorDemo.rpm=0;
+  for(const c of state.components){scene.remove(c.group);disposeObject(c.group);}state.components=[];selectComponent(null);clearWires();
+  const lookup=new Map();
+  for(const record of p.components){const c=record.type==='dc-motor'?makeDemoMotor():buildComponent(record.type);c.id=record.id;c.group.position.set(record.position[0],boardTopY(),record.position[1]);scene.add(c.group);state.components.push(c);lookup.set(c.id,c);}
+  lookup.get(p.roles.driver).label='Conceptual H-bridge · unidentified photo DIP8';
+  p.connections.forEach((w,i)=>{const a=lookup.get(w.from).group.position.clone(),b=lookup.get(w.to).group.position.clone();a.z+=i%2?2:-2;b.z+=i%2?2:-2;const mesh=createWireMesh(a,b,Number(w.color.replace('#','0x')),.45);wireGroup.add(mesh);state.wires.push({id:w.net,a,b,mesh,color:Number(w.color.replace('#','0x')),radius:.45});});
+  motorDemo.project=p;refreshNetsUI();setStatus('Motor scene loaded — use Hold FORWARD / REVERSE. Wires are conceptual links.');
+}
+function motorStep(rpm,forward,reverse,dt){const target=forward===reverse?0:forward?120:-120;const nextTarget=rpm*target<0?0:target;return rpm+Math.sign(nextTarget-rpm)*Math.min(Math.abs(nextTarget-rpm),360*dt);}
+for(const [id,key] of [['demoForward','forward'],['demoReverse','reverse']]){const button=document.getElementById(id);button.style.touchAction='none';button.onpointerdown=e=>{button.setPointerCapture(e.pointerId);motorDemo[key]=true;};for(const event of ['pointerup','pointercancel','lostpointercapture'])button.addEventListener(event,()=>motorDemo[key]=false);button.onkeydown=e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();motorDemo[key]=true;}};button.onkeyup=()=>motorDemo[key]=false;button.onblur=()=>motorDemo[key]=false;}
+window.addEventListener('blur',()=>{motorDemo.forward=motorDemo.reverse=false;});
+document.getElementById('demoLoad').onclick=()=>loadMotorProject(defaultMotorProject);
+document.getElementById('demoImport').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>100000)throw new Error('Scene file too large');loadMotorProject(JSON.parse(await file.text()));}catch(error){setStatus('Import rejected: '+error.message);}e.target.value='';};
+function animate(){requestAnimationFrame(animate);const now=performance.now(),dt=Math.min(.05,(now-motorDemo.lastTime)/1000);motorDemo.lastTime=now;motorDemo.rpm=motorStep(motorDemo.rpm,motorDemo.forward,motorDemo.reverse,dt);const motor=state.components.find(c=>c.id===motorDemo.project?.roles.motor);if(motor?.demoRotor)motor.demoRotor.rotation.z+=motorDemo.rpm*2*Math.PI/60*dt;document.getElementById('demoStatus').textContent=`${motorDemo.forward&&motorDemo.reverse?'Both pressed — safe stop':motorDemo.rpm>0?'Forward':motorDemo.rpm<0?'Reverse':'Stopped'} · ${Math.abs(motorDemo.rpm).toFixed(0)} RPM (illustrative)`;controls.update();renderer.render(scene,camera);} animate();
+refreshNetsUI();
+</script>
+</body>
+</html>

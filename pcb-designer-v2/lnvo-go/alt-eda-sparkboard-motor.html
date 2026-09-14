@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>alt-EDA · SparkBoard Motor Study</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101923;color:#e4edf5;
+font:14px system-ui}canvas{display:block}
+aside{position:absolute;top:16px;left:16px;width:280px;padding:18px;
+background:#152431ed;border:1px solid #385064;border-radius:14px}
+h2{margin:0 0 6px;font-size:20px}small{color:#9cb3c6}
+label{display:block;margin-top:16px}input[type=range]{width:100%}
+button{background:#263e50;color:white;border:1px solid #496579;
+padding:8px 12px;border-radius:7px;margin:8px 4px 0 0;cursor:pointer}
+#info{margin-top:16px;line-height:1.5;min-height:80px}
+.warning{font-size:12px;color:#f4c575;margin-top:16px}
+</style>
+<script type="importmap">
+{"imports":{
+"three":"https://unpkg.com/three@0.170.0/build/three.module.js",
+"three/addons/":"https://unpkg.com/three@0.170.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<aside>
+<h2>alt-EDA / Motor Study</h2>
+<small>SparkBoard-inspired visual assembly</small>
+<label>Exploded inspection <span id="exValue">0%</span>
+<input id="explode" type="range" min="0" max="1" step=".01" value="0">
+</label>
+<label>Conceptual speed command <span id="speedValue">0%</span>
+<input id="speed" type="range" min="0" max="1" step=".01" value="0">
+</label>
+<button id="front">Front</button><button id="iso">Isometric</button>
+<button id="export">Export assembly</button>
+<div id="info">Click a component to inspect it.</div>
+<div class="warning">
+Visual study only. Three motor leads do not establish a valid commutation
+circuit. Wire paths, pin assignments, dimensions, speed, and electrical
+behavior are not verified. No build-ready schematic is supplied.
+</div>
+</aside>
+<script type="module">
+import * as THREE from "three";
+import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color("#101923");
+const camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.1,2000);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+document.body.appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.target.set(0,0,0);
+controls.enableDamping=true;
+scene.add(new THREE.HemisphereLight(0xcdefff,0x17202c,2));
+const light=new THREE.DirectionalLight(0xffffff,3);
+light.position.set(-80,150,200);scene.add(light);
+
+const assembly=new THREE.Group();scene.add(assembly);
+const harness=new THREE.Group();assembly.add(harness);
+const records=[],parts=new Map(),pickables=[],wireRecords=[];
+let explosion=0,command=0,selected=null;
+
+// This reference uses open-air harnesses, not inferred PCB copper.
+// Adapter point only: the existing editor's routing implementation is untouched.
+const PCBState={layers:[],traces:[],vias:[]};
+const PCBBoard=new THREE.Group();PCBBoard.name="PCBBoard";
+assembly.add(PCBBoard);
+
+function material(color,metalness=0,roughness=.5){
+ return new THREE.MeshStandardMaterial({color,metalness,roughness});
+}
+function mesh(parent,geometry,color,position=[0,0,0],metalness=0){
+ const m=new THREE.Mesh(geometry,material(color,metalness));
+ m.position.set(...position);parent.add(m);return m;
+}
+function box(parent,size,color,pos=[0,0,0],metalness=0){
+ return mesh(parent,new THREE.BoxGeometry(...size),color,pos,metalness);
+}
+function cylinder(parent,radius,length,color,pos=[0,0,0],metalness=0){
+ const m=mesh(parent,new THREE.CylinderGeometry(radius,radius,length,32),
+ color,pos,metalness);m.rotation.x=Math.PI/2;return m;
+}
+function label(parent,text,pos,width=26){
+ const canvas=document.createElement("canvas");
+ canvas.width=512;canvas.height=128;
+ const ctx=canvas.getContext("2d");
+ ctx.fillStyle="#15212bea";ctx.fillRect(0,0,512,128);
+ ctx.fillStyle="white";ctx.font="bold 45px system-ui";
+ ctx.textAlign="center";ctx.textBaseline="middle";
+ ctx.fillText(text,256,64);
+ const map=new THREE.CanvasTexture(canvas);
+ const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map}));
+ sprite.position.set(...pos);sprite.scale.set(width,width/4,1);
+ parent.add(sprite);
+}
+function part(id,name,pos,offset,description,builder){
+ const root=new THREE.Group();root.name=id;assembly.add(root);
+ const record={id,name,assembledPosition:[...pos],
+ explodeOffset:[...offset],description};
+ records.push(record);parts.set(id,root);
+ root.userData.record=record;builder(root);
+ root.traverse(o=>{if(o.isMesh)pickables.push(o)});
+ return root;
+}
+function rod(parent,a,b,color,radius=.5){
+ const p=new THREE.Vector3(...a),q=new THREE.Vector3(...b);
+ const direction=q.clone().sub(p),length=direction.length();
+ if(length<1e-6)return;
+ const m=mesh(parent,new THREE.CylinderGeometry(radius,radius,length,10),
+ color);
+ m.position.copy(p).add(q).multiplyScalar(.5);
+ m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),
+ direction.normalize());return m;
+}
+function wire(id,from,to,color,bends=[]){
+ wireRecords.push({id,from,to,color,bends});
+}
+function anchor(token){
+ const p=new THREE.Vector3(...token.point);
+ parts.get(token.partId).localToWorld(p);
+ return assembly.worldToLocal(p);
+}
+function rebuildHarness(){
+ for(const child of [...harness.children]){
+  harness.remove(child);child.geometry.dispose();child.material.dispose();
+ }
+ assembly.updateWorldMatrix(true,true);
+ for(const w of wireRecords){
+  const points=[anchor(w.from),
+   ...w.bends.map(p=>new THREE.Vector3(...p)),anchor(w.to)];
+  for(let i=1;i<points.length;i++)
+   rod(harness,points[i-1].toArray(),points[i].toArray(),w.color,.65);
+ }
+}
+
+// Illustrative scene units are mm; layout follows the supplied image.
+part("HEATSINK","Finned aluminum heatsink",[0,49,0],[0,0,-25],
+ "Shared visual heatsink. Electrical isolation and thermal design unverified.",
+ g=>{
+ box(g,[108,35,5],0xaebbc5,[0,0,0],.8);
+ for(let y=-15;y<=15;y+=5)box(g,[108,1.3,12],0xc8d3da,[0,y,-3],.8);
+ label(g,"ALUMINUM HEATSINK",[0,19,8],48);
+});
+
+for(const [id,x] of [["Q1",-34],["Q2",0],["Q3",34]]){
+ part(id,"IRF3205 photo-label proxy",[x,41,10],[0,0,25],
+ "TO-220-style visual package. Photo label is not a validated pin/net assignment.",
+ g=>{
+ box(g,[17,24,2],0xb8c4ce,[0,3,0],.8);
+ box(g,[18,14,5],0x171c21,[0,-2,3]);
+ cylinder(g,2,2,0xcacfd5,[0,11,2],.9);
+ for(const px of [-5,0,5])rod(g,[px,-9,2],[px,-21,2],0xcbd6de,.55);
+ label(g,id+" · IRF3205",[0,-1,7],18);
+ });
+}
+
+const diodePositions=[
+ [-20,5],[20,5],[20,-8],[-31,-34],[5,-34],[31,-34]
+];
+diodePositions.forEach(([x,y],i)=>{
+ part("D"+(i+1),"Axial diode proxy",[x,y,13],[0,0,18],
+ "Reference diode body; image labels include 1N4007. Polarity/netlist not inferred.",
+ g=>{
+ const body=cylinder(g,2,11,0x161b21);
+ body.rotation.set(0,0,Math.PI/2);
+ const band=cylinder(g,2.05,1,0xb9c5ce,[-3.8,0,0]);
+ band.rotation.set(0,0,Math.PI/2);
+ rod(g,[-9,0,0],[9,0,0],0xc9d5df,.4);
+ label(g,"D"+(i+1),[0,-4,3],10);
+ });
+});
+
+[[-21,-13],[20,-20],[-21,-24],[22,-50]].forEach(([x,y],i)=>{
+ part("R"+(i+1),i===3?"4.7kΩ resistor proxy":"10kΩ resistor proxy",
+ [x,y,14],[0,0,18],"Illustrative axial resistor; no electrical simulation.",
+ g=>{
+ const body=cylinder(g,2.1,14,0xc69a61);
+ body.rotation.set(0,0,Math.PI/2);
+ for(const [j,color] of [0x754420,0x161616,0xd96b23,0xbea05b].entries()){
+  const band=cylinder(g,2.15,.8,color,[-4+j*2.6,0,0]);
+  band.rotation.set(0,0,Math.PI/2);
+ }
+ rod(g,[-12,0,0],[12,0,0],0xcbd5dd,.4);
+ });
+});
+
+const motor=part("M1","Three-lead motor reference",[-24,99,10],[0,0,30],
+ "Red/black motor visual. Three leads suggest a three-phase motor study, not a verified two-wire DC load.",
+ g=>{
+ cylinder(g,14,25,0x171d25,[0,0,0],.5);
+ cylinder(g,14.3,3,0xc92942,[0,0,13],.6);
+ cylinder(g,14.3,3,0xc92942,[0,0,-13],.6);
+ label(g,"MOTOR / 3 LEADS",[0,-18,16],34);
+});
+const rotor=new THREE.Group();motor.add(rotor);rotor.position.z=15;
+cylinder(rotor,4,5,0xcdd6dd,[0,0,0],.8);
+for(let i=0;i<8;i++){
+ const a=i*Math.PI/4;
+ const blade=box(rotor,[3,8,1.5],0xd33648,
+ [9*Math.cos(a),9*Math.sin(a),0],.5);blade.rotation.z=a-Math.PI/2;
+}
+cylinder(rotor,1.8,12,0xd9e3eb,[0,0,5],.9);
+
+part("BAT1","12V battery reference",[30,-92,0],[0,0,-15],
+ "Illustrative battery enclosure, nominal photo label 12V; no current/fault model.",
+ g=>{
+ box(g,[46,38,26],0x171c24);
+ box(g,[47,4,27],0x2b3540,[0,20,0]);
+ cylinder(g,2.5,5,0xe54848,[15,23,9],.6);
+ cylinder(g,2.5,5,0x222a32,[-15,23,9],.6);
+ label(g,"12V BATTERY",[0,0,14],38);
+ label(g,"−           +",[0,19,16],32);
+});
+
+let knob;
+part("POT1","100kΩ potentiometer reference",[-39,-85,10],[0,0,22],
+ "Conceptual speed control only. It does not solve transistor gates or motor commutation.",
+ g=>{
+ cylinder(g,9,6,0xbaa26e,[0,-8,0],.5);
+ cylinder(g,5,12,0xa9b6c0,[0,0,5],.8);
+ knob=new THREE.Group();g.add(knob);knob.position.set(0,3,15);
+ cylinder(knob,7,12,0x26343c);
+ box(knob,[1.8,8,1],0x35e7ac,[0,2,7]);
+ for(const x of [-5,0,5])rod(g,[x,-12,0],[x,-18,0],0xc6d3dc,.55);
+ label(g,"100kΩ POT", [0,-24,8],25);
+});
+
+const end=(partId,point)=>({partId,point});
+// Visual harness records only: these are not an electrical netlist.
+wire("PHASE_A",end("M1",[14,-4,0]),end("Q1",[0,11,2]),0x287df3,
+ [[23,94,20],[23,65,20],[-34,65,20]]);
+wire("PHASE_B",end("M1",[14,0,0]),end("Q2",[0,11,2]),0xd9cf13,
+ [[29,98,21],[29,70,21],[0,70,21]]);
+wire("PHASE_C",end("M1",[14,4,0]),end("Q3",[0,11,2]),0x12b62c,
+ [[35,102,22],[35,73,22],[34,73,22]]);
+wire("SUPPLY_REFERENCE",end("BAT1",[15,23,9]),end("M1",[14,8,0]),
+ 0xf02b3c,[[64,-69,20],[64,111,20]]);
+wire("RETURN_REFERENCE",end("BAT1",[-15,23,9]),end("POT1",[5,-18,0]),
+ 0x26333e,[[15,-115,20],[-34,-115,20]]);
+wire("CONTROL_REFERENCE",end("POT1",[0,-18,0]),end("R4",[-12,0,0]),
+ 0xc8d817,[[-39,-60,20],[10,-60,20]]);
+for(const [id,x] of [["Q1",-34],["Q2",0],["Q3",34]]){
+ wire(id+"_VISUAL_LEAD",end(id,[-5,-21,2]),end("D4",[-9,0,0]),
+ 0xf43ac2,[[x-5,-7,18],[-40,-7,18]]);
+ wire(id+"_VISUAL_BUS",end(id,[5,-21,2]),end("D6",[9,0,0]),
+ 0x1a99dc,[[x+5,-24,19],[43,-24,19]]);
+}
+
+function applyInspection(){
+ for(const r of records){
+  const g=parts.get(r.id);
+  g.position.fromArray(r.assembledPosition)
+   .addScaledVector(new THREE.Vector3(...r.explodeOffset),explosion);
+ }
+ rebuildHarness();
+}
+applyInspection();
+
+const outline=new THREE.BoxHelper(new THREE.Object3D(),0x49efba);
+outline.visible=false;scene.add(outline);
+function inspect(root){
+ selected=root;
+ document.getElementById("info").textContent=
+ root.userData.record.name+" — "+root.userData.record.description;
+ outline.setFromObject(root);outline.visible=true;
+}
+const ray=new THREE.Raycaster(),pointer=new THREE.Vector2();
+let down;
+renderer.domElement.addEventListener("pointerdown",e=>down=[e.clientX,e.clientY]);
+renderer.domElement.addEventListener("pointerup",e=>{
+ if(!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>5)return;
+ const rect=renderer.domElement.getBoundingClientRect();
+ pointer.set((e.clientX-rect.left)/rect.width*2-1,
+ -(e.clientY-rect.top)/rect.height*2+1);
+ ray.setFromCamera(pointer,camera);
+ const hit=ray.intersectObjects(pickables,false)[0];
+ if(hit){let root=hit.object;while(!root.userData.record)root=root.parent;
+ inspect(root);}
+});
+document.getElementById("explode").oninput=e=>{
+ explosion=Number(e.target.value);applyInspection();
+ document.getElementById("exValue").textContent=Math.round(explosion*100)+"%";
+};
+document.getElementById("speed").oninput=e=>{
+ command=Number(e.target.value);
+ document.getElementById("speedValue").textContent=Math.round(command*100)+"%";
+};
+function view(iso){
+ camera.position.set(iso?160:0,iso?100:0,iso?310:370);
+ controls.target.set(0,0,0);controls.update();
+}
+document.getElementById("front").onclick=()=>view(false);
+document.getElementById("iso").onclick=()=>view(true);view(true);
+document.getElementById("export").onclick=()=>{
+ const project={format:"alt-eda.sparkboard-visual.v1",
+ units:"illustrative-mm",parts:structuredClone(records),
+ harnesses:structuredClone(wireRecords),PCBState:structuredClone(PCBState),
+ inspection:{explosion},conceptualInput:{command},
+ warning:"Visual reference only; harness records are not verified electrical nets."};
+ const url=URL.createObjectURL(new Blob([JSON.stringify(project,null,2)],
+ {type:"application/json"}));
+ const a=document.createElement("a");a.href=url;
+ a.download="sparkboard-motor-project.json";a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
+window.altEDA={assembly,PCBBoard,PCBState,parts,
+ getAssemblyRecords:()=>structuredClone(records)};
+
+addEventListener("resize",()=>{
+ camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
+});
+const clock=new THREE.Clock();
+renderer.setAnimationLoop(()=>{
+ const dt=Math.min(clock.getDelta(),.05);
+ rotor.rotation.z+=dt*command*12; // illustrative animation, not predicted RPM
+ knob.rotation.z=-command*Math.PI*1.5;
+ if(selected)outline.setFromObject(selected);
+ controls.update();renderer.render(scene,camera);
+});
+</script>
+</body>
+</html>
