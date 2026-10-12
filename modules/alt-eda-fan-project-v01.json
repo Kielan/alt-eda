@@ -1,0 +1,1235 @@
+{
+  "schema": "alt-eda.project",
+  "schemaVersion": 1,
+  "id": "FAN_REFERENCE_01",
+  "name": "Five-coil fan motor \u2014 reference reconstruction",
+  "units": "mm",
+  "coordinates": {
+    "up": "Y",
+    "boardPlane": "XZ",
+    "tracePointY": 0,
+    "rotationUnits": "radians",
+    "scale": [
+      1,
+      1,
+      1
+    ]
+  },
+  "provenance": {
+    "reference": "CameraRecording-7CAD569D-E9B9-454D-882A-260432427B44.mp4",
+    "observed": [
+      "circular green PCB",
+      "central shaft/bearing feature",
+      "two large solder pads on right",
+      "small lower-left component cluster",
+      "black peripheral impeller"
+    ],
+    "userReported": [
+      "five copper coils below PCB",
+      "automotive ECU/fan use"
+    ],
+    "unverified": [
+      "chip identities",
+      "input voltage",
+      "terminal polarity",
+      "winding phase map",
+      "magnet pole count",
+      "dimensions",
+      "actual PCB stackup",
+      "vehicle ECU connection"
+    ],
+    "dimensionBasis": "illustrative; not measured from recording"
+  },
+  "boards": [
+    {
+      "id": "FAN_PCB",
+      "name": "Fan controller PCB",
+      "outline": {
+        "kind": "circle",
+        "radius": 22.8,
+        "holes": [
+          {
+            "id": "SHAFT_CLEARANCE",
+            "center": {
+              "x": 0,
+              "z": 0
+            },
+            "radius": 4
+          }
+        ]
+      },
+      "assemblyPartId": "PCB_ASSEMBLY",
+      "stackupOrder": "top-to-bottom",
+      "pcbState": {
+        "layers": [
+          {
+            "id": "Top",
+            "name": "Top",
+            "kind": "copper",
+            "type": "Signal",
+            "thickness": 0.035
+          },
+          {
+            "id": "Core",
+            "name": "Core",
+            "kind": "dielectric",
+            "type": "Dielectric",
+            "thickness": 1.0
+          },
+          {
+            "id": "Bottom",
+            "name": "Bottom",
+            "kind": "copper",
+            "type": "Signal",
+            "thickness": 0.035
+          }
+        ],
+        "traces": [],
+        "vias": []
+      },
+      "components": [
+        {
+          "id": "UNKNOWN_1",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "label": "Unidentified component 1",
+          "package": null,
+          "manufacturer": null,
+          "partNumber": null,
+          "pinoutVerified": false,
+          "placement": {
+            "x": -12,
+            "z": 6,
+            "rotationY": 0
+          },
+          "body": {
+            "width": 5,
+            "height": 0.9,
+            "depth": 3
+          },
+          "padIds": [],
+          "evidence": "approximate body in visible lower-left cluster; not a verified component count"
+        },
+        {
+          "id": "UNKNOWN_2",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "label": "Unidentified component 2",
+          "package": null,
+          "manufacturer": null,
+          "partNumber": null,
+          "pinoutVerified": false,
+          "placement": {
+            "x": -14,
+            "z": 10,
+            "rotationY": 0
+          },
+          "body": {
+            "width": 1.7,
+            "height": 0.5,
+            "depth": 0.9
+          },
+          "padIds": [],
+          "evidence": "approximate body in visible lower-left cluster; not a verified component count"
+        },
+        {
+          "id": "UNKNOWN_3",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "label": "Unidentified component 3",
+          "package": null,
+          "manufacturer": null,
+          "partNumber": null,
+          "pinoutVerified": false,
+          "placement": {
+            "x": -11,
+            "z": 10,
+            "rotationY": 0
+          },
+          "body": {
+            "width": 1.7,
+            "height": 0.5,
+            "depth": 0.9
+          },
+          "padIds": [],
+          "evidence": "approximate body in visible lower-left cluster; not a verified component count"
+        },
+        {
+          "id": "UNKNOWN_4",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "label": "Unidentified component 4",
+          "package": null,
+          "manufacturer": null,
+          "partNumber": null,
+          "pinoutVerified": false,
+          "placement": {
+            "x": -14,
+            "z": 12.1,
+            "rotationY": 0
+          },
+          "body": {
+            "width": 1.7,
+            "height": 0.5,
+            "depth": 0.9
+          },
+          "padIds": [],
+          "evidence": "approximate body in visible lower-left cluster; not a verified component count"
+        },
+        {
+          "id": "UNKNOWN_5",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "label": "Unidentified component 5",
+          "package": null,
+          "manufacturer": null,
+          "partNumber": null,
+          "pinoutVerified": false,
+          "placement": {
+            "x": -11,
+            "z": 12.1,
+            "rotationY": 0
+          },
+          "body": {
+            "width": 1.7,
+            "height": 0.5,
+            "depth": 0.9
+          },
+          "padIds": [],
+          "evidence": "approximate body in visible lower-left cluster; not a verified component count"
+        },
+        {
+          "id": "UNKNOWN_6",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "label": "Unidentified component 6",
+          "package": null,
+          "manufacturer": null,
+          "partNumber": null,
+          "pinoutVerified": false,
+          "placement": {
+            "x": -14,
+            "z": 14.2,
+            "rotationY": 0
+          },
+          "body": {
+            "width": 1.7,
+            "height": 0.5,
+            "depth": 0.9
+          },
+          "padIds": [],
+          "evidence": "approximate body in visible lower-left cluster; not a verified component count"
+        }
+      ],
+      "pads": [
+        {
+          "id": "OBS_JOINT_1",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "domain": "unclassified",
+          "netId": null,
+          "position": {
+            "x": -8,
+            "y": 0,
+            "z": -10
+          },
+          "shape": {
+            "kind": "circle",
+            "radius": 1.3
+          },
+          "routeEligible": false,
+          "evidence": "visible solder region; location and size illustrative"
+        },
+        {
+          "id": "OBS_JOINT_2",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "domain": "unclassified",
+          "netId": null,
+          "position": {
+            "x": 7,
+            "y": 0,
+            "z": -10
+          },
+          "shape": {
+            "kind": "circle",
+            "radius": 1.3
+          },
+          "routeEligible": false,
+          "evidence": "visible solder region; location and size illustrative"
+        },
+        {
+          "id": "OBS_JOINT_3",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "domain": "unclassified",
+          "netId": null,
+          "position": {
+            "x": 18.8,
+            "y": 0,
+            "z": -2
+          },
+          "shape": {
+            "kind": "circle",
+            "radius": 1.9
+          },
+          "routeEligible": false,
+          "evidence": "visible solder region; location and size illustrative"
+        },
+        {
+          "id": "OBS_JOINT_4",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "domain": "unclassified",
+          "netId": null,
+          "position": {
+            "x": 18.8,
+            "y": 0,
+            "z": 4
+          },
+          "shape": {
+            "kind": "circle",
+            "radius": 1.9
+          },
+          "routeEligible": false,
+          "evidence": "visible solder region; location and size illustrative"
+        },
+        {
+          "id": "OBS_JOINT_5",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "domain": "unclassified",
+          "netId": null,
+          "position": {
+            "x": 5,
+            "y": 0,
+            "z": 10
+          },
+          "shape": {
+            "kind": "circle",
+            "radius": 1.3
+          },
+          "routeEligible": false,
+          "evidence": "visible solder region; location and size illustrative"
+        },
+        {
+          "id": "DEMO_1",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "domain": "demo",
+          "netId": "DEMO_TEST",
+          "position": {
+            "x": 18.697538,
+            "y": 0,
+            "z": 7.905192
+          },
+          "shape": {
+            "kind": "circle",
+            "radius": 0.85
+          },
+          "routeEligible": true,
+          "evidence": "synthetic demonstration port"
+        },
+        {
+          "id": "DEMO_2",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "domain": "demo",
+          "netId": "DEMO_TEST",
+          "position": {
+            "x": -1.740428,
+            "y": 0,
+            "z": 20.225254
+          },
+          "shape": {
+            "kind": "circle",
+            "radius": 0.85
+          },
+          "routeEligible": true,
+          "evidence": "synthetic demonstration port"
+        },
+        {
+          "id": "DEMO_3",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "domain": "demo",
+          "netId": "DEMO_TEST",
+          "position": {
+            "x": -19.773182,
+            "y": 0,
+            "z": 4.594702
+          },
+          "shape": {
+            "kind": "circle",
+            "radius": 0.85
+          },
+          "routeEligible": true,
+          "evidence": "synthetic demonstration port"
+        },
+        {
+          "id": "DEMO_4",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "domain": "demo",
+          "netId": "DEMO_TEST",
+          "position": {
+            "x": -10.480071,
+            "y": 0,
+            "z": -17.385572
+          },
+          "shape": {
+            "kind": "circle",
+            "radius": 0.85
+          },
+          "routeEligible": true,
+          "evidence": "synthetic demonstration port"
+        },
+        {
+          "id": "DEMO_5",
+          "boardId": "FAN_PCB",
+          "layerId": "Top",
+          "domain": "demo",
+          "netId": "DEMO_TEST",
+          "position": {
+            "x": 13.296142,
+            "y": 0,
+            "z": -15.339577
+          },
+          "shape": {
+            "kind": "circle",
+            "radius": 0.85
+          },
+          "routeEligible": true,
+          "evidence": "synthetic demonstration port"
+        }
+      ],
+      "nets": [
+        {
+          "id": "DEMO_TEST",
+          "domain": "demo",
+          "verified": false
+        }
+      ],
+      "referenceCopper": {
+        "electricalMeaning": "unknown",
+        "paths": [
+          [
+            {
+              "x": 18.8,
+              "z": -2
+            },
+            {
+              "x": 9,
+              "z": -2
+            },
+            {
+              "x": 7,
+              "z": -10
+            }
+          ],
+          [
+            {
+              "x": -8,
+              "z": -10
+            },
+            {
+              "x": -15,
+              "z": -10
+            },
+            {
+              "x": -15,
+              "z": 4
+            }
+          ]
+        ],
+        "routeEligible": false,
+        "note": "Approximate visual strokes only; not recovered copper connectivity."
+      }
+    }
+  ],
+  "assembly": {
+    "rootId": "FAN_ASSEMBLY",
+    "parts": [
+      {
+        "id": "FAN_ASSEMBLY",
+        "parentId": null,
+        "kind": "assembly",
+        "motion": "stationary",
+        "assembledTransform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inspectionOffset": [
+          0,
+          0,
+          0
+        ],
+        "geometry": null,
+        "basis": "illustrative"
+      },
+      {
+        "id": "PCB_ASSEMBLY",
+        "parentId": "FAN_ASSEMBLY",
+        "kind": "board",
+        "motion": "stationary",
+        "assembledTransform": {
+          "position": [
+            0,
+            9,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inspectionOffset": [
+          0,
+          23,
+          0
+        ],
+        "geometry": {
+          "boardId": "FAN_PCB"
+        },
+        "basis": "visible outline; illustrative placement"
+      },
+      {
+        "id": "STATOR",
+        "parentId": "FAN_ASSEMBLY",
+        "kind": "stator",
+        "motion": "stationary",
+        "assembledTransform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inspectionOffset": [
+          0,
+          0,
+          0
+        ],
+        "geometry": {
+          "hubOuterRadius": 9,
+          "hubInnerRadius": 3,
+          "height": 8
+        },
+        "basis": "illustrative"
+      },
+      {
+        "id": "BASE",
+        "parentId": "FAN_ASSEMBLY",
+        "kind": "carrier",
+        "motion": "stationary",
+        "assembledTransform": {
+          "position": [
+            0,
+            -10,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inspectionOffset": [
+          0,
+          -18,
+          0
+        ],
+        "geometry": {
+          "outerRadius": 23.8,
+          "innerRadius": 4,
+          "height": 2
+        },
+        "basis": "illustrative"
+      },
+      {
+        "id": "SPINDLE",
+        "parentId": "STATOR",
+        "kind": "spindle",
+        "motion": "stationary",
+        "assembledTransform": {
+          "position": [
+            0,
+            2,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inspectionOffset": [
+          0,
+          0,
+          0
+        ],
+        "geometry": {
+          "radius": 2.2,
+          "height": 30
+        },
+        "basis": "illustrative"
+      },
+      {
+        "id": "ROTOR",
+        "parentId": "FAN_ASSEMBLY",
+        "kind": "rotor",
+        "motion": "rotating",
+        "assembledTransform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inspectionOffset": [
+          0,
+          13,
+          0
+        ],
+        "geometry": {
+          "fanOuterDiameter": 80,
+          "rimOuterRadius": 36,
+          "rimInnerRadius": 26.8,
+          "height": 12,
+          "bladeCount": 28,
+          "bladeSize": [
+            7,
+            11,
+            1
+          ],
+          "bladeSweepY": 0.4,
+          "backplateY": -7,
+          "backplateThickness": 2,
+          "backplateInnerRadius": 2.5
+        },
+        "basis": "visible fan; illustrative blade count and dimensions"
+      },
+      {
+        "id": "MAGNET_RING",
+        "parentId": "ROTOR",
+        "kind": "magnets",
+        "motion": "rotating",
+        "assembledTransform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inspectionOffset": [
+          0,
+          0,
+          0
+        ],
+        "geometry": {
+          "outerRadius": 26.8,
+          "innerRadius": 24.8,
+          "height": 7,
+          "sectorCount": 8,
+          "alternatingColors": [
+            "#a65855",
+            "#38719c"
+          ]
+        },
+        "basis": "illustrative"
+      },
+      {
+        "id": "ROTOR_BEARING",
+        "parentId": "ROTOR",
+        "kind": "bearing",
+        "motion": "rotating",
+        "assembledTransform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inspectionOffset": [
+          0,
+          0,
+          0
+        ],
+        "geometry": {
+          "outerRadius": 5,
+          "innerRadius": 2.5,
+          "height": 6
+        },
+        "basis": "illustrative"
+      },
+      {
+        "id": "CENTER_CAP",
+        "parentId": "ROTOR",
+        "kind": "cap",
+        "motion": "rotating",
+        "assembledTransform": {
+          "position": [
+            0,
+            11,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inspectionOffset": [
+          0,
+          0,
+          0
+        ],
+        "geometry": {
+          "outerRadius": 6,
+          "innerRadius": 2.4,
+          "height": 2
+        },
+        "basis": "visible center feature; attachment inferred"
+      },
+      {
+        "id": "COIL_1",
+        "parentId": "STATOR",
+        "kind": "winding",
+        "motion": "stationary",
+        "assembledTransform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            -0.0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inspectionOffset": [
+          0,
+          0,
+          0
+        ],
+        "geometry": {
+          "axis": "local X",
+          "axisStart": 10,
+          "axisEnd": 19.8,
+          "loopRadiusY": 3.8,
+          "loopRadiusZ": 3.5,
+          "turns": 22,
+          "wireRadius": 0.34,
+          "toothCenterX": 14.9,
+          "toothSize": [
+            11.8,
+            6,
+            5
+          ],
+          "bobbinCenterX": 14.4,
+          "bobbinSize": [
+            9.8,
+            6.6,
+            5.8
+          ]
+        },
+        "basis": "count user-reported; shape/turns illustrative",
+        "terminals": [
+          {
+            "id": "COIL_1_A",
+            "localPosition": null
+          },
+          {
+            "id": "COIL_1_B",
+            "localPosition": null
+          }
+        ]
+      },
+      {
+        "id": "COIL_2",
+        "parentId": "STATOR",
+        "kind": "winding",
+        "motion": "stationary",
+        "assembledTransform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            -1.2566370614359172,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inspectionOffset": [
+          0,
+          0,
+          0
+        ],
+        "geometry": {
+          "axis": "local X",
+          "axisStart": 10,
+          "axisEnd": 19.8,
+          "loopRadiusY": 3.8,
+          "loopRadiusZ": 3.5,
+          "turns": 22,
+          "wireRadius": 0.34,
+          "toothCenterX": 14.9,
+          "toothSize": [
+            11.8,
+            6,
+            5
+          ],
+          "bobbinCenterX": 14.4,
+          "bobbinSize": [
+            9.8,
+            6.6,
+            5.8
+          ]
+        },
+        "basis": "count user-reported; shape/turns illustrative",
+        "terminals": [
+          {
+            "id": "COIL_2_A",
+            "localPosition": null
+          },
+          {
+            "id": "COIL_2_B",
+            "localPosition": null
+          }
+        ]
+      },
+      {
+        "id": "COIL_3",
+        "parentId": "STATOR",
+        "kind": "winding",
+        "motion": "stationary",
+        "assembledTransform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            -2.5132741228718345,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inspectionOffset": [
+          0,
+          0,
+          0
+        ],
+        "geometry": {
+          "axis": "local X",
+          "axisStart": 10,
+          "axisEnd": 19.8,
+          "loopRadiusY": 3.8,
+          "loopRadiusZ": 3.5,
+          "turns": 22,
+          "wireRadius": 0.34,
+          "toothCenterX": 14.9,
+          "toothSize": [
+            11.8,
+            6,
+            5
+          ],
+          "bobbinCenterX": 14.4,
+          "bobbinSize": [
+            9.8,
+            6.6,
+            5.8
+          ]
+        },
+        "basis": "count user-reported; shape/turns illustrative",
+        "terminals": [
+          {
+            "id": "COIL_3_A",
+            "localPosition": null
+          },
+          {
+            "id": "COIL_3_B",
+            "localPosition": null
+          }
+        ]
+      },
+      {
+        "id": "COIL_4",
+        "parentId": "STATOR",
+        "kind": "winding",
+        "motion": "stationary",
+        "assembledTransform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            -3.7699111843077517,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inspectionOffset": [
+          0,
+          0,
+          0
+        ],
+        "geometry": {
+          "axis": "local X",
+          "axisStart": 10,
+          "axisEnd": 19.8,
+          "loopRadiusY": 3.8,
+          "loopRadiusZ": 3.5,
+          "turns": 22,
+          "wireRadius": 0.34,
+          "toothCenterX": 14.9,
+          "toothSize": [
+            11.8,
+            6,
+            5
+          ],
+          "bobbinCenterX": 14.4,
+          "bobbinSize": [
+            9.8,
+            6.6,
+            5.8
+          ]
+        },
+        "basis": "count user-reported; shape/turns illustrative",
+        "terminals": [
+          {
+            "id": "COIL_4_A",
+            "localPosition": null
+          },
+          {
+            "id": "COIL_4_B",
+            "localPosition": null
+          }
+        ]
+      },
+      {
+        "id": "COIL_5",
+        "parentId": "STATOR",
+        "kind": "winding",
+        "motion": "stationary",
+        "assembledTransform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            -5.026548245743669,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "inspectionOffset": [
+          0,
+          0,
+          0
+        ],
+        "geometry": {
+          "axis": "local X",
+          "axisStart": 10,
+          "axisEnd": 19.8,
+          "loopRadiusY": 3.8,
+          "loopRadiusZ": 3.5,
+          "turns": 22,
+          "wireRadius": 0.34,
+          "toothCenterX": 14.9,
+          "toothSize": [
+            11.8,
+            6,
+            5
+          ],
+          "bobbinCenterX": 14.4,
+          "bobbinSize": [
+            9.8,
+            6.6,
+            5.8
+          ]
+        },
+        "basis": "count user-reported; shape/turns illustrative",
+        "terminals": [
+          {
+            "id": "COIL_5_A",
+            "localPosition": null
+          },
+          {
+            "id": "COIL_5_B",
+            "localPosition": null
+          }
+        ]
+      }
+    ],
+    "harnesses": [
+      {
+        "id": "LEAD_PROXY_1",
+        "domain": "illustration",
+        "physicalChecksEnabled": false,
+        "terminalMapping": null,
+        "pointsFrameId": "FAN_ASSEMBLY",
+        "assembledPoints": [
+          {
+            "x": 19.8,
+            "y": 4,
+            "z": 0.0
+          },
+          {
+            "x": 19.8,
+            "y": 6,
+            "z": 0.0
+          },
+          {
+            "x": 19.8,
+            "y": 8.5,
+            "z": 0.0
+          }
+        ],
+        "inspectionEndpointPartId": "PCB_ASSEMBLY",
+        "note": "One visual lead per coil, not a complete two-terminal wiring diagram; no electrical mapping inferred."
+      },
+      {
+        "id": "LEAD_PROXY_2",
+        "domain": "illustration",
+        "physicalChecksEnabled": false,
+        "terminalMapping": null,
+        "pointsFrameId": "FAN_ASSEMBLY",
+        "assembledPoints": [
+          {
+            "x": 6.118536,
+            "y": 4,
+            "z": 18.830919
+          },
+          {
+            "x": 6.118536,
+            "y": 6,
+            "z": 18.830919
+          },
+          {
+            "x": 6.118536,
+            "y": 8.5,
+            "z": 18.830919
+          }
+        ],
+        "inspectionEndpointPartId": "PCB_ASSEMBLY",
+        "note": "One visual lead per coil, not a complete two-terminal wiring diagram; no electrical mapping inferred."
+      },
+      {
+        "id": "LEAD_PROXY_3",
+        "domain": "illustration",
+        "physicalChecksEnabled": false,
+        "terminalMapping": null,
+        "pointsFrameId": "FAN_ASSEMBLY",
+        "assembledPoints": [
+          {
+            "x": -16.018536,
+            "y": 4,
+            "z": 11.638148
+          },
+          {
+            "x": -16.018536,
+            "y": 6,
+            "z": 11.638148
+          },
+          {
+            "x": -16.018536,
+            "y": 8.5,
+            "z": 11.638148
+          }
+        ],
+        "inspectionEndpointPartId": "PCB_ASSEMBLY",
+        "note": "One visual lead per coil, not a complete two-terminal wiring diagram; no electrical mapping inferred."
+      },
+      {
+        "id": "LEAD_PROXY_4",
+        "domain": "illustration",
+        "physicalChecksEnabled": false,
+        "terminalMapping": null,
+        "pointsFrameId": "FAN_ASSEMBLY",
+        "assembledPoints": [
+          {
+            "x": -16.018536,
+            "y": 4,
+            "z": -11.638148
+          },
+          {
+            "x": -16.018536,
+            "y": 6,
+            "z": -11.638148
+          },
+          {
+            "x": -16.018536,
+            "y": 8.5,
+            "z": -11.638148
+          }
+        ],
+        "inspectionEndpointPartId": "PCB_ASSEMBLY",
+        "note": "One visual lead per coil, not a complete two-terminal wiring diagram; no electrical mapping inferred."
+      },
+      {
+        "id": "LEAD_PROXY_5",
+        "domain": "illustration",
+        "physicalChecksEnabled": false,
+        "terminalMapping": null,
+        "pointsFrameId": "FAN_ASSEMBLY",
+        "assembledPoints": [
+          {
+            "x": 6.118536,
+            "y": 4,
+            "z": -18.830919
+          },
+          {
+            "x": 6.118536,
+            "y": 6,
+            "z": -18.830919
+          },
+          {
+            "x": 6.118536,
+            "y": 8.5,
+            "z": -18.830919
+          }
+        ],
+        "inspectionEndpointPartId": "PCB_ASSEMBLY",
+        "note": "One visual lead per coil, not a complete two-terminal wiring diagram; no electrical mapping inferred."
+      }
+    ],
+    "motor": {
+      "statorPartId": "STATOR",
+      "rotorPartId": "ROTOR",
+      "coilIds": [
+        "COIL_1",
+        "COIL_2",
+        "COIL_3",
+        "COIL_4",
+        "COIL_5"
+      ],
+      "coilCount": 5,
+      "coilCountBasis": "userReported",
+      "phaseCount": null,
+      "phaseMap": null,
+      "magnetSectorCount": 8,
+      "magnetSectorCountBasis": "illustrative",
+      "commutationModel": null,
+      "ratedVoltage": null,
+      "ratedRPM": null
+    }
+  },
+  "inspection": {
+    "deviceExplosion": 0,
+    "pcbStackExplosion": 0,
+    "cutaway": false,
+    "hiddenPartIds": []
+  },
+  "animation": {
+    "running": false,
+    "visualRPM": 30,
+    "direction": 1,
+    "rotorAngle": 0,
+    "coilHighlightMode": "educational sequential highlight; not electrical simulation"
+  }
+}
