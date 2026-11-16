@@ -1,0 +1,8 @@
+# Run with SKY130_LIB pointing to the liberty file via shell envsubst or script replacement.
+read_verilog rtl/display_bridge.v rtl/i2c_reg_slave.v rtl/display_bridge_top.v
+hierarchy -check -top display_bridge_top
+synth -top display_bridge_top -noabc
+# Uncomment and replace path with your installed sky130_fd_sc_hd liberty:
+# dfflibmap -liberty /path/to/sky130_fd_sc_hd__tt_025C_1v80.lib
+# abc -liberty /path/to/sky130_fd_sc_hd__tt_025C_1v80.lib
+stat

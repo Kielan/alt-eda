@@ -1,0 +1,9 @@
+read_verilog rtl/*.v
+hierarchy -check -top display_soc_v05
+proc
+opt
+check
+synth -top display_soc_v05
+check
+stat
+write_verilog -noattr build/display_soc_generic.v
