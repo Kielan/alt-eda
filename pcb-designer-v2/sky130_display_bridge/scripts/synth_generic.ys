@@ -1,0 +1,13 @@
+read_verilog rtl/display_bridge.v rtl/i2c_reg_slave.v rtl/display_bridge_top.v
+hierarchy -check -top display_bridge_top
+proc
+opt
+fsm
+opt
+memory
+opt
+techmap
+opt
+abc
+stat
+write_verilog -noattr build/display_bridge_generic.v
